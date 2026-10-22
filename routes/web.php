@@ -53,7 +53,6 @@ Route::get('/php-path', function () {
         'git_which' => 'which git 2>&1',
         'curl_which' => 'which curl 2>&1',
         'tar_which' => 'which tar 2>&1',
-        'find_ffmpeg' => 'find /usr /opt /bin -name ffmpeg 2>/dev/null',
     ];
 
     $results = [];
