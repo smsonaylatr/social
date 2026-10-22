@@ -11,13 +11,38 @@ Route::get('/', function () {
     return redirect('/admin');
 });
 
-Route::get('/admin/quick-fix', function () {
-    \Illuminate\Support\Facades\Artisan::call('storage:link');
-    \Illuminate\Support\Facades\Artisan::call('optimize:clear');
-    \Illuminate\Support\Facades\Artisan::call('video:reanalyze', ['--force' => true]);
+Route::match(['get', 'post'], '/admin/quick-fix', function () {
+    $service = app(\App\Services\Media\VideoProcessingService::class);
+    $videos = \App\Models\Video::all();
+    $count = 0;
+    $errors = [];
 
-    return redirect('/admin/videos')->with('status', 'Tüm videolar yeniden analiz edildi ve sistem önbelleği temizlendi!');
+    // Ensure storage link
+    if (! file_exists(public_path('storage'))) {
+        @\Illuminate\Support\Facades\Artisan::call('storage:link');
+    }
+
+    foreach ($videos as $video) {
+        try {
+            if ($video->storage_path && \Illuminate\Support\Facades\Storage::disk($video->disk ?? 'public')->exists($video->storage_path)) {
+                $metadata = $service->analyzeVideo($video->storage_path);
+                $video->update($metadata->toArray());
+                $count++;
+            }
+        } catch (\Throwable $e) {
+            $errors[] = "Video #{$video->id}: " . $e->getMessage();
+        }
+    }
+
+    $msg = "{$count} adet video başarıyla analiz edildi ve önizlemeleri oluşturuldu.";
+    if (! empty($errors)) {
+        $msg .= " Hatalar: " . implode(', ', array_slice($errors, 0, 3));
+    }
+
+    return redirect('/admin/videos')->with('status', $msg);
 })->name('admin.quick-fix');
+
+Route::get('/quick-fix', fn () => redirect('/admin/quick-fix'));
 
 Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/oauth/redirect/{platform}', [SocialOAuthController::class, 'redirect'])->name('oauth.redirect');
