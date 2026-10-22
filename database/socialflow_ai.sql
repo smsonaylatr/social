@@ -235,7 +235,7 @@ CREATE TABLE `cache` (
 
 LOCK TABLES `cache` WRITE;
 /*!40000 ALTER TABLE `cache` DISABLE KEYS */;
-INSERT INTO `cache` VALUES ('socialflow-ai-cache-livewire-rate-limiter:a17961fa74e9275d529f489537f179c05d50c2f3','i:2;',1792631807),('socialflow-ai-cache-livewire-rate-limiter:a17961fa74e9275d529f489537f179c05d50c2f3:timer','i:1792631807;',1792631807);
+INSERT INTO `cache` VALUES ('socialflow-ai-cache-livewire-rate-limiter:a17961fa74e9275d529f489537f179c05d50c2f3','i:1;',1792631928),('socialflow-ai-cache-livewire-rate-limiter:a17961fa74e9275d529f489537f179c05d50c2f3:timer','i:1792631928;',1792631928);
 /*!40000 ALTER TABLE `cache` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -519,7 +519,7 @@ CREATE TABLE `migrations` (
   `migration` varchar(255) NOT NULL,
   `batch` int(11) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -528,8 +528,38 @@ CREATE TABLE `migrations` (
 
 LOCK TABLES `migrations` WRITE;
 /*!40000 ALTER TABLE `migrations` DISABLE KEYS */;
-INSERT INTO `migrations` VALUES (1,'0001_01_01_000000_create_users_table',1),(2,'0001_01_01_000001_create_cache_table',1),(3,'0001_01_01_000002_create_jobs_table',1),(4,'2026_10_22_000001_create_workspaces_and_brands_tables',1),(5,'2026_10_22_000002_create_social_platforms_and_accounts_tables',1),(6,'2026_10_22_000003_create_videos_and_categories_tables',1),(7,'2026_10_22_000004_create_playlists_and_cursors_tables',1),(8,'2026_10_22_000005_create_ai_and_seo_tables',1),(9,'2026_10_22_000006_create_campaigns_and_schedules_tables',1),(10,'2026_10_22_000007_create_system_logs_and_settings_tables',1);
+INSERT INTO `migrations` VALUES (1,'0001_01_01_000000_create_users_table',1),(2,'0001_01_01_000001_create_cache_table',1),(3,'0001_01_01_000002_create_jobs_table',1),(4,'2026_10_22_000001_create_workspaces_and_brands_tables',1),(5,'2026_10_22_000002_create_social_platforms_and_accounts_tables',1),(6,'2026_10_22_000003_create_videos_and_categories_tables',1),(7,'2026_10_22_000004_create_playlists_and_cursors_tables',1),(8,'2026_10_22_000005_create_ai_and_seo_tables',1),(9,'2026_10_22_000006_create_campaigns_and_schedules_tables',1),(10,'2026_10_22_000007_create_system_logs_and_settings_tables',1),(11,'2026_10_22_041816_create_notifications_table',2);
 /*!40000 ALTER TABLE `migrations` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `notifications`
+--
+
+DROP TABLE IF EXISTS `notifications`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `notifications` (
+  `id` char(36) NOT NULL,
+  `type` varchar(255) NOT NULL,
+  `notifiable_type` varchar(255) NOT NULL,
+  `notifiable_id` bigint(20) unsigned NOT NULL,
+  `data` text NOT NULL,
+  `read_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `notifications_notifiable_type_notifiable_id_index` (`notifiable_type`,`notifiable_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `notifications`
+--
+
+LOCK TABLES `notifications` WRITE;
+/*!40000 ALTER TABLE `notifications` DISABLE KEYS */;
+/*!40000 ALTER TABLE `notifications` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -849,7 +879,7 @@ CREATE TABLE `sessions` (
 
 LOCK TABLES `sessions` WRITE;
 /*!40000 ALTER TABLE `sessions` DISABLE KEYS */;
-INSERT INTO `sessions` VALUES ('59aDM943zByRhfSP7DPklVuvnwpbdQvvLqH9hn54',NULL,'127.0.0.1','Mozilla/5.0 (Windows NT; Windows NT 10.0; tr-TR) WindowsPowerShell/5.1.19041.6456','YTozOntzOjY6Il90b2tlbiI7czo0MDoiOVBTNFM4SGplc29ObkZrRTFMV3JORlF3QzdDTGlUZnk4bEhvVnc5ZCI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hZG1pbi9sb2dpbiI7czo1OiJyb3V0ZSI7czoyNToiZmlsYW1lbnQuYWRtaW4uYXV0aC5sb2dpbiI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=',1792631576),('6uompVTqzJvSfHcsrQH5YtlLQzmNkeSdehsTZnCo',NULL,'127.0.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36','YTozOntzOjY6Il90b2tlbiI7czo0MDoiZnNHUU9sczlqRTZLMmJCNkNXS3hha0RFanVVU2xNaHd0bExUMmRlYiI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hZG1pbi9sb2dpbiI7czo1OiJyb3V0ZSI7czoyNToiZmlsYW1lbnQuYWRtaW4uYXV0aC5sb2dpbiI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=',1792631749);
+INSERT INTO `sessions` VALUES ('59aDM943zByRhfSP7DPklVuvnwpbdQvvLqH9hn54',NULL,'127.0.0.1','Mozilla/5.0 (Windows NT; Windows NT 10.0; tr-TR) WindowsPowerShell/5.1.19041.6456','YTozOntzOjY6Il90b2tlbiI7czo0MDoiOVBTNFM4SGplc29ObkZrRTFMV3JORlF3QzdDTGlUZnk4bEhvVnc5ZCI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hZG1pbi9sb2dpbiI7czo1OiJyb3V0ZSI7czoyNToiZmlsYW1lbnQuYWRtaW4uYXV0aC5sb2dpbiI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=',1792631576),('kyYd3Sq7CoKovZhrN7pYYONRAXNZPNkguKqt8JrP',1,'127.0.0.1','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36','YTo1OntzOjY6Il90b2tlbiI7czo0MDoiREtrTTJ4ZDlyYkFsTXUxVDZUU3htUE1LOFVKbjdNbWdnd1FwZHJlZCI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6Mjc6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hZG1pbiI7czo1OiJyb3V0ZSI7czozMDoiZmlsYW1lbnQuYWRtaW4ucGFnZXMuZGFzaGJvYXJkIjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6MTtzOjE3OiJwYXNzd29yZF9oYXNoX3dlYiI7czo2NDoiMzhiMTIwODRkNGRjZmJiNTI0NDRmZDAzYTI3YTY3NDU2NTAxNDY1YTE2OTliZTI0ZjQyZjAwNDUyMGJjZmJjOCI7fQ==',1792631900);
 /*!40000 ALTER TABLE `sessions` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1091,7 +1121,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'SocialFlow Admin','admin@socialflow.ai',NULL,'$2y$12$6pDpj8HXKe8By2vo4oO77.7xS.HGlnXLBl.gHblW9FjnsKpRqtuei','super_admin',NULL,1,NULL,'2026-10-22 01:15:43','2026-10-22 01:16:34');
+INSERT INTO `users` VALUES (1,'SocialFlow Admin','admin@socialflow.ai',NULL,'$2y$12$6pDpj8HXKe8By2vo4oO77.7xS.HGlnXLBl.gHblW9FjnsKpRqtuei','super_admin',NULL,1,'wSiuI8oaJarH4lHeSEOaU0w2DuLATracGBGXYCWnUvXazg1fSkRvMtNY8BsS','2026-10-22 01:15:43','2026-10-22 01:16:34');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1325,4 +1355,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-10-22  4:16:57
+-- Dump completed on 2026-10-22  4:18:22
