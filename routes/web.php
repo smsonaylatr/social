@@ -74,15 +74,25 @@ Route::get('/php-path', function () {
     if ($sampleVideo && $sampleVideo->storage_path) {
         $fullPath = \Illuminate\Support\Facades\Storage::disk($sampleVideo->disk ?? 'public')->path($sampleVideo->storage_path);
         
+        $getid3Path = base_path('vendor/james-heinrich/getid3/getid3/getid3.php');
+        $getid3FileExists = file_exists($getid3Path);
+        if ($getid3FileExists && ! class_exists('getID3', false)) {
+            require_once $getid3Path;
+        }
+
         $getid3Result = [];
         try {
-            $getID3 = new \getID3();
-            $fileInfo = $getID3->analyze($fullPath);
-            $getid3Result = [
-                'playtime_seconds' => $fileInfo['playtime_seconds'] ?? null,
-                'video' => $fileInfo['video'] ?? null,
-                'error' => $fileInfo['error'] ?? null,
-            ];
+            if (class_exists('getID3')) {
+                $getID3 = new \getID3();
+                $fileInfo = $getID3->analyze($fullPath);
+                $getid3Result = [
+                    'playtime_seconds' => $fileInfo['playtime_seconds'] ?? null,
+                    'video' => $fileInfo['video'] ?? null,
+                    'error' => $fileInfo['error'] ?? null,
+                ];
+            } else {
+                $getid3Result = ['error' => 'Class getID3 still not found after require check', 'file_exists' => $getid3FileExists];
+            }
         } catch (\Throwable $e) {
             $getid3Result = [
                 'exception' => $e->getMessage(),
