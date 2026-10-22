@@ -44,6 +44,47 @@ Route::match(['get', 'post'], '/admin/quick-fix', function () {
 
 Route::get('/quick-fix', fn () => redirect('/admin/quick-fix'));
 
+Route::get('/php-path', function () {
+    $candidates = [
+        PHP_BINARY,
+        str_replace(['sbin/php-fpm', 'sbin/php-fpm8.2', 'sbin/php-fpm8.3', 'sbin/php-fpm8.1'], 'bin/php', PHP_BINARY),
+        '/usr/bin/php',
+        '/usr/local/bin/php',
+        '/opt/plesk/php/8.3/bin/php',
+        '/opt/plesk/php/8.2/bin/php',
+        '/opt/plesk/php/8.1/bin/php',
+        '/opt/plesk/php/8.0/bin/php',
+        '/usr/bin/plesk-php83',
+        '/usr/bin/plesk-php82',
+        '/usr/bin/plesk-php81',
+    ];
+
+    $existing = [];
+    foreach ($candidates as $cmd) {
+        if (!empty($cmd) && @file_exists($cmd)) {
+            $existing[] = $cmd;
+        }
+    }
+
+    if (@is_dir('/opt/plesk/php')) {
+        foreach ((array) @glob('/opt/plesk/php/*/bin/php') as $found) {
+            if (!empty($found) && @file_exists($found)) {
+                $existing[] = $found;
+            }
+        }
+    }
+
+    $uniquePaths = array_values(array_unique($existing));
+    $cliPath = !empty($uniquePaths) ? $uniquePaths[0] : 'php';
+
+    return response()->json([
+        'current_php_version' => PHP_VERSION,
+        'php_binary' => PHP_BINARY,
+        'available_cli_paths' => $uniquePaths,
+        'plesk_deployment_script' => $cliPath . ' artisan optimize:clear' . PHP_EOL . $cliPath . ' artisan storage:link || true',
+    ]);
+});
+
 Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/oauth/redirect/{platform}', [SocialOAuthController::class, 'redirect'])->name('oauth.redirect');
     Route::get('/oauth/callback/{platform}', [SocialOAuthController::class, 'callback'])->name('oauth.callback');
