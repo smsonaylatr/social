@@ -46,6 +46,13 @@ class SocialChannelsPage extends Page
     public string $partnerClientSecret = '';
     public string $partnerEnvironment = 'sandbox'; // 'sandbox' (Başvuru / Test) or 'production' (Onaylı İş Ortağı)
 
+    // Edit Channel Modal
+    public bool $showEditModal = false;
+    public ?int $editingAccountId = null;
+    public string $editName = '';
+    public string $editUsername = '';
+    public string $editAccountId = '';
+
     // Disconnect Confirmation Modal
     public bool $showDisconnectModal = false;
     public ?int $accountToDisconnectId = null;
@@ -688,6 +695,68 @@ class SocialChannelsPage extends Page
 
         $this->showDisconnectModal = false;
         $this->accountToDisconnectId = null;
+    }
+
+    public function openEditModal(int $accountId): void
+    {
+        $account = SocialAccount::find($accountId);
+        if (! $account) {
+            return;
+        }
+
+        $this->editingAccountId = $account->id;
+        $this->editName = $account->name;
+        $this->editUsername = $account->username ?? '';
+        $this->editAccountId = $account->account_id;
+        $this->showEditModal = true;
+    }
+
+    public function closeEditModal(): void
+    {
+        $this->showEditModal = false;
+        $this->editingAccountId = null;
+    }
+
+    public function saveEditedAccount(): void
+    {
+        $this->validate([
+            'editName' => 'required|string|max:255',
+            'editAccountId' => 'required|string|max:255',
+        ]);
+
+        $account = SocialAccount::find($this->editingAccountId);
+        if ($account) {
+            $cleanUsername = ltrim(trim($this->editUsername), '@');
+            $account->update([
+                'name' => trim($this->editName),
+                'username' => $cleanUsername ?: null,
+                'account_id' => trim($this->editAccountId),
+            ]);
+
+            $this->bannerMessage = "Kanal bilgileri başarıyla güncellendi: {$account->name}";
+            $this->bannerType = 'success';
+            $this->showBanner = true;
+
+            Notification::make()
+                ->title('Kanal Bilgileri Güncellendi')
+                ->body("{$account->name} bilgileri başarıyla kaydedildi.")
+                ->success()
+                ->send();
+        }
+
+        $this->showEditModal = false;
+        $this->editingAccountId = null;
+    }
+
+    public function startOAuthRedirect(): void
+    {
+        session([
+            'oauth_custom_name' => trim($this->connectName),
+            'oauth_custom_username' => trim($this->connectUsername),
+            'oauth_custom_account_id' => trim($this->connectAccountId),
+        ]);
+
+        $this->redirect(route('oauth.redirect', ['platform' => $this->connectPlatformCode]));
     }
 
     /**

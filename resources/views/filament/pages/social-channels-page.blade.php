@@ -320,11 +320,12 @@
 
                                             <button
                                                 type="button"
-                                                wire:click="openConnectModal('{{ $platform['code'] }}')"
+                                                wire:click="openEditModal({{ $acc->id }})"
                                                 class="mc-btn-action"
+                                                title="Kanal Adı ve ID Düzenle"
                                             >
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-                                                <span>Erişim İznini Güncelle</span>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                                <span>Kanalı Düzenle</span>
                                             </button>
 
                                             <button
@@ -551,9 +552,9 @@
 
                         <div style="display:flex; align-items:center; gap:0.5rem;">
                             @if(!empty($partnerClientId) && $partnerEnvironment === 'production')
-                                <a href="{{ route('oauth.redirect', ['platform' => $connectPlatformCode]) }}" class="manychat-btn-connect" style="padding: 0.55rem 1.4rem; font-size:0.82rem; text-decoration:none;">
+                                <button type="button" wire:click="startOAuthRedirect" class="manychat-btn-connect" style="padding: 0.55rem 1.4rem; font-size:0.82rem;">
                                     <span>{{ $activeDef['name'] }} İle Yönlendir & İzin Ver</span>
-                                </a>
+                                </button>
                             @else
                                 <button type="button" wire:click="connectAccount" wire:loading.attr="disabled" class="manychat-btn-connect" style="padding: 0.55rem 1.5rem; font-size:0.82rem;">
                                     <span wire:loading.remove>✓ Erişim İznini Onayla ve Bağlan</span>
@@ -587,6 +588,54 @@
                                 Evet, Bağlantıyı Kes
                             </button>
                         </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        {{-- Edit Account Modal --}}
+        @if($showEditModal)
+            <div class="mc-modal-overlay">
+                <div class="mc-modal-window" style="max-width: 520px;">
+                    <div class="mc-modal-header" style="background:#18181b; border-bottom:1px solid rgba(255,255,255,0.12);">
+                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                            <div class="channel-icon-box" style="background:rgba(255,255,255,0.15);">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            </div>
+                            <div>
+                                <div style="font-size:1rem; font-weight:800; color:#ffffff;">Kanal Bilgilerini Düzenle</div>
+                                <div style="font-size:0.74rem; color:rgba(255,255,255,0.7);">Kanal Adı, Kullanıcı Adı ve Kanal Kimliği (UC...)</div>
+                            </div>
+                        </div>
+                        <button type="button" wire:click="closeEditModal" class="mc-alert-close">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="mc-modal-body">
+                        <div class="mc-form-grid">
+                            <div style="grid-column: span 2;">
+                                <label class="mc-form-label">Kanal / Hesap Adı</label>
+                                <input type="text" wire:model="editName" class="mc-form-input" placeholder="Örn: Patenli Ayakkabılar" />
+                            </div>
+                            <div>
+                                <label class="mc-form-label">Kullanıcı Adı (@)</label>
+                                <input type="text" wire:model="editUsername" class="mc-form-input" placeholder="@patenliayakkabilar" />
+                            </div>
+                            <div>
+                                <label class="mc-form-label">Kanal Kimliği (ID — UC...)</label>
+                                <input type="text" wire:model="editAccountId" class="mc-form-input" placeholder="UCxxxxxxxxxxxxxxxxxxxxxx" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mc-modal-footer">
+                        <button type="button" wire:click="closeEditModal" class="mc-btn-action">
+                            Vazgeç
+                        </button>
+                        <button type="button" wire:click="saveEditedAccount" class="manychat-btn-connect" style="padding: 0.55rem 1.4rem; font-size:0.82rem;">
+                            <span>✓ Değişiklikleri Kaydet</span>
+                        </button>
                     </div>
                 </div>
             </div>

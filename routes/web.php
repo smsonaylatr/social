@@ -11,6 +11,12 @@ Route::get('/', function () {
     return redirect('/admin');
 });
 
+// Legal Pages for OAuth & API Verification (Publicly accessible)
+Route::get('/privacy-policy', fn () => view('legal.privacy'))->name('privacy.policy');
+Route::get('/privacy', fn () => redirect()->route('privacy.policy'));
+Route::get('/terms-of-service', fn () => view('legal.terms'))->name('terms.service');
+Route::get('/terms', fn () => redirect()->route('terms.service'));
+
 Route::match(['get', 'post'], '/admin/quick-fix', function () {
     $service = app(\App\Services\Media\VideoProcessingService::class);
     $videos = \App\Models\Video::all();

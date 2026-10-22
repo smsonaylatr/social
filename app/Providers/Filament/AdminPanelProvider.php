@@ -47,6 +47,10 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::HEAD_END,
                 fn (): string => '<link rel="stylesheet" href="' . asset('css/custom-admin.css') . '?v=' . (file_exists(public_path('css/custom-admin.css')) ? filemtime(public_path('css/custom-admin.css')) : time()) . '">'
             )
+            ->renderHook(
+                PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
+                fn () => view('filament.components.auth-footer')
+            )
             ->navigationGroups([
                 NavigationGroup::make()
                     ->label('Video Yönetimi')

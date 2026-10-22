@@ -22,7 +22,13 @@ class SocialOAuthController extends Controller
         'tiktok' => ['video.publish', 'video.upload', 'user.info.basic'],
         'instagram' => ['instagram_basic', 'instagram_content_publish', 'pages_show_list', 'pages_read_engagement'],
         'facebook' => ['pages_manage_posts', 'pages_read_engagement', 'pages_show_list'],
-        'youtube' => ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube.readonly'],
+        'youtube' => [
+            'https://www.googleapis.com/auth/youtube.upload',
+            'https://www.googleapis.com/auth/youtube.readonly',
+            'https://www.googleapis.com/auth/youtube',
+            'https://www.googleapis.com/auth/userinfo.profile',
+            'https://www.googleapis.com/auth/userinfo.email',
+        ],
         'x' => ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
         'pinterest' => ['pins:write', 'pins:read', 'boards:read'],
         'linkedin' => ['w_member_social', 'w_organization_social', 'r_liteprofile'],
@@ -72,7 +78,7 @@ class SocialOAuthController extends Controller
                     'redirect_uri' => $redirectUri,
                     'scope' => implode(' ', $this->defaultScopes['youtube']),
                     'access_type' => 'offline',
-                    'prompt' => 'consent',
+                    'prompt' => 'consent select_account',
                     'response_type' => 'code',
                     'state' => $state,
                 ]),
@@ -156,29 +162,52 @@ class SocialOAuthController extends Controller
 
         $user = auth()->user();
         $defaultName = $user ? ($user->name . ' — ' . $dbPlatform->name) : ($dbPlatform->name . ' İş Ortağı Hesabı');
-        $externalId = $profileData['id'] ?? ($platform . '_partner_' . substr(md5($code), 0, 10));
-        $accountName = $profileData['name'] ?? $defaultName;
-        $username = $profileData['username'] ?? (strtolower($platform) . '_resmi_' . substr($externalId, -4));
-        $avatarUrl = $profileData['avatar_url'] ?? null;
+
+        $customName = session('oauth_custom_name');
+        $customUsername = session('oauth_custom_username');
+        $customAccountId = session('oauth_custom_account_id');
+        session()->forget(['oauth_custom_name', 'oauth_custom_username', 'oauth_custom_account_id']);
+
+        // Check if an account for this platform already exists in the workspace
+        $existingAccount = SocialAccount::where('platform_id', $dbPlatform->id)
+            ->where('workspace_id', $workspaceId)
+            ->first();
+
+        $externalId = $profileData['id']
+            ?? (!empty($customAccountId) ? $customAccountId : null)
+            ?? ($existingAccount ? $existingAccount->account_id : ($platform . '_partner_' . substr(md5($code), 0, 10)));
+
+        $accountName = $profileData['name']
+            ?? (!empty($customName) ? $customName : null)
+            ?? ($existingAccount ? $existingAccount->name : $defaultName);
+
+        $username = $profileData['username']
+            ?? (!empty($customUsername) ? ltrim($customUsername, '@') : null)
+            ?? ($existingAccount ? $existingAccount->username : (strtolower($platform) . '_resmi_' . substr($externalId, -4)));
+
+        $avatarUrl = $profileData['avatar_url'] ?? ($existingAccount?->avatar_url);
 
         $accessToken = $tokenData['access_token'] ?? ('partner_oauth_' . $platform . '_' . sha1($code . uniqid()));
         $refreshToken = $tokenData['refresh_token'] ?? ('partner_rt_' . sha1(uniqid()));
         $expiresIn = (int) ($tokenData['expires_in'] ?? 5184000);
         $scopes = $this->defaultScopes[$platform] ?? [];
 
-        DB::transaction(function () use ($dbPlatform, $workspaceId, $externalId, $accountName, $username, $avatarUrl, $accessToken, $refreshToken, $expiresIn, $scopes, $platform) {
+        DB::transaction(function () use ($dbPlatform, $workspaceId, $externalId, $accountName, $username, $avatarUrl, $accessToken, $refreshToken, $expiresIn, $scopes, $platform, $existingAccount) {
+            $accountIdToMatch = $existingAccount ? $existingAccount->account_id : $externalId;
+
             $account = SocialAccount::updateOrCreate(
                 [
                     'platform_id' => $dbPlatform->id,
-                    'account_id' => $externalId,
+                    'account_id' => $accountIdToMatch,
                 ],
                 [
                     'workspace_id' => $workspaceId,
                     'brand_id' => null,
+                    'account_id' => $externalId,
                     'name' => $accountName,
                     'username' => $username,
                     'avatar_url' => $avatarUrl,
-                    'account_type' => 'business',
+                    'account_type' => 'channel',
                     'status' => 'active',
                     'last_synced_at' => now(),
                 ]
@@ -343,17 +372,49 @@ class SocialOAuthController extends Controller
             })(),
 
             'youtube' => (function () use ($accessToken) {
-                $channel = Http::withToken($accessToken)
-                    ->get('https://www.googleapis.com/youtube/v3/channels', [
-                        'part' => 'id,snippet',
-                        'mine' => 'true',
-                    ])->json('items.0', []);
-                return [
-                    'id' => $channel['id'] ?? null,
-                    'name' => $channel['snippet']['title'] ?? null,
-                    'username' => ltrim($channel['snippet']['customUrl'] ?? '', '@') ?: null,
-                    'avatar_url' => $channel['snippet']['thumbnails']['default']['url'] ?? null,
-                ];
+                try {
+                    $resp = Http::withToken($accessToken)
+                        ->get('https://www.googleapis.com/youtube/v3/channels', [
+                            'part' => 'id,snippet',
+                            'mine' => 'true',
+                        ]);
+
+                    if ($resp->successful()) {
+                        $channel = $resp->json('items.0');
+                        if (! empty($channel['id'])) {
+                            return [
+                                'id' => $channel['id'],
+                                'name' => $channel['snippet']['title'] ?? null,
+                                'username' => ltrim($channel['snippet']['customUrl'] ?? '', '@') ?: null,
+                                'avatar_url' => $channel['snippet']['thumbnails']['default']['url'] ?? null,
+                            ];
+                        }
+                    } else {
+                        \Illuminate\Support\Facades\Log::warning('YouTube channels list API error: ' . $resp->body());
+                    }
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('YouTube channels API exception: ' . $e->getMessage());
+                }
+
+                // Fallback: Google UserInfo (gets user's actual Google name and avatar)
+                try {
+                    $userinfo = Http::withToken($accessToken)
+                        ->get('https://www.googleapis.com/oauth2/v3/userinfo')
+                        ->json();
+
+                    if (! empty($userinfo['name'])) {
+                        return [
+                            'id' => null,
+                            'name' => $userinfo['name'],
+                            'username' => ! empty($userinfo['email']) ? explode('@', $userinfo['email'])[0] : null,
+                            'avatar_url' => $userinfo['picture'] ?? null,
+                        ];
+                    }
+                } catch (\Throwable $e) {
+                    // Ignore
+                }
+
+                return [];
             })(),
 
             'x' => (function () use ($accessToken) {
