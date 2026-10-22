@@ -101,15 +101,6 @@ Route::post('/admin/videos/{id}/save-thumbnail', function (\Illuminate\Http\Requ
     ]);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
-Route::get('/php-path', function () {
-    $videos = \App\Models\Video::select('id', 'title', 'storage_path', 'thumbnail_path', 'duration_seconds', 'width', 'height')->get();
-
-    return response()->json([
-        'total' => $videos->count(),
-        'videos' => $videos,
-    ]);
-});
-
 Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/oauth/redirect/{platform}', [SocialOAuthController::class, 'redirect'])->name('oauth.redirect');
     Route::get('/oauth/callback/{platform}', [SocialOAuthController::class, 'callback'])->name('oauth.callback');
