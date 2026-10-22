@@ -1,11 +1,6 @@
 <?php
 
-$providers = [
+return [
     App\Providers\AppServiceProvider::class,
+    App\Providers\Filament\AdminPanelProvider::class,
 ];
-
-if (class_exists(\Filament\PanelProvider::class)) {
-    $providers[] = App\Providers\Filament\AdminPanelProvider::class;
-}
-
-return $providers;
