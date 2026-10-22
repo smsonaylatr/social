@@ -48,21 +48,13 @@ Route::get('/php-path', function () {
     putenv('PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/plesk/php/8.4/bin');
     $_ENV['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/plesk/php/8.4/bin';
 
-    $commands = [
-        'whoami' => 'whoami',
-        'composer_locs' => 'which composer 2>&1 || find /usr /opt -name composer -o -name composer.phar 2>/dev/null',
-        'php_cli' => '/opt/plesk/php/8.4/bin/php -v 2>&1',
-        'ffmpeg_test' => 'ffmpeg -version 2>&1',
-    ];
-
-    $results = [];
-    foreach ($commands as $key => $cmd) {
-        $results[$key] = trim((string) @shell_exec($cmd));
-    }
+    $composerCmd = 'COMPOSER_HOME=/tmp/.composer /opt/plesk/php/8.4/bin/php /usr/local/bin/composer install --no-dev --optimize-autoloader --no-interaction --working-dir=' . escapeshellarg(base_path()) . ' 2>&1';
+    $output = @shell_exec($composerCmd);
 
     return response()->json([
         'uname' => php_uname(),
-        'results' => $results,
+        'output' => $output,
+        'getid3_exists' => file_exists(base_path('vendor/james-heinrich/getid3/getid3/getid3.php')),
     ]);
 });
 
