@@ -45,14 +45,14 @@ Route::match(['get', 'post'], '/admin/quick-fix', function () {
 Route::get('/quick-fix', fn () => redirect('/admin/quick-fix'));
 
 Route::get('/php-path', function () {
+    putenv('PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/plesk/php/8.4/bin');
+    $_ENV['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/plesk/php/8.4/bin';
+
     $commands = [
         'whoami' => 'whoami',
-        'pwd' => 'pwd',
-        'ffmpeg_which' => 'which ffmpeg 2>&1',
-        'composer_which' => 'which composer 2>&1',
-        'git_which' => 'which git 2>&1',
-        'curl_which' => 'which curl 2>&1',
-        'tar_which' => 'which tar 2>&1',
+        'composer_locs' => 'which composer 2>&1 || find /usr /opt -name composer -o -name composer.phar 2>/dev/null',
+        'php_cli' => '/opt/plesk/php/8.4/bin/php -v 2>&1',
+        'ffmpeg_test' => 'ffmpeg -version 2>&1',
     ];
 
     $results = [];
