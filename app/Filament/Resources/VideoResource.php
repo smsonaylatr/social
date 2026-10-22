@@ -73,7 +73,7 @@ class VideoResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('id', 'asc')
             ->recordAction('play')
             ->recordUrl(null)
             ->columns([
