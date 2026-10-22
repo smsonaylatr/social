@@ -87,6 +87,8 @@ Route::get('/php-path', function () {
     return response()->json([
         'current_php_version' => PHP_VERSION,
         'php_binary' => PHP_BINARY,
+        'uname' => php_uname(),
+        'arch' => php_uname('m'),
         'shell_test' => $shellTest,
         'ffmpeg_found' => $ffmpegFound,
         'disabled_functions' => $disabled,
