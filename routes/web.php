@@ -11,6 +11,14 @@ Route::get('/', function () {
     return redirect('/admin');
 });
 
+Route::get('/admin/quick-fix', function () {
+    \Illuminate\Support\Facades\Artisan::call('storage:link');
+    \Illuminate\Support\Facades\Artisan::call('optimize:clear');
+    \Illuminate\Support\Facades\Artisan::call('video:reanalyze', ['--force' => true]);
+
+    return redirect('/admin/videos')->with('status', 'Tüm videolar yeniden analiz edildi ve sistem önbelleği temizlendi!');
+})->name('admin.quick-fix');
+
 Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/oauth/redirect/{platform}', [SocialOAuthController::class, 'redirect'])->name('oauth.redirect');
     Route::get('/oauth/callback/{platform}', [SocialOAuthController::class, 'callback'])->name('oauth.callback');

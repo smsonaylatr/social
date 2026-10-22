@@ -37,5 +37,9 @@ class AppServiceProvider extends ServiceProvider
         if (empty($appUrl) || str_contains($appUrl, 'localhost')) {
             config(['filesystems.disks.public.url' => '/storage']);
         }
+
+        if (! file_exists(public_path('storage'))) {
+            @\Illuminate\Support\Facades\Artisan::call('storage:link');
+        }
     }
 }
