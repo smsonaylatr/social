@@ -11,6 +11,8 @@ enum SocialPlatformCode: string
     case PINTEREST = 'pinterest';
     case TIKTOK = 'tiktok';
     case LINKEDIN = 'linkedin';
+    case WHATSAPP = 'whatsapp';
+    case TELEGRAM = 'telegram';
 
     public function label(): string
     {
@@ -22,6 +24,8 @@ enum SocialPlatformCode: string
             self::PINTEREST => 'Pinterest',
             self::TIKTOK => 'TikTok',
             self::LINKEDIN => 'LinkedIn',
+            self::WHATSAPP => 'WhatsApp',
+            self::TELEGRAM => 'Telegram',
         };
     }
 
@@ -35,6 +39,8 @@ enum SocialPlatformCode: string
             self::PINTEREST => 500,
             self::TIKTOK => 2200,
             self::LINKEDIN => 3000,
+            self::WHATSAPP => 4096,
+            self::TELEGRAM => 4096,
         };
     }
 }

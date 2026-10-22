@@ -66,7 +66,9 @@ class ScheduledPostResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('scheduled_at', 'desc')
+            ->emptyStateHeading('Henüz Planlanmış veya Sıralı Kuyruk Yok')
+            ->emptyStateDescription('Sağ üstteki yeşil "Otomatik Sırayla Kuyruk Oluştur" butonuna tıklayarak Video Havuzundaki tüm videolarınızı seçtiğiniz saat aralıklarıyla otomatik olarak sıraya dizebilirsiniz.')
+            ->defaultSort('scheduled_at', 'asc')
             ->columns([
                 ImageColumn::make('video.thumbnail_path')
                     ->label('Thumbnail')

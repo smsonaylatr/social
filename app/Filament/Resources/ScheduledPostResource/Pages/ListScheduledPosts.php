@@ -3,7 +3,22 @@
 namespace App\Filament\Resources\ScheduledPostResource\Pages;
 
 use App\Filament\Resources\ScheduledPostResource;
+use App\Models\Playlist;
+use App\Models\Schedule;
+use App\Models\SocialAccount;
+use App\Models\Video;
+use App\Services\Automation\AutomationOrchestratorService;
+use App\Services\Publisher\SchedulingService;
+use Carbon\Carbon;
 use Filament\Actions;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Forms\Get;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 
 class ListScheduledPosts extends ListRecords
@@ -13,8 +28,170 @@ class ListScheduledPosts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('auto_sequential_queue')
+                ->label('Otomatik Sırayla Kuyruk Oluştur')
+                ->icon('heroicon-o-queue-list')
+                ->color('success')
+                ->modalHeading('Videoları Otomatik Sırayla Kuyruğa & Takvime Diz')
+                ->modalDescription('Video havuzundaki videolarınızı tek tek seçmek yerine belirlediğiniz sırayla ve zaman aralığıyla otomatik olarak paylaşım kuyruğuna dizer.')
+                ->modalSubmitActionLabel('Sıralı Kuyruğu Başlat')
+                ->form([
+                    Grid::make(2)
+                        ->schema([
+                            Select::make('order_mode')
+                                ->label('Sıralama ve Kaynak Modu')
+                                ->options([
+                                    'sequential' => 'Sırayla Paylaş (Video 1 → 2 → 3 Yükleme Sırası)',
+                                    'least_used' => 'Döngüsel Sırayla (Hiç Yayınlanmayanlar Önce, Sonra En Eski Yayınlananlar)',
+                                    'newest_first' => 'En Yeni Videodan Eskiye Doğru Sırayla',
+                                    'shuffle' => 'Karışık (Rastgele) Sırayla',
+                                    'playlist' => 'Özel Oynatma Listesinden Sırayla',
+                                ])
+                                ->default('sequential')
+                                ->live()
+                                ->required(),
+
+                            Select::make('playlist_id')
+                                ->label('Oynatma Listesi Seçin')
+                                ->options(fn () => Playlist::pluck('name', 'id'))
+                                ->visible(fn (Get $get): bool => $get('order_mode') === 'playlist')
+                                ->required(fn (Get $get): bool => $get('order_mode') === 'playlist'),
+
+                            DateTimePicker::make('start_at')
+                                ->label('İlk Videonun Paylaşım Zamanı')
+                                ->default(now()->addMinutes(5))
+                                ->seconds(false)
+                                ->required(),
+
+                            Select::make('interval_minutes')
+                                ->label('Videolar Arası Otomatik Paylaşım Sıklığı')
+                                ->options([
+                                    15 => 'Her 15 Dakikada 1 Video',
+                                    30 => 'Her 30 Dakikada 1 Video',
+                                    60 => 'Her 1 Saatte 1 Video',
+                                    120 => 'Her 2 Saatte 1 Video',
+                                    180 => 'Her 3 Saatte 1 Video',
+                                    360 => 'Her 6 Saatte 1 Video (Günde 4 Video)',
+                                    720 => 'Her 12 Saatte 1 Video (Günde 2 Video)',
+                                    1440 => 'Her 24 Saatte 1 Video (Her Gün Aynı Saatte)',
+                                ])
+                                ->default(360)
+                                ->required(),
+
+                            TextInput::make('limit')
+                                ->label('Kuyruğa Alınacak Video Sayısı (Opsiyonel)')
+                                ->placeholder('Boş bırakılırsa tüm hazır videolar sırayla eklenir')
+                                ->numeric()
+                                ->minValue(1),
+                        ]),
+
+                    CheckboxList::make('social_account_ids')
+                        ->label('Paylaşım Yapılacak Sosyal Medya Hesapları')
+                        ->options(fn () => SocialAccount::with('platform')->get()->mapWithKeys(fn ($a) => [
+                            $a->id => ($a->platform?->name ?? strtoupper($a->platform_id)) . " — {$a->name} ({$a->account_type})",
+                        ]))
+                        ->columns(2)
+                        ->bulkToggleable()
+                        ->required(),
+
+                    Toggle::make('create_recurring_rule')
+                        ->label('Sürekli Otomatik Yayın Kuralı Olarak da Aktif Et')
+                        ->helperText('Etkinleştirildiğinde yeni yüklediğiniz videolar da belirlediğiniz saatte otomatik sırayla paylaşılmaya devam eder.')
+                        ->default(true),
+                ])
+                ->action(function (array $data) {
+                    $orchestrator = app(AutomationOrchestratorService::class);
+                    $startAt = Carbon::parse($data['start_at']);
+                    $accountIds = $data['social_account_ids'] ?? [];
+
+                    $count = $orchestrator->buildSequentialQueue(
+                        socialAccountIds: $accountIds,
+                        startAt: $startAt,
+                        intervalMinutes: (int) $data['interval_minutes'],
+                        orderMode: $data['order_mode'],
+                        playlistId: $data['playlist_id'] ?? null,
+                        limit: ! empty($data['limit']) ? (int) $data['limit'] : null,
+                    );
+
+                    if (! empty($data['create_recurring_rule'])) {
+                        $postsPerDay = max(1, (int) floor(1440 / max(15, (int) $data['interval_minutes'])));
+                        Schedule::create([
+                            'workspace_id' => 1,
+                            'brand_id' => 1,
+                            'playlist_id' => $data['playlist_id'] ?? null,
+                            'name' => 'Otomatik Sıralı Yayın (' . $startAt->format('H:i') . ')',
+                            'time_of_day' => $startAt->format('H:i:00'),
+                            'days_of_week' => [1, 2, 3, 4, 5, 6, 7],
+                            'target_social_account_ids' => $accountIds,
+                            'max_posts_per_day' => $postsPerDay,
+                            'is_active' => true,
+                        ]);
+                    }
+
+                    if ($count > 0) {
+                        Notification::make()
+                            ->title('Otomatik Sıralı Kuyruk Oluşturuldu!')
+                            ->body("Toplam {$count} adet video sırayla paylaşım takvimine ve kuyruğa eklendi.")
+                            ->success()
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('Havuzda Hazır Video Bulunamadı')
+                            ->body('Önce "Video Havuzu" menüsünden videolarınızı yükleyin. Sürekli otomasyon kuralı seçtiyseniz kuralınız kaydedildi.')
+                            ->warning()
+                            ->send();
+                    }
+                }),
+
+            Actions\Action::make('publish_next_in_sequence')
+                ->label('Sıradaki Videoyu Şimdi Paylaş')
+                ->icon('heroicon-o-bolt')
+                ->color('warning')
+                ->modalHeading('Sıradaki Videoyu Anında Paylaş')
+                ->modalDescription('Video havuzunda sırası gelen (henüz yayınlanmamış veya en eski yayınlanmış) bir sonraki videoyu otomatik seçip seçtiğiniz hesaplara şimdi gönderir.')
+                ->form([
+                    CheckboxList::make('social_account_ids')
+                        ->label('Gönderilecek Sosyal Medya Hesapları')
+                        ->options(fn () => SocialAccount::with('platform')->get()->mapWithKeys(fn ($a) => [
+                            $a->id => ($a->platform?->name ?? strtoupper($a->platform_id)) . " — {$a->name}",
+                        ]))
+                        ->columns(2)
+                        ->bulkToggleable()
+                        ->required(),
+                ])
+                ->action(function (array $data) {
+                    $video = Video::where('status', 'ready')
+                        ->orderByRaw('last_used_at IS NULL DESC, last_used_at ASC, id ASC')
+                        ->first();
+
+                    if (! $video) {
+                        Notification::make()
+                            ->title('Yayınlanacak Video Bulunamadı')
+                            ->body('Video Havuzunda yayına hazır video bulunmuyor.')
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+
+                    $video->update(['last_used_at' => now()]);
+                    $service = app(SchedulingService::class);
+                    $service->createScheduledPost(
+                        video: $video,
+                        scheduledAt: now(),
+                        socialAccountIds: $data['social_account_ids'] ?? []
+                    );
+                    $service->dispatchDuePosts();
+
+                    Notification::make()
+                        ->title('Sıradaki Video Kuyruğa Alındı!')
+                        ->body("'{$video->title}' videosu seçilen hesaplara şimdi gönderiliyor.")
+                        ->success()
+                        ->send();
+                }),
+
             Actions\CreateAction::make()
-                ->label('Yeni Gönderi Planla'),
+                ->label('Tekil Gönderi Planla')
+                ->icon('heroicon-o-plus'),
         ];
     }
 }

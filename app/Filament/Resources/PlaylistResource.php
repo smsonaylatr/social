@@ -28,11 +28,11 @@ use Illuminate\Support\Str;
 class PlaylistResource extends Resource
 {
     protected static ?string $model = Playlist::class;
-    protected static bool $shouldRegisterNavigation = false;
+    protected static bool $shouldRegisterNavigation = true;
 
     protected static ?string $navigationIcon = 'heroicon-o-queue-list';
     protected static ?string $navigationGroup = 'Video Yönetimi';
-    protected static ?string $navigationLabel = 'Video Oynatma Listeleri';
+    protected static ?string $navigationLabel = 'Sıralı Oynatma Listeleri';
     protected static ?string $modelLabel = 'Oynatma Listesi';
     protected static ?string $pluralModelLabel = 'Oynatma Listeleri';
     protected static ?int $navigationSort = 3;

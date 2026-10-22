@@ -3,15 +3,45 @@
 namespace App\Services\Social\Publishers;
 
 use App\Models\ScheduledPostTarget;
+use App\Models\Setting;
 use App\Models\SocialAccount;
 use App\Models\Video;
 use App\Services\Social\Contracts\SocialPublisherInterface;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 abstract class AbstractSocialPublisher implements SocialPublisherInterface
 {
     abstract public function getPlatformCode(): string;
+
+    /**
+     * Retrieve Partner App Client ID from DB Settings or config/services.php
+     */
+    protected function getClientId(): ?string
+    {
+        $code = $this->getPlatformCode();
+        return Setting::get("partner_{$code}_client_id") ?: config("services.{$code}.client_id");
+    }
+
+    /**
+     * Retrieve Partner App Client Secret from DB Settings or config/services.php
+     */
+    protected function getClientSecret(): ?string
+    {
+        $code = $this->getPlatformCode();
+        return Setting::get("partner_{$code}_client_secret") ?: config("services.{$code}.client_secret");
+    }
+
+    /**
+     * Determine whether the token is a sandbox/simulated token or test environment
+     */
+    protected function isSandboxToken(string $token): bool
+    {
+        if (config('app.env') === 'testing') {
+            return true;
+        }
+
+        return str_starts_with($token, 'mock_') || str_starts_with($token, 'partner_oauth_');
+    }
 
     /**
      * Get valid access token for the account, refreshing if expired
@@ -50,6 +80,18 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
 
     public function refreshToken(SocialAccount $account): bool
     {
+        $credential = $account->credential;
+        if (! $credential) {
+            return false;
+        }
+
+        if ($this->isSandboxToken($credential->access_token)) {
+            $credential->update([
+                'token_expires_at' => now()->addMonths(3),
+            ]);
+            return true;
+        }
+
         return true;
     }
 
@@ -65,14 +107,15 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
 
     public function getRateLimitStatus(SocialAccount $account): array
     {
+        $limit = $account->platform?->daily_post_limit ?? 25;
         return [
-            'remaining_today' => 20,
+            'remaining_today' => $limit,
             'is_limited' => false,
         ];
     }
 
     /**
-     * Format captions with hashtags
+     * Format captions with hashtags and optional product link
      */
     protected function buildFullCaption(ScheduledPostTarget $target): string
     {

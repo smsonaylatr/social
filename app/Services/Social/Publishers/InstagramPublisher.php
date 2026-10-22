@@ -6,7 +6,7 @@ use App\Models\ScheduledPostTarget;
 use App\Models\SocialAccount;
 use App\Models\Video;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class InstagramPublisher extends AbstractSocialPublisher
 {
@@ -18,11 +18,11 @@ class InstagramPublisher extends AbstractSocialPublisher
     public function publish(Video $video, ScheduledPostTarget $target, SocialAccount $account): array
     {
         $token = $this->getAccessToken($account);
-        $caption = $this->buildFullCaption($target);
+        $caption = mb_substr($this->buildFullCaption($target), 0, 2200);
         $videoUrl = $video->url;
 
-        if (str_starts_with($token, 'mock_') || config('app.env') === 'testing') {
-            $randomSlug = \Illuminate\Support\Str::random(11);
+        if ($this->isSandboxToken($token)) {
+            $randomSlug = Str::random(11);
             return [
                 'post_id' => 'ig_reel_' . uniqid(),
                 'post_url' => "https://instagram.com/reel/{$randomSlug}/",
@@ -38,6 +38,7 @@ class InstagramPublisher extends AbstractSocialPublisher
                 'media_type' => 'REELS',
                 'video_url' => $videoUrl,
                 'caption' => $caption,
+                'share_to_feed' => true,
             ]);
 
         if (! $containerResponse->successful()) {
@@ -83,6 +84,81 @@ class InstagramPublisher extends AbstractSocialPublisher
             'post_id' => $mediaId,
             'post_url' => "https://instagram.com/p/{$mediaId}/",
             'status' => 'published',
+        ];
+    }
+
+    public function refreshToken(SocialAccount $account): bool
+    {
+        $credential = $account->credential;
+        if (! $credential) {
+            return false;
+        }
+
+        if ($this->isSandboxToken($credential->access_token)) {
+            return parent::refreshToken($account);
+        }
+
+        $clientId = $this->getClientId();
+        $clientSecret = $this->getClientSecret();
+        if (! $clientId || ! $clientSecret) {
+            return false;
+        }
+
+        $response = Http::get('https://graph.facebook.com/v19.0/oauth/access_token', [
+            'grant_type' => 'fb_exchange_token',
+            'client_id' => $clientId,
+            'client_secret' => $clientSecret,
+            'fb_exchange_token' => $credential->access_token,
+        ]);
+
+        if (! $response->successful() || ! $response->json('access_token')) {
+            return false;
+        }
+
+        $credential->update([
+            'access_token' => $response->json('access_token'),
+            'token_expires_at' => now()->addSeconds((int) $response->json('expires_in', 5184000)),
+        ]);
+
+        return true;
+    }
+
+    public function validateConnection(SocialAccount $account): bool
+    {
+        if (! parent::validateConnection($account)) {
+            return false;
+        }
+
+        $token = $account->credential->access_token;
+        if ($this->isSandboxToken($token)) {
+            return true;
+        }
+
+        $response = Http::withToken($token)
+            ->get("https://graph.facebook.com/v19.0/{$account->account_id}", [
+                'fields' => 'id,username',
+            ]);
+
+        return $response->successful();
+    }
+
+    public function getAnalytics(string $externalPostId, SocialAccount $account): array
+    {
+        $token = $this->getAccessToken($account);
+        if ($this->isSandboxToken($token)) {
+            return ['views' => 2310, 'likes' => 310, 'comments' => 42, 'shares' => 65];
+        }
+
+        $response = Http::withToken($token)
+            ->get("https://graph.facebook.com/v19.0/{$externalPostId}", [
+                'fields' => 'like_count,comments_count',
+            ]);
+
+        return [
+            'views' => 0,
+            'likes' => (int) $response->json('like_count', 0),
+            'comments' => (int) $response->json('comments_count', 0),
+            'shares' => 0,
         ];
     }
 }

@@ -11,6 +11,7 @@ use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -42,6 +43,10 @@ class AdminPanelProvider extends PanelProvider
                 'warning' => Color::Amber,
                 'danger' => Color::Rose,
             ])
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => '<link rel="stylesheet" href="' . asset('css/custom-admin.css') . '?v=' . (file_exists(public_path('css/custom-admin.css')) ? filemtime(public_path('css/custom-admin.css')) : time()) . '">'
+            )
             ->navigationGroups([
                 NavigationGroup::make()
                     ->label('Video Yönetimi')

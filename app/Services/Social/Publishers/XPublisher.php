@@ -20,7 +20,7 @@ class XPublisher extends AbstractSocialPublisher
         $token = $this->getAccessToken($account);
         $caption = mb_substr($this->buildFullCaption($target), 0, 280);
 
-        if (str_starts_with($token, 'mock_') || config('app.env') === 'testing') {
+        if ($this->isSandboxToken($token)) {
             $tweetId = '178' . rand(10000000000000, 99999999999999);
             return [
                 'post_id' => $tweetId,
@@ -43,7 +43,7 @@ class XPublisher extends AbstractSocialPublisher
             ->post('https://upload.twitter.com/1.1/media/upload.json', [
                 'command' => 'INIT',
                 'total_bytes' => $fileSize,
-                'media_type' => $video->mime_type,
+                'media_type' => $video->mime_type ?: 'video/mp4',
                 'media_category' => 'tweet_video',
             ]);
 
@@ -105,6 +105,86 @@ class XPublisher extends AbstractSocialPublisher
             'post_id' => $tweetId,
             'post_url' => "https://x.com/{$account->username}/status/{$tweetId}",
             'status' => 'published',
+        ];
+    }
+
+    public function refreshToken(SocialAccount $account): bool
+    {
+        $credential = $account->credential;
+        if (! $credential) {
+            return false;
+        }
+
+        if ($this->isSandboxToken($credential->access_token)) {
+            return parent::refreshToken($account);
+        }
+
+        $clientId = $this->getClientId();
+        $clientSecret = $this->getClientSecret();
+        if (! $clientId || ! $credential->refresh_token) {
+            return false;
+        }
+
+        $request = Http::asForm();
+        if ($clientSecret) {
+            $request->withBasicAuth($clientId, $clientSecret);
+        }
+
+        $response = $request->post('https://api.twitter.com/2/oauth2/token', [
+            'grant_type' => 'refresh_token',
+            'refresh_token' => $credential->refresh_token,
+            'client_id' => $clientId,
+        ]);
+
+        if (! $response->successful() || ! $response->json('access_token')) {
+            return false;
+        }
+
+        $credential->update([
+            'access_token' => $response->json('access_token'),
+            'refresh_token' => $response->json('refresh_token', $credential->refresh_token),
+            'token_expires_at' => now()->addSeconds((int) $response->json('expires_in', 7200)),
+        ]);
+
+        return true;
+    }
+
+    public function validateConnection(SocialAccount $account): bool
+    {
+        if (! parent::validateConnection($account)) {
+            return false;
+        }
+
+        $token = $account->credential->access_token;
+        if ($this->isSandboxToken($token)) {
+            return true;
+        }
+
+        $response = Http::withToken($token)
+            ->get('https://api.twitter.com/2/users/me');
+
+        return $response->successful();
+    }
+
+    public function getAnalytics(string $externalPostId, SocialAccount $account): array
+    {
+        $token = $this->getAccessToken($account);
+        if ($this->isSandboxToken($token)) {
+            return ['views' => 760, 'likes' => 84, 'comments' => 12, 'shares' => 19];
+        }
+
+        $response = Http::withToken($token)
+            ->get("https://api.twitter.com/2/tweets/{$externalPostId}", [
+                'tweet.fields' => 'public_metrics',
+            ]);
+
+        $metrics = $response->json('data.public_metrics', []);
+
+        return [
+            'views' => (int) ($metrics['impression_count'] ?? 0),
+            'likes' => (int) ($metrics['like_count'] ?? 0),
+            'comments' => (int) ($metrics['reply_count'] ?? 0),
+            'shares' => (int) ($metrics['retweet_count'] ?? 0),
         ];
     }
 }

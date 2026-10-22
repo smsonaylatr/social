@@ -25,7 +25,7 @@
         {{-- Temel Sistem Servisleri Kartları --}}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {{-- Veritabanı --}}
-            <div class="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs">
+            <div class="system-health-card p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-xs">
                 <div class="flex items-center justify-between mb-3">
                     <span class="font-bold text-sm text-gray-900 dark:text-gray-100 flex items-center gap-2">
                         <x-heroicon-m-circle-stack class="w-5 h-5 text-indigo-500" />
@@ -44,7 +44,7 @@
             </div>
 
             {{-- Depolama --}}
-            <div class="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs">
+            <div class="system-health-card p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-xs">
                 <div class="flex items-center justify-between mb-3">
                     <span class="font-bold text-sm text-gray-900 dark:text-gray-100 flex items-center gap-2">
                         <x-heroicon-m-folder class="w-5 h-5 text-amber-500" />
@@ -63,7 +63,7 @@
             </div>
 
             {{-- Kuyruk & Workers --}}
-            <div class="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs">
+            <div class="system-health-card p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-xs">
                 <div class="flex items-center justify-between mb-3">
                     <span class="font-bold text-sm text-gray-900 dark:text-gray-100 flex items-center gap-2">
                         <x-heroicon-m-queue-list class="w-5 h-5 text-sky-500" />
@@ -82,7 +82,7 @@
             </div>
 
             {{-- FFmpeg --}}
-            <div class="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs">
+            <div class="system-health-card p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-xs">
                 <div class="flex items-center justify-between mb-3">
                     <span class="font-bold text-sm text-gray-900 dark:text-gray-100 flex items-center gap-2">
                         <x-heroicon-m-film class="w-5 h-5 text-rose-500" />
@@ -101,7 +101,7 @@
             </div>
 
             {{-- AI Motoru --}}
-            <div class="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs">
+            <div class="system-health-card p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-xs">
                 <div class="flex items-center justify-between mb-3">
                     <span class="font-bold text-sm text-gray-900 dark:text-gray-100 flex items-center gap-2">
                         <x-heroicon-m-sparkles class="w-5 h-5 text-amber-500" />

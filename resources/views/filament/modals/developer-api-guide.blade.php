@@ -1,65 +1,83 @@
-<div class="space-y-6 text-xs text-gray-700 dark:text-gray-300">
-    <div class="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-lg text-blue-900 dark:text-blue-300">
-        <p class="font-semibold text-sm mb-1">OAuth 2.0 ve API Yetkilendirme Standartları</p>
-        <p>SocialFlow AI yalnızca resmi geliştirici portalları ve onaylı OAuth API protokolleri üzerinden çalışır. Şifre veya gayriresmi bot yöntemleri kesinlikle kullanılmaz.</p>
+@php
+    $guides = \App\Support\SocialPlatformSetupGuide::all();
+@endphp
+
+<div style="display:flex; flex-direction:column; gap:18px; color:#e4e4e7; font-size:13px;">
+    <div style="padding:14px 16px; border-radius:12px; background:rgba(37,99,235,0.12); border:1px solid rgba(59,130,246,0.3); color:#bfdbfe;">
+        <div style="font-weight:800; font-size:14px; color:#ffffff; margin-bottom:4px;">
+            🔐 Resmi OAuth 2.0 & Erişim Kodu (Access Token) Kurulum Kılavuzu
+        </div>
+        <div style="font-size:12.5px; line-height:1.5; color:#93c5fd;">
+            Aşağıda sistemde bulunan <strong>9 sosyal medya platformunun</strong> tamamı için doğrudan <strong>Erişim Kodu (Access Token) Alma</strong> bağlantıları, geliştirici konsolu adresleri, uygulamalarınıza eklemeniz gereken <strong>Redirect URI</strong> adresleri ve adım adım kurulum talimatları yer almaktadır.
+        </div>
     </div>
 
-    <div class="space-y-4">
-        {{-- Meta Facebook & Instagram --}}
-        <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-            <h4 class="font-bold text-sm text-gray-900 dark:text-gray-100 mb-1 flex items-center justify-between">
-                <span>1. Meta (Facebook Sayfaları & Instagram Reels)</span>
-                <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-mono">Graph API v19.0+</span>
-            </h4>
-            <p class="mb-2">Developer Portalı: <a href="https://developers.facebook.com" target="_blank" class="text-primary-600 dark:text-primary-400 underline font-mono">developers.facebook.com</a></p>
-            <ul class="list-disc list-inside space-y-1 text-[11px] text-gray-600 dark:text-gray-400">
-                <li><strong>Gerekli İzinler (Scopes):</strong> <code>pages_show_list</code>, <code>pages_read_engagement</code>, <code>pages_manage_posts</code>, <code>instagram_basic</code>, <code>instagram_content_publish</code></li>
-                <li><strong>Gelişmiş Erişim (App Review):</strong> Production ortamında herkese açık paylaşım için Meta App Review başvurusu zorunludur.</li>
-                <li><strong>Hesap Türü:</strong> Instagram hesabının "Professional" (İşletme veya İçerik Üretici) olması ve Facebook Sayfasına bağlı olması gerekir.</li>
-            </ul>
-        </div>
+    <div style="display:flex; flex-direction:column; gap:16px;">
+        @foreach($guides as $code => $g)
+            <div style="border-radius:14px; border:1px solid rgba(255,255,255,0.12); background:#111318; padding:18px;">
+                {{-- Header --}}
+                <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding-bottom:12px; margin-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.08);">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:{{ $g['color'] }};"></span>
+                        <div>
+                            <div style="font-size:15px; font-weight:800; color:#ffffff;">{{ $g['name'] }}</div>
+                            <div style="font-size:11.5px; color:#a1a1aa;">{{ $g['api_name'] }}</div>
+                        </div>
+                    </div>
 
-        {{-- Google YouTube --}}
-        <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-            <h4 class="font-bold text-sm text-gray-900 dark:text-gray-100 mb-1 flex items-center justify-between">
-                <span>2. Google YouTube (Video & Shorts)</span>
-                <span class="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-mono">YouTube Data API v3</span>
-            </h4>
-            <p class="mb-2">Google Cloud Console: <a href="https://console.cloud.google.com" target="_blank" class="text-primary-600 dark:text-primary-400 underline font-mono">console.cloud.google.com</a></p>
-            <ul class="list-disc list-inside space-y-1 text-[11px] text-gray-600 dark:text-gray-400">
-                <li><strong>Gerekli Scope:</strong> <code>https://www.googleapis.com/auth/youtube.upload</code></li>
-                <li><strong>Shorts Politikası:</strong> Shorts için ayrı bir API yoktur; süresi 60 saniyeden kısa ve dikey (9:16) videolar YouTube tarafından otomatik Shorts olarak işlenir.</li>
-                <li><strong>Kota Yönetimi:</strong> Her video yükleme işlemi 1600 YouTube API kotası tüketir. Günlük kota sınırına dikkat edilmelidir.</li>
-            </ul>
-        </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                        <a href="{{ $g['token_generator_url'] }}" target="_blank" rel="noopener noreferrer"
+                           style="display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:8px; background:linear-gradient(135deg,#2563eb,#1d4ed8); color:#ffffff; font-size:12px; font-weight:700; text-decoration:none;">
+                            <span>🔑 {{ $g['token_generator_label'] }}</span>
+                            <span>↗</span>
+                        </a>
+                        <a href="{{ $g['oauth_url'] }}"
+                           style="display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:8px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.35); color:#34d399; font-size:12px; font-weight:700; text-decoration:none;">
+                            <span>⚡ OAuth 2.0 İznine Git</span>
+                        </a>
+                        <a href="{{ $g['developer_portal_url'] }}" target="_blank" rel="noopener noreferrer"
+                           style="display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:8px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14); color:#e4e4e7; font-size:12px; font-weight:600; text-decoration:none;">
+                            <span>🛠️ {{ $g['developer_portal_label'] }}</span>
+                            <span>↗</span>
+                        </a>
+                    </div>
+                </div>
 
-        {{-- X (Twitter) --}}
-        <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-            <h4 class="font-bold text-sm text-gray-900 dark:text-gray-100 mb-1 flex items-center justify-between">
-                <span>3. X (Twitter)</span>
-                <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 font-mono">X API v2</span>
-            </h4>
-            <p class="mb-2">X Developer Portal: <a href="https://developer.twitter.com" target="_blank" class="text-primary-600 dark:text-primary-400 underline font-mono">developer.twitter.com</a></p>
-            <ul class="list-disc list-inside space-y-1 text-[11px] text-gray-600 dark:text-gray-400">
-                <li><strong>Gerekli Scope:</strong> <code>tweet.read</code>, <code>tweet.write</code>, <code>users.read</code>, <code>offline.access</code></li>
-                <li><strong>Limitler:</strong> Karakter sınırı 280'dir. Yinelenen (duplicate) tweet paylaşımı X spam filtrelerince yasaklanmıştır.</li>
-            </ul>
-        </div>
+                {{-- URIs & Scopes --}}
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:10px; margin-bottom:12px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);">
+                    <div>
+                        <div style="font-size:10.5px; font-weight:700; color:#9ca3af; text-transform:uppercase; margin-bottom:4px;">OAuth Redirect URI</div>
+                        <code style="display:block; padding:5px 8px; border-radius:6px; background:#090a0f; color:#38bdf8; font-size:11.5px; font-family:monospace; user-select:all;">{{ $g['redirect_uri'] }}</code>
+                    </div>
+                    <div>
+                        <div style="font-size:10.5px; font-weight:700; color:#9ca3af; text-transform:uppercase; margin-bottom:4px;">Webhook Callback URL</div>
+                        <code style="display:block; padding:5px 8px; border-radius:6px; background:#090a0f; color:#34d399; font-size:11.5px; font-family:monospace; user-select:all;">{{ $g['webhook_uri'] }}</code>
+                    </div>
+                    <div>
+                        <div style="font-size:10.5px; font-weight:700; color:#9ca3af; text-transform:uppercase; margin-bottom:4px;">Gerekli İzinler (Scopes)</div>
+                        <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                            @foreach($g['scopes'] as $scope)
+                                <code style="padding:2px 6px; border-radius:5px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3); color:#93c5fd; font-size:11px; font-family:monospace;">{{ $scope }}</code>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
 
-        {{-- Pinterest, TikTok, LinkedIn --}}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div class="p-2.5 rounded-lg border border-gray-200 dark:border-gray-800">
-                <h5 class="font-bold text-gray-900 dark:text-gray-100 mb-1">Pinterest</h5>
-                <p class="text-[11px] text-gray-600 dark:text-gray-400">Scopes: <code>boards:read</code>, <code>pins:write</code>. Video pin için pano seçimi gereklidir.</p>
+                {{-- Step by step instructions --}}
+                <div style="margin-bottom:8px; font-size:12px; color:#a1a1aa;">
+                    <strong style="color:#f4f4f5;">Harici ID Bilgisi:</strong> {{ $g['id_field_hint'] }}
+                </div>
+                <div style="background:rgba(0,0,0,0.25); border-radius:9px; padding:10px 14px;">
+                    <div style="font-size:12px; font-weight:700; color:#fbbf24; margin-bottom:6px;">📋 Adım Adım Nasıl Bağlanır?</div>
+                    <ul style="list-style:none; margin:0; padding:0;">
+                        @foreach($g['steps'] as $step)
+                            <li style="padding:4px 0; font-size:12px; color:#d4d4d8; line-height:1.5; border-bottom:1px dashed rgba(255,255,255,0.06);">
+                                {{ $step }}
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
             </div>
-            <div class="p-2.5 rounded-lg border border-gray-200 dark:border-gray-800">
-                <h5 class="font-bold text-gray-900 dark:text-gray-100 mb-1">TikTok</h5>
-                <p class="text-[11px] text-gray-600 dark:text-gray-400">Content Posting API: <code>video.publish</code> scope ve ticari hesap onayı gerekir.</p>
-            </div>
-            <div class="p-2.5 rounded-lg border border-gray-200 dark:border-gray-800">
-                <h5 class="font-bold text-gray-900 dark:text-gray-100 mb-1">LinkedIn</h5>
-                <p class="text-[11px] text-gray-600 dark:text-gray-400">Scopes: <code>w_member_social</code>, <code>w_organization_social</code> (şirket sayfası için).</p>
-            </div>
-        </div>
+        @endforeach
     </div>
 </div>

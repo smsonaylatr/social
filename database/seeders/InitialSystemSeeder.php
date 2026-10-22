@@ -157,6 +157,22 @@ class InitialSystemSeeder extends Seeder
                 'daily_post_limit' => 20,
                 'supported_features' => ['video_post', 'organization_page', 'member_post'],
             ],
+            [
+                'code' => SocialPlatformCode::WHATSAPP,
+                'name' => 'WhatsApp',
+                'icon' => 'heroicon-o-chat-bubble-oval-left-ellipsis',
+                'description' => 'WhatsApp Business Cloud API ile mesajlaşma ve medya katalog paylaşımı',
+                'daily_post_limit' => 100,
+                'supported_features' => ['direct_message', 'media_share', 'catalog'],
+            ],
+            [
+                'code' => SocialPlatformCode::TELEGRAM,
+                'name' => 'Telegram',
+                'icon' => 'heroicon-o-paper-airplane',
+                'description' => 'Telegram Bot & Channel API ile kanal ve topluluk paylaşımları',
+                'daily_post_limit' => 100,
+                'supported_features' => ['channel_post', 'video_message', 'media_group'],
+            ],
         ];
 
         foreach ($platforms as $platformData) {

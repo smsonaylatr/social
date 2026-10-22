@@ -46,7 +46,8 @@ class ScheduleResource extends Resource
                         Select::make('playlist_id')
                             ->label('Video Kaynağı')
                             ->options(Playlist::pluck('name', 'id'))
-                            ->placeholder('Tüm Video Havuzundan Sırayla Seç')
+                            ->placeholder('Tüm Video Havuzundan Otomatik Sırayla Seç (1 → 2 → 3)')
+                            ->helperText('Boş bırakırsanız Video Havuzuna yüklediğiniz videolar sırayla (1 → 2 → 3) otomatik paylaşılır.')
                             ->searchable(),
 
                         TimePicker::make('time_of_day')
@@ -103,7 +104,8 @@ class ScheduleResource extends Resource
                     ->sortable(),
 
                 TextColumn::make('playlist.name')
-                    ->label('Oynatma Listesi')
+                    ->label('Video Kaynağı')
+                    ->default('Tüm Video Havuzu (Sıralı)')
                     ->badge()
                     ->color('primary')
                     ->sortable(),
@@ -128,6 +130,27 @@ class ScheduleResource extends Resource
                     ->label('Aktif / Pasif'),
             ])
             ->actions([
+                Tables\Actions\Action::make('run_now')
+                    ->label('Sıradakini Şimdi Paylaş')
+                    ->icon('heroicon-o-play')
+                    ->color('success')
+                    ->action(function (Schedule $record) {
+                        $record->update(['is_active' => true]);
+                        $post = app(\App\Services\Automation\AutomationOrchestratorService::class)->runSchedule($record);
+                        if ($post) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Sıradaki Video Kuyruğa Alındı!')
+                                ->body("Seçilen video: {$post->video?->title}")
+                                ->success()
+                                ->send();
+                        } else {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Paylaşım Yapılamadı')
+                                ->body('Uygun video bulunamadı, hedef hesap seçilmedi veya günlük limit doldu.')
+                                ->warning()
+                                ->send();
+                        }
+                    }),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])

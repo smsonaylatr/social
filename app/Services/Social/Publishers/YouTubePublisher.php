@@ -21,7 +21,7 @@ class YouTubePublisher extends AbstractSocialPublisher
         $title = mb_substr($target->title ?: $video->title, 0, 100);
         $description = $this->buildFullCaption($target);
 
-        if (str_starts_with($token, 'mock_') || config('app.env') === 'testing') {
+        if ($this->isSandboxToken($token)) {
             $randomYtId = 'dQw4w9WgXcQ' . rand(10, 99);
             return [
                 'post_id' => $randomYtId,
@@ -36,7 +36,7 @@ class YouTubePublisher extends AbstractSocialPublisher
             'snippet' => [
                 'title' => $title,
                 'description' => $description,
-                'tags' => $target->hashtags ?: ['Shorts', 'patenliayakkabi'],
+                'tags' => $target->hashtags ?: ['Shorts'],
                 'categoryId' => '22', // People & Blogs
             ],
             'status' => [
@@ -47,7 +47,7 @@ class YouTubePublisher extends AbstractSocialPublisher
 
         $initResponse = Http::withToken($token)
             ->withHeaders([
-                'X-Upload-Content-Type' => $video->mime_type,
+                'X-Upload-Content-Type' => $video->mime_type ?: 'video/mp4',
                 'Content-Type' => 'application/json; charset=UTF-8',
             ])
             ->post('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', $metadata);
@@ -66,11 +66,11 @@ class YouTubePublisher extends AbstractSocialPublisher
         $stream = fopen($videoFilePath, 'r');
         $uploadResponse = Http::withToken($token)
             ->withHeaders([
-                'Content-Type' => $video->mime_type,
+                'Content-Type' => $video->mime_type ?: 'video/mp4',
                 'Content-Length' => filesize($videoFilePath),
             ])
             ->timeout(300)
-            ->withBody($stream, $video->mime_type)
+            ->withBody($stream, $video->mime_type ?: 'video/mp4')
             ->put($uploadUrl);
 
         if (! $uploadResponse->successful()) {
@@ -83,6 +83,85 @@ class YouTubePublisher extends AbstractSocialPublisher
             'post_id' => $ytVideoId,
             'post_url' => "https://youtube.com/shorts/{$ytVideoId}",
             'status' => 'published',
+        ];
+    }
+
+    public function refreshToken(SocialAccount $account): bool
+    {
+        $credential = $account->credential;
+        if (! $credential) {
+            return false;
+        }
+
+        if ($this->isSandboxToken($credential->access_token)) {
+            return parent::refreshToken($account);
+        }
+
+        $clientId = $this->getClientId();
+        $clientSecret = $this->getClientSecret();
+        if (! $clientId || ! $clientSecret || ! $credential->refresh_token) {
+            return false;
+        }
+
+        $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
+            'client_id' => $clientId,
+            'client_secret' => $clientSecret,
+            'refresh_token' => $credential->refresh_token,
+            'grant_type' => 'refresh_token',
+        ]);
+
+        if (! $response->successful() || ! $response->json('access_token')) {
+            return false;
+        }
+
+        $credential->update([
+            'access_token' => $response->json('access_token'),
+            'token_expires_at' => now()->addSeconds((int) $response->json('expires_in', 3600)),
+        ]);
+
+        return true;
+    }
+
+    public function validateConnection(SocialAccount $account): bool
+    {
+        if (! parent::validateConnection($account)) {
+            return false;
+        }
+
+        $token = $account->credential->access_token;
+        if ($this->isSandboxToken($token)) {
+            return true;
+        }
+
+        $response = Http::withToken($token)
+            ->get('https://www.googleapis.com/youtube/v3/channels', [
+                'part' => 'id,snippet',
+                'mine' => 'true',
+            ]);
+
+        return $response->successful();
+    }
+
+    public function getAnalytics(string $externalPostId, SocialAccount $account): array
+    {
+        $token = $this->getAccessToken($account);
+        if ($this->isSandboxToken($token)) {
+            return ['views' => 3840, 'likes' => 415, 'comments' => 53, 'shares' => 0];
+        }
+
+        $response = Http::withToken($token)
+            ->get('https://www.googleapis.com/youtube/v3/videos', [
+                'part' => 'statistics',
+                'id' => $externalPostId,
+            ]);
+
+        $stats = $response->json('items.0.statistics', []);
+
+        return [
+            'views' => (int) ($stats['viewCount'] ?? 0),
+            'likes' => (int) ($stats['likeCount'] ?? 0),
+            'comments' => (int) ($stats['commentCount'] ?? 0),
+            'shares' => 0,
         ];
     }
 }

@@ -39,7 +39,7 @@
 
         @if($this->selectedVideoId)
             {{-- Platform Sekmeleri --}}
-            <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-xs overflow-hidden">
+            <div class="ai-studio-panel bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-xs overflow-hidden">
                 <div class="border-b border-gray-200 dark:border-gray-800 flex overflow-x-auto bg-gray-50/50 dark:bg-gray-950/40">
                     @php
                         $tabList = [

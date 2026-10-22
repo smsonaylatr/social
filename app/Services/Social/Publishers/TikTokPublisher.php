@@ -18,7 +18,7 @@ class TikTokPublisher extends AbstractSocialPublisher
     {
         $token = $this->getAccessToken($account);
 
-        if (str_starts_with($token, 'mock_') || config('app.env') === 'testing') {
+        if ($this->isSandboxToken($token)) {
             $publishId = 'tiktok_pub_' . uniqid();
             return [
                 'post_id' => $publishId,
@@ -28,11 +28,12 @@ class TikTokPublisher extends AbstractSocialPublisher
             ];
         }
 
-        // TikTok Content Posting API: POST /v2/post/publish/video/init/
+        // TikTok Content Posting API v2: POST /v2/post/publish/video/init/
         $response = Http::withToken($token)
+            ->timeout(60)
             ->post('https://open.tiktokapis.com/v2/post/publish/video/init/', [
                 'post_info' => [
-                    'title' => $this->buildFullCaption($target),
+                    'title' => mb_substr($this->buildFullCaption($target), 0, 2200),
                     'privacy_level' => 'PUBLIC_TO_EVERYONE',
                     'disable_duet' => false,
                     'disable_stitch' => false,
@@ -54,6 +55,86 @@ class TikTokPublisher extends AbstractSocialPublisher
             'post_id' => $publishId,
             'post_url' => "https://www.tiktok.com/@{$account->username}",
             'status' => 'published',
+        ];
+    }
+
+    public function refreshToken(SocialAccount $account): bool
+    {
+        $credential = $account->credential;
+        if (! $credential) {
+            return false;
+        }
+
+        if ($this->isSandboxToken($credential->access_token)) {
+            return parent::refreshToken($account);
+        }
+
+        $clientKey = $this->getClientId();
+        $clientSecret = $this->getClientSecret();
+        if (! $clientKey || ! $clientSecret || ! $credential->refresh_token) {
+            return false;
+        }
+
+        $response = Http::asForm()->post('https://open.tiktokapis.com/v2/oauth/token/', [
+            'client_key' => $clientKey,
+            'client_secret' => $clientSecret,
+            'grant_type' => 'refresh_token',
+            'refresh_token' => $credential->refresh_token,
+        ]);
+
+        if (! $response->successful() || ! $response->json('access_token')) {
+            return false;
+        }
+
+        $credential->update([
+            'access_token' => $response->json('access_token'),
+            'refresh_token' => $response->json('refresh_token', $credential->refresh_token),
+            'token_expires_at' => now()->addSeconds((int) $response->json('expires_in', 86400)),
+        ]);
+
+        return true;
+    }
+
+    public function validateConnection(SocialAccount $account): bool
+    {
+        if (! parent::validateConnection($account)) {
+            return false;
+        }
+
+        $token = $account->credential->access_token;
+        if ($this->isSandboxToken($token)) {
+            return true;
+        }
+
+        $response = Http::withToken($token)
+            ->get('https://open.tiktokapis.com/v2/user/info/', [
+                'fields' => 'open_id,display_name',
+            ]);
+
+        return $response->successful();
+    }
+
+    public function getAnalytics(string $externalPostId, SocialAccount $account): array
+    {
+        $token = $this->getAccessToken($account);
+        if ($this->isSandboxToken($token)) {
+            return ['views' => 1420, 'likes' => 185, 'comments' => 24, 'shares' => 38];
+        }
+
+        $response = Http::withToken($token)
+            ->post('https://open.tiktokapis.com/v2/video/query/?fields=id,view_count,like_count,comment_count,share_count', [
+                'filters' => [
+                    'video_ids' => [$externalPostId],
+                ],
+            ]);
+
+        $videoData = $response->json('data.videos.0', []);
+
+        return [
+            'views' => (int) ($videoData['view_count'] ?? 0),
+            'likes' => (int) ($videoData['like_count'] ?? 0),
+            'comments' => (int) ($videoData['comment_count'] ?? 0),
+            'shares' => (int) ($videoData['share_count'] ?? 0),
         ];
     }
 }

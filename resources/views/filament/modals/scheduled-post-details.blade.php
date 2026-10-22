@@ -13,7 +13,7 @@
         <h4 class="font-semibold text-gray-700 dark:text-gray-300">Platform Hedefleri ve İşlem Durumu:</h4>
 
         @foreach($post->targets as $target)
-            <div class="p-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/60">
+            <div class="scheduled-target-card p-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
                 <div class="flex items-center justify-between mb-2">
                     <span class="font-bold capitalize text-gray-900 dark:text-gray-100 text-sm">
                         {{ $target->platform_code }} ({{ $target->socialAccount->name }})

@@ -46,15 +46,15 @@ class AutomationOrchestratorService
             return null;
         }
 
-        // 1. Pick the next eligible video: from playlist if available, otherwise directly from video pool
+        // 1. Pick the next eligible video: from playlist if available, otherwise directly from video pool in sequence
         $playlist = $schedule->playlist;
         if ($playlist) {
             $video = $this->playlistEngine->getNextVideo($playlist);
         } else {
-            // Pick next eligible video from the global pool (ordered by least recently used)
+            // Pick next eligible video from the global pool sequentially (never used first by ID order, then oldest used)
             $video = Video::where('status', 'ready')
                 ->where('is_reusable', true)
-                ->orderByRaw('last_used_at IS NULL DESC, last_used_at ASC')
+                ->orderByRaw('last_used_at IS NULL DESC, last_used_at ASC, id ASC')
                 ->first();
         }
 
@@ -62,6 +62,9 @@ class AutomationOrchestratorService
             Log::info("Schedule #{$schedule->id} has no eligible video right now (pool empty or cooldown active).");
             return null;
         }
+
+        // Mark last_used_at immediately so sequential runs advance to the next video
+        $video->update(['last_used_at' => now()]);
 
         // 2. Create the scheduled post and dispatch targets
         $scheduledPost = $this->schedulingService->createScheduledPost(
@@ -86,6 +89,65 @@ class AutomationOrchestratorService
     }
 
     /**
+     * Build a sequential schedule queue in ScheduledPost table for all ready videos
+     */
+    public function buildSequentialQueue(
+        array $socialAccountIds,
+        Carbon $startAt,
+        int $intervalMinutes = 360,
+        string $orderMode = 'sequential',
+        ?int $playlistId = null,
+        ?int $limit = null
+    ): int {
+        if (empty($socialAccountIds)) {
+            return 0;
+        }
+
+        if ($playlistId) {
+            $playlist = \App\Models\Playlist::with(['items' => fn ($q) => $q->where('is_active', true)->orderBy('sort_order', 'asc')->with('video')])->find($playlistId);
+            $videos = $playlist
+                ? $playlist->items->pluck('video')->filter(fn ($v) => $v && $v->status->value === 'ready')->values()
+                : collect();
+        } else {
+            $query = Video::where('status', 'ready');
+
+            $query = match ($orderMode) {
+                'newest_first' => $query->orderBy('id', 'desc'),
+                'least_used' => $query->orderByRaw('usage_count ASC, last_used_at IS NULL DESC, last_used_at ASC, id ASC'),
+                'shuffle' => $query->inRandomOrder(),
+                default => $query->orderBy('id', 'asc'), // 'sequential' (1 -> 2 -> 3)
+            };
+
+            if ($limit && $limit > 0) {
+                $query->limit($limit);
+            }
+
+            $videos = $query->get();
+        }
+
+        if ($videos->isEmpty()) {
+            return 0;
+        }
+
+        $createdCount = 0;
+        $currentTime = $startAt->copy();
+
+        foreach ($videos as $video) {
+            $this->schedulingService->createScheduledPost(
+                video: $video,
+                scheduledAt: $currentTime->copy(),
+                socialAccountIds: $socialAccountIds,
+                playlistId: $playlistId
+            );
+
+            $currentTime->addMinutes($intervalMinutes);
+            $createdCount++;
+        }
+
+        return $createdCount;
+    }
+
+    /**
      * Check all active schedules whose scheduled time has arrived today
      */
     public function checkAndRunDueSchedules(): int
@@ -93,9 +155,7 @@ class AutomationOrchestratorService
         $nowTime = now()->format('H:i');
         $currentDayOfWeek = now()->dayOfWeekIso; // 1 = Monday, 7 = Sunday
 
-        $schedules = Schedule::where('is_active', true)
-            ->whereNotNull('playlist_id')
-            ->get();
+        $schedules = Schedule::where('is_active', true)->get();
 
         $executed = 0;
 
