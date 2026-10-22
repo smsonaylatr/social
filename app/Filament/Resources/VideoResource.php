@@ -17,9 +17,11 @@ use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Storage;
 
 class VideoResource extends Resource
 {
@@ -72,12 +74,17 @@ class VideoResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                ImageColumn::make('thumbnail_path')
+                ViewColumn::make('preview')
                     ->label('Önizleme')
-                    ->disk('public')
-                    ->square()
-                    ->checkFileExistence()
-                    ->defaultImageUrl(asset('images/video-placeholder.svg')),
+                    ->view('filament.tables.columns.video-preview')
+                    ->action(
+                        Action::make('preview_play')
+                            ->label('İzle')
+                            ->modalHeading(fn (Video $record): string => $record->title)
+                            ->modalContent(fn (Video $record) => view('filament.modals.video-player-modal', ['video' => $record]))
+                            ->modalSubmitAction(false)
+                            ->modalCancelActionLabel('Kapat')
+                    ),
 
                 TextColumn::make('title')
                     ->label('Video Başlığı')

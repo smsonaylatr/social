@@ -212,31 +212,44 @@ class VideoProcessingService
         $fileHash = hash_file('sha256', $absolutePath);
         $fileSize = filesize($absolutePath);
 
-        // Extract metadata using getID3 safely
-        $durationSeconds = 0;
-        $width = 1080;
-        $height = 1920;
+        // Fast pure-PHP MP4 metadata extractor
+        $quickInfo = self::parseMp4Quick($absolutePath);
+        $durationSeconds = $quickInfo['duration'];
+        $width = $quickInfo['width'];
+        $height = $quickInfo['height'];
         $fps = 30.0;
-        $mimeType = 'video/mp4';
-        $rawMetadata = [];
+        $mimeType = (function_exists('mime_content_type') ? @mime_content_type($absolutePath) : null) ?: 'video/mp4';
+        $rawMetadata = [
+            'width' => $width,
+            'height' => $height,
+            'duration' => $durationSeconds,
+            'rotation' => $quickInfo['rotation'] ?? 0,
+        ];
 
-        try {
-            $getID3 = new getID3();
-            $fileInfo = $getID3->analyze($absolutePath);
+        // If getID3 exists, attempt supplementary analysis
+        if (class_exists('getID3')) {
+            try {
+                $getID3 = new getID3();
+                $fileInfo = $getID3->analyze($absolutePath);
 
-            $durationSeconds = (int) round($fileInfo['playtime_seconds'] ?? 0);
-            $width = (int) ($fileInfo['video']['resolution_x'] ?? 1080);
-            $height = (int) ($fileInfo['video']['resolution_y'] ?? 1920);
-            $fps = (float) ($fileInfo['video']['frame_rate'] ?? 30.0);
-            $mimeType = $fileInfo['mime_type'] ?? (function_exists('mime_content_type') ? @mime_content_type($absolutePath) : null) ?: 'video/mp4';
-            $rawMetadata = [
-                'format_name' => $fileInfo['fileformat'] ?? 'mp4',
-                'video_codec' => $fileInfo['video']['dataformat'] ?? 'h264',
-                'audio_codec' => $fileInfo['audio']['dataformat'] ?? 'aac',
-                'bitrate' => $fileInfo['bitrate'] ?? 0,
-            ];
-        } catch (\Throwable $e) {
-            Log::warning("getID3 analizi hatası ({$relativeStoragePath}): " . $e->getMessage());
+                if ($durationSeconds <= 0 && ! empty($fileInfo['playtime_seconds'])) {
+                    $durationSeconds = (int) round($fileInfo['playtime_seconds']);
+                }
+                if ($width <= 0 && ! empty($fileInfo['video']['resolution_x'])) {
+                    $width = (int) $fileInfo['video']['resolution_x'];
+                }
+                if ($height <= 0 && ! empty($fileInfo['video']['resolution_y'])) {
+                    $height = (int) $fileInfo['video']['resolution_y'];
+                }
+                if (! empty($fileInfo['video']['frame_rate'])) {
+                    $fps = (float) $fileInfo['video']['frame_rate'];
+                }
+                if (! empty($fileInfo['mime_type'])) {
+                    $mimeType = $fileInfo['mime_type'];
+                }
+            } catch (\Throwable $e) {
+                // supplementary check failed, proceed with pure PHP metadata
+            }
         }
 
         if ($width <= 0) $width = 1080;
@@ -301,8 +314,10 @@ class VideoProcessingService
             }
         }
 
-        // Fallback: Generate a clean styled placeholder image if FFmpeg is not installed
-        return $this->generateFallbackThumbnail($thumbnailRelativePath, pathinfo($relativeVideoPath, PATHINFO_FILENAME));
+        // Return null if server FFmpeg is not available.
+        // Frontend video player and client-side canvas capture will seamlessly render
+        // the actual video frame and upload the crystal-clear thumbnail.
+        return null;
     }
 
     protected function generateFallbackThumbnail(string $thumbnailRelativePath, string $title): ?string

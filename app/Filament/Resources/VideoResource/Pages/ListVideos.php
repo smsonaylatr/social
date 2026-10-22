@@ -29,7 +29,11 @@ class ListVideos extends ListRecords
                         try {
                             if ($video->storage_path && \Illuminate\Support\Facades\Storage::disk($video->disk ?? 'public')->exists($video->storage_path)) {
                                 $metadata = $service->analyzeVideo($video->storage_path);
-                                $video->update($metadata->toArray());
+                                $data = $metadata->toArray();
+                                if (! empty($video->thumbnail_path) && ! \Illuminate\Support\Facades\Storage::disk($video->disk ?? 'public')->exists($video->thumbnail_path)) {
+                                    $data['thumbnail_path'] = null;
+                                }
+                                $video->update($data);
                                 $count++;
                             }
                         } catch (\Throwable $e) {
