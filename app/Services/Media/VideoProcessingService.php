@@ -23,6 +23,168 @@ class VideoProcessingService
     }
 
     /**
+     * Fast pure-PHP MP4 metadata extractor (zero dependencies, works on all PHP environments)
+     */
+    public static function parseMp4Quick(string $filePath): array
+    {
+        $result = [
+            'duration' => 0,
+            'width' => 1080,
+            'height' => 1920,
+            'rotation' => 0,
+        ];
+
+        if (! file_exists($filePath) || filesize($filePath) < 16) {
+            return $result;
+        }
+
+        $fp = @fopen($filePath, 'rb');
+        if (! $fp) {
+            return $result;
+        }
+
+        $fileSize = filesize($filePath);
+        $offset = 0;
+        $maxScan = min($fileSize, 25 * 1024 * 1024); // Scan up to 25MB for moov box
+
+        while ($offset < $maxScan && ! feof($fp)) {
+            fseek($fp, $offset);
+            $header = fread($fp, 8);
+            if (strlen($header) < 8) {
+                break;
+            }
+
+            $boxSize = unpack('N', substr($header, 0, 4))[1];
+            $boxType = substr($header, 4, 4);
+
+            if ($boxSize === 1) { // 64-bit size
+                $largeSizeData = fread($fp, 8);
+                if (strlen($largeSizeData) < 8) break;
+                $upper = unpack('N', substr($largeSizeData, 0, 4))[1];
+                $lower = unpack('N', substr($largeSizeData, 4, 4))[1];
+                $boxSize = ($upper << 32) | $lower;
+                $headerSize = 16;
+            } elseif ($boxSize === 0) {
+                $boxSize = $fileSize - $offset;
+                $headerSize = 8;
+            } else {
+                $headerSize = 8;
+            }
+
+            if ($boxSize < 8) {
+                break;
+            }
+
+            if ($boxType === 'moov') {
+                // Read moov contents (up to 15MB)
+                $moovLen = min($boxSize - $headerSize, 15 * 1024 * 1024);
+                $moovData = fread($fp, $moovLen);
+                self::parseMoovData($moovData, $result);
+                break;
+            }
+
+            $offset += $boxSize;
+        }
+
+        fclose($fp);
+        return $result;
+    }
+
+    protected static function parseMoovData(string $data, array &$result): void
+    {
+        $len = strlen($data);
+        $pos = 0;
+
+        while ($pos + 8 <= $len) {
+            $boxSize = unpack('N', substr($data, $pos, 4))[1];
+            $boxType = substr($data, $pos + 4, 4);
+
+            if ($boxSize < 8 || $pos + $boxSize > $len) {
+                $boxSize = max(8, $len - $pos);
+            }
+
+            if ($boxType === 'mvhd') {
+                $version = ord($data[$pos + 8]);
+                if ($version === 1 && $pos + 36 <= $len) {
+                    $timescale = unpack('N', substr($data, $pos + 28, 4))[1];
+                    $durationUpper = unpack('N', substr($data, $pos + 32, 4))[1];
+                    $durationLower = unpack('N', substr($data, $pos + 36, 4))[1];
+                    $duration = ($durationUpper << 32) | $durationLower;
+                    if ($timescale > 0) {
+                        $result['duration'] = (int) round($duration / $timescale);
+                    }
+                } elseif ($version === 0 && $pos + 28 <= $len) {
+                    $timescale = unpack('N', substr($data, $pos + 20, 4))[1];
+                    $duration = unpack('N', substr($data, $pos + 24, 4))[1];
+                    if ($timescale > 0) {
+                        $result['duration'] = (int) round($duration / $timescale);
+                    }
+                }
+            } elseif ($boxType === 'trak') {
+                $trakData = substr($data, $pos + 8, $boxSize - 8);
+                self::parseTrakData($trakData, $result);
+            }
+
+            $pos += $boxSize;
+        }
+    }
+
+    protected static function parseTrakData(string $data, array &$result): void
+    {
+        $len = strlen($data);
+        $pos = 0;
+
+        while ($pos + 8 <= $len) {
+            $boxSize = unpack('N', substr($data, $pos, 4))[1];
+            $boxType = substr($data, $pos + 4, 4);
+
+            if ($boxSize < 8 || $pos + $boxSize > $len) {
+                break;
+            }
+
+            if ($boxType === 'tkhd') {
+                $version = ord($data[$pos + 8]);
+                $headerOffset = $version === 1 ? $pos + 8 + 4 + 16 + 4 + 4 + 8 + 8 + 2 + 2 + 2 + 2 : $pos + 8 + 4 + 8 + 4 + 4 + 4 + 8 + 2 + 2 + 2 + 2;
+
+                if ($headerOffset + 36 + 8 <= $len) {
+                    // Matrix: 9 x 4 bytes
+                    $matrix = substr($data, $headerOffset, 36);
+                    $a = unpack('N', substr($matrix, 0, 4))[1];
+                    $b = unpack('N', substr($matrix, 4, 4))[1];
+                    $c = unpack('N', substr($matrix, 12, 4))[1];
+                    $d = unpack('N', substr($matrix, 16, 4))[1];
+
+                    // Check rotation from matrix
+                    $rotation = 0;
+                    if ($b === 0x00010000 && $c === 0xFFFF0000) {
+                        $rotation = 90;
+                    } elseif ($a === 0xFFFF0000 && $d === 0xFFFF0000) {
+                        $rotation = 180;
+                    } elseif ($b === 0xFFFF0000 && $c === 0x00010000) {
+                        $rotation = 270;
+                    }
+
+                    $rawW = unpack('N', substr($data, $headerOffset + 36, 4))[1] >> 16;
+                    $rawH = unpack('N', substr($data, $headerOffset + 40, 4))[1] >> 16;
+
+                    if ($rawW > 0 && $rawH > 0) {
+                        if ($rotation === 90 || $rotation === 270) {
+                            $result['width'] = $rawH;
+                            $result['height'] = $rawW;
+                        } else {
+                            $result['width'] = $rawW;
+                            $result['height'] = $rawH;
+                        }
+                        $result['rotation'] = $rotation;
+                    }
+                }
+            }
+
+            $pos += $boxSize;
+        }
+    }
+
+    /**
      * Check if a video with the same file hash already exists
      */
     public function findDuplicate(string $fileHash, ?int $ignoreVideoId = null): ?Video

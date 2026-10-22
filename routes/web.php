@@ -45,19 +45,22 @@ Route::match(['get', 'post'], '/admin/quick-fix', function () {
 Route::get('/quick-fix', fn () => redirect('/admin/quick-fix'));
 
 Route::get('/php-path', function () {
-    $canCurl = function_exists('curl_init');
-    $ch = curl_init('https://httpbin.org/get');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-    $res = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
+    $video = \App\Models\Video::first();
+    if (! $video || ! $video->storage_path) {
+        return response()->json(['error' => 'No video']);
+    }
+
+    $path = \Illuminate\Support\Facades\Storage::disk($video->disk ?? 'public')->path($video->storage_path);
+    
+    // Test pure PHP MP4 reader
+    $info = \App\Services\Media\VideoProcessingService::parseMp4Quick($path);
 
     return response()->json([
-        'can_curl' => $canCurl,
-        'http_code' => $httpCode,
-        'curl_error' => $curlError,
+        'video_id' => $video->id,
+        'title' => $video->title,
+        'path' => $path,
+        'filesize' => filesize($path),
+        'parsed_info' => $info,
     ]);
 });
 
