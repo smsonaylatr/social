@@ -1,3 +1,7 @@
+@php
+    $isVertical = ($record->aspect_ratio === '9:16' || ($record->height > $record->width));
+@endphp
+
 <x-filament-panels::page>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {{-- Sol Kolon: Video Oynatıcı ve Teknik Özellikler --}}
@@ -10,13 +14,14 @@
                     </div>
                 </x-slot>
 
-                <div class="rounded-xl overflow-hidden bg-black aspect-video flex items-center justify-center relative shadow-inner">
+                <div class="rounded-2xl overflow-hidden bg-black flex items-center justify-center relative shadow-2xl mx-auto border border-slate-800 {{ $isVertical ? 'w-full max-w-[300px] aspect-[9/16] max-h-[62vh]' : 'w-full max-w-xl aspect-video max-h-[50vh]' }}">
                     @if($record->url)
                         <video 
                             controls 
+                            playsinline
                             preload="metadata" 
                             poster="{{ $record->thumbnail_url }}" 
-                            class="w-full h-full max-h-[480px] object-contain"
+                            class="w-full h-full object-contain"
                         >
                             <source src="{{ $record->url }}" type="{{ $record->mime_type }}">
                             Tarayıcınız video etiketini desteklemiyor.
