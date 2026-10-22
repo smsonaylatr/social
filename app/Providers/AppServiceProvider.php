@@ -32,5 +32,10 @@ class AppServiceProvider extends ServiceProvider
             'livewire.temporary_file_upload.max_upload_time' => 30,
             'livewire.temporary_file_upload.middleware' => 'throttle:300,1',
         ]);
+
+        $appUrl = config('app.url');
+        if (empty($appUrl) || str_contains($appUrl, 'localhost')) {
+            config(['filesystems.disks.public.url' => '/storage']);
+        }
     }
 }

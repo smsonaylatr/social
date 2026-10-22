@@ -98,16 +98,20 @@ class Video extends Model
             return null;
         }
 
-        return Storage::disk($this->disk ?? 'public')->url($this->storage_path);
+        if (str_starts_with($this->storage_path, 'http://') || str_starts_with($this->storage_path, 'https://')) {
+            return $this->storage_path;
+        }
+
+        return asset('storage/' . ltrim($this->storage_path, '/'));
     }
 
     public function getThumbnailUrlAttribute(): ?string
     {
-        if (! $this->thumbnail_path) {
-            return null;
+        if ($this->thumbnail_path && Storage::disk($this->disk ?? 'public')->exists($this->thumbnail_path)) {
+            return asset('storage/' . ltrim($this->thumbnail_path, '/'));
         }
 
-        return Storage::disk($this->disk ?? 'public')->url($this->thumbnail_path);
+        return asset('images/video-placeholder.svg');
     }
 
     public function getFormattedDurationAttribute(): string

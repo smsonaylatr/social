@@ -21,6 +21,7 @@ php artisan db:seed --class=InitialSystemSeeder --force
 
 echo "🔗 [6/8] Storage symlink doğrulanıyor..."
 php artisan storage:link || true
+php artisan video:reanalyze || true
 
 echo "⚡ [7/8] Önbellekler optimize ediliyor (config, routes, views, filament)..."
 php artisan optimize:clear

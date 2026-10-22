@@ -23,3 +23,12 @@ Route::match(['get', 'post'], '/webhooks/social/{platform}', [SocialWebhookContr
 Route::post('/webhooks/deploy', [DeployWebhookController::class, 'handle'])
     ->withoutMiddleware([VerifyCsrfToken::class, ValidateCsrfToken::class])
     ->name('webhooks.deploy');
+
+// Public storage file streaming fallback (ensures videos & thumbnails play even if symlink is missing)
+Route::get('/storage/{path}', function (string $path) {
+    $disk = \Illuminate\Support\Facades\Storage::disk('public');
+    if (! $disk->exists($path)) {
+        abort(404);
+    }
+    return response()->file($disk->path($path));
+})->where('path', '.*')->name('storage.file');

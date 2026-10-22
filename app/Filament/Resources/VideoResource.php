@@ -43,6 +43,7 @@ class VideoResource extends Resource
                             ->label('Videolarınızı Sürükleyip Bırakın ya da Dosya Seçin')
                             ->multiple()
                             ->appendFiles()
+                            ->preserveFilenames()
                             ->moveFiles()
                             ->maxParallelUploads(2)
                             ->disk('public')
@@ -75,7 +76,8 @@ class VideoResource extends Resource
                     ->label('Önizleme')
                     ->disk('public')
                     ->square()
-                    ->defaultImageUrl(url('/images/video-placeholder.png')),
+                    ->checkFileExistence()
+                    ->defaultImageUrl(asset('images/video-placeholder.svg')),
 
                 TextColumn::make('title')
                     ->label('Video Başlığı')
@@ -146,8 +148,60 @@ class VideoResource extends Resource
                 Tables\Actions\DeleteAction::make()
                     ->label('Sil'),
             ])
+            ->headerActions([
+                Action::make('reanalyze_all')
+                    ->label('Tüm Videoları Yeniden Analiz Et & Onar')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Tüm Videoları Yeniden Analiz Et')
+                    ->modalDescription('Kayıtlı tüm videoların süre, çözünürlük, en-boy oranı ve önizleme görselleri baştan taranacaktır.')
+                    ->action(function () {
+                        $service = app(VideoProcessingService::class);
+                        $videos = Video::all();
+                        $count = 0;
+                        foreach ($videos as $video) {
+                            try {
+                                if ($video->storage_path && Storage::disk($video->disk ?? 'public')->exists($video->storage_path)) {
+                                    $metadata = $service->analyzeVideo($video->storage_path);
+                                    $video->update($metadata->toArray());
+                                    $count++;
+                                }
+                            } catch (\Throwable $e) {
+                                // continue
+                            }
+                        }
+                        Notification::make()
+                            ->title("{$count} video başarıyla yeniden analiz edildi.")
+                            ->success()
+                            ->send();
+                    }),
+            ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    BulkAction::make('reanalyze_selected')
+                        ->label('Seçilenleri Yeniden Analiz Et & Onar')
+                        ->icon('heroicon-o-arrow-path')
+                        ->action(function (Collection $records) {
+                            $service = app(VideoProcessingService::class);
+                            $count = 0;
+                            foreach ($records as $video) {
+                                try {
+                                    if ($video->storage_path && Storage::disk($video->disk ?? 'public')->exists($video->storage_path)) {
+                                        $metadata = $service->analyzeVideo($video->storage_path);
+                                        $video->update($metadata->toArray());
+                                        $count++;
+                                    }
+                                } catch (\Throwable $e) {
+                                    // continue
+                                }
+                            }
+                            Notification::make()
+                                ->title("{$count} video başarıyla yeniden analiz edildi.")
+                                ->success()
+                                ->send();
+                        }),
+
                     BulkAction::make('mark_as_ready')
                         ->label('Yayına Hazır Olarak İşaretle')
                         ->icon('heroicon-o-check-circle')

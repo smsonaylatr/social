@@ -59,6 +59,9 @@ class CreateVideo extends CreateRecord
                 $metadata = $service->analyzeVideo($filePath);
                 $videoData = $metadata->toArray();
             } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Video analizi hatası (' . $filePath . '): ' . $e->getMessage(), [
+                    'exception' => $e,
+                ]);
                 $videoData = [
                     'file_hash' => $hash,
                     'file_size' => filesize($absolutePath),

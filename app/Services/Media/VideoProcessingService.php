@@ -50,21 +50,46 @@ class VideoProcessingService
         $fileHash = hash_file('sha256', $absolutePath);
         $fileSize = filesize($absolutePath);
 
-        // Extract metadata using getID3
-        $getID3 = new getID3();
-        $fileInfo = $getID3->analyze($absolutePath);
+        // Extract metadata using getID3 safely
+        $durationSeconds = 0;
+        $width = 1080;
+        $height = 1920;
+        $fps = 30.0;
+        $mimeType = 'video/mp4';
+        $rawMetadata = [];
 
-        $durationSeconds = (int) round($fileInfo['playtime_seconds'] ?? 0);
-        $width = (int) ($fileInfo['video']['resolution_x'] ?? 0);
-        $height = (int) ($fileInfo['video']['resolution_y'] ?? 0);
-        $fps = (float) ($fileInfo['video']['frame_rate'] ?? 30.0);
-        $mimeType = $fileInfo['mime_type'] ?? mime_content_type($absolutePath) ?: 'video/mp4';
+        try {
+            $getID3 = new getID3();
+            $fileInfo = $getID3->analyze($absolutePath);
+
+            $durationSeconds = (int) round($fileInfo['playtime_seconds'] ?? 0);
+            $width = (int) ($fileInfo['video']['resolution_x'] ?? 1080);
+            $height = (int) ($fileInfo['video']['resolution_y'] ?? 1920);
+            $fps = (float) ($fileInfo['video']['frame_rate'] ?? 30.0);
+            $mimeType = $fileInfo['mime_type'] ?? (function_exists('mime_content_type') ? @mime_content_type($absolutePath) : null) ?: 'video/mp4';
+            $rawMetadata = [
+                'format_name' => $fileInfo['fileformat'] ?? 'mp4',
+                'video_codec' => $fileInfo['video']['dataformat'] ?? 'h264',
+                'audio_codec' => $fileInfo['audio']['dataformat'] ?? 'aac',
+                'bitrate' => $fileInfo['bitrate'] ?? 0,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning("getID3 analizi hatası ({$relativeStoragePath}): " . $e->getMessage());
+        }
+
+        if ($width <= 0) $width = 1080;
+        if ($height <= 0) $height = 1920;
 
         // Calculate aspect ratio
         $aspectRatio = $this->calculateAspectRatio($width, $height);
 
-        // Generate thumbnail
-        $thumbnailPath = $this->generateThumbnail($relativeStoragePath, $durationSeconds);
+        // Generate thumbnail safely without interrupting metadata flow
+        $thumbnailPath = null;
+        try {
+            $thumbnailPath = $this->generateThumbnail($relativeStoragePath, $durationSeconds);
+        } catch (\Throwable $e) {
+            Log::warning("Thumbnail oluşturma hatası ({$relativeStoragePath}): " . $e->getMessage());
+        }
 
         return new VideoMetadataDTO(
             fileHash: $fileHash,
@@ -76,12 +101,7 @@ class VideoProcessingService
             fps: $fps,
             mimeType: $mimeType,
             thumbnailPath: $thumbnailPath,
-            rawMetadata: [
-                'format_name' => $fileInfo['fileformat'] ?? 'mp4',
-                'video_codec' => $fileInfo['video']['dataformat'] ?? 'h264',
-                'audio_codec' => $fileInfo['audio']['dataformat'] ?? 'aac',
-                'bitrate' => $fileInfo['bitrate'] ?? 0,
-            ]
+            rawMetadata: $rawMetadata
         );
     }
 
@@ -96,56 +116,75 @@ class VideoProcessingService
 
         $thumbnailDir = dirname($absoluteThumbnailPath);
         if (! is_dir($thumbnailDir)) {
-            mkdir($thumbnailDir, 0755, true);
+            @mkdir($thumbnailDir, 0775, true);
         }
 
         $seekSecond = min(1, max(0, (int) floor($durationSeconds / 2)));
 
-        // Try FFmpeg
-        $ffmpegCmd = sprintf(
-            '%s -y -ss %d -i %s -vframes 1 -q:v 2 %s 2>&1',
-            escapeshellcmd($this->ffmpegPath),
-            $seekSecond,
-            escapeshellarg($absoluteVideoPath),
-            escapeshellarg($absoluteThumbnailPath)
-        );
+        // Try FFmpeg if shell_exec is allowed
+        $disabledFunctions = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+        if (function_exists('shell_exec') && ! in_array('shell_exec', $disabledFunctions, true)) {
+            $ffmpegCmd = sprintf(
+                '%s -y -ss %d -i %s -vframes 1 -q:v 2 %s 2>&1',
+                escapeshellcmd($this->ffmpegPath),
+                $seekSecond,
+                escapeshellarg($absoluteVideoPath),
+                escapeshellarg($absoluteThumbnailPath)
+            );
 
-        $output = @shell_exec($ffmpegCmd);
+            @shell_exec($ffmpegCmd);
 
-        if (file_exists($absoluteThumbnailPath) && filesize($absoluteThumbnailPath) > 0) {
-            return $thumbnailRelativePath;
+            if (file_exists($absoluteThumbnailPath) && filesize($absoluteThumbnailPath) > 0) {
+                return $thumbnailRelativePath;
+            }
         }
 
-        // Fallback: Generate a clean styled SVG / placeholder image if FFmpeg is not installed
+        // Fallback: Generate a clean styled placeholder image if FFmpeg is not installed
         return $this->generateFallbackThumbnail($thumbnailRelativePath, pathinfo($relativeVideoPath, PATHINFO_FILENAME));
     }
 
-    protected function generateFallbackThumbnail(string $thumbnailRelativePath, string $title): string
+    protected function generateFallbackThumbnail(string $thumbnailRelativePath, string $title): ?string
     {
         $absoluteThumbnailPath = Storage::disk($this->disk)->path($thumbnailRelativePath);
 
-        // Generate GD image placeholder with brand styling
-        if (function_exists('imagecreatetruecolor')) {
-            $img = imagecreatetruecolor(640, 360);
-            $bg = imagecolorallocate($img, 30, 27, 75); // Dark indigo #1e1b4b
-            $textColor = imagecolorallocate($img, 243, 244, 246);
-            $accentColor = imagecolorallocate($img, 99, 102, 241);
+        // Generate GD image placeholder with brand styling if GD is available
+        if (function_exists('imagecreatetruecolor') && function_exists('imagejpeg')) {
+            try {
+                $img = imagecreatetruecolor(640, 360);
+                $bg = imagecolorallocate($img, 30, 27, 75); // Dark indigo #1e1b4b
+                $textColor = imagecolorallocate($img, 243, 244, 246);
+                $accentColor = imagecolorallocate($img, 99, 102, 241);
 
-            imagefill($img, 0, 0, $bg);
-            imagefilledrectangle($img, 20, 20, 620, 340, $accentColor);
-            imagefilledrectangle($img, 24, 24, 616, 336, $bg);
+                imagefill($img, 0, 0, $bg);
+                imagefilledrectangle($img, 20, 20, 620, 340, $accentColor);
+                imagefilledrectangle($img, 24, 24, 616, 336, $bg);
 
-            $displayText = mb_substr($title, 0, 30);
-            imagestring($img, 5, 40, 160, 'SocialFlow AI - Video', $textColor);
-            imagestring($img, 3, 40, 190, $displayText, $textColor);
+                $displayText = mb_substr($title, 0, 30);
+                imagestring($img, 5, 40, 160, 'SocialFlow AI - Video', $textColor);
+                imagestring($img, 3, 40, 190, $displayText, $textColor);
 
-            imagejpeg($img, $absoluteThumbnailPath, 85);
-            imagedestroy($img);
+                imagejpeg($img, $absoluteThumbnailPath, 85);
+                imagedestroy($img);
 
-            return $thumbnailRelativePath;
+                if (file_exists($absoluteThumbnailPath) && filesize($absoluteThumbnailPath) > 0) {
+                    return $thumbnailRelativePath;
+                }
+            } catch (\Throwable $e) {
+                // fall through to placeholder copy
+            }
         }
 
-        return $thumbnailRelativePath;
+        // Fallback 2: Copy pre-built video placeholder PNG if available
+        $placeholderSource = public_path('images/video-placeholder.png');
+        if (file_exists($placeholderSource)) {
+            @copy($placeholderSource, $absoluteThumbnailPath);
+            if (file_exists($absoluteThumbnailPath) && filesize($absoluteThumbnailPath) > 0) {
+                return $thumbnailRelativePath;
+            }
+        }
+
+        // Return null if thumbnail file could not be created on disk
+        return null;
     }
 
     /**
