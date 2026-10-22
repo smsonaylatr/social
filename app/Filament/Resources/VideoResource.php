@@ -92,6 +92,12 @@ class VideoResource extends Resource
                             ->modalFooterActions([])
                     ),
 
+                TextColumn::make('title')
+                    ->label('Video Başlığı')
+                    ->weight('bold')
+                    ->searchable()
+                    ->sortable(),
+
                 TextColumn::make('duration_seconds')
                     ->label('Süre')
                     ->formatStateUsing(fn (Video $record): string => $record->formatted_duration)
