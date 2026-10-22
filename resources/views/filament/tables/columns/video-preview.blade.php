@@ -12,9 +12,9 @@
     $durationText = $record->formatted_duration;
 @endphp
 
-<div class="py-1">
+<div class="py-0.5">
     <div 
-        class="relative group cursor-pointer inline-flex items-center justify-center overflow-hidden rounded-lg border border-slate-700/80 bg-slate-950 shadow-md hover:border-primary-500 hover:shadow-primary-500/20 hover:shadow-lg transition-all duration-200 {{ $isLandscape ? 'w-20 h-12' : 'w-14 h-20' }}"
+        class="relative group cursor-pointer inline-flex items-center justify-center overflow-hidden rounded-md border border-slate-700/80 bg-slate-950 shadow-sm hover:border-primary-500 hover:shadow-primary-500/20 hover:shadow-md transition-all duration-200 {{ $isLandscape ? 'w-16 h-10' : 'w-10 h-14' }}"
         title="Videoyu izlemek için tıklayın"
     >
         @if($hasRealThumbnail)
@@ -39,27 +39,20 @@
             ></video>
         @elseif(! $hasRealThumbnail)
             <div class="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-500">
-                <svg class="w-6 h-6 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
                 </svg>
             </div>
         @endif
 
-        {{-- Play Icon Overlay --}}
-        <div class="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/40 transition-colors pointer-events-none">
-            <div class="w-6 h-6 rounded-full bg-black/60 backdrop-blur-xs flex items-center justify-center text-white/90 group-hover:text-white group-hover:scale-110 group-hover:bg-primary-600 transition-all shadow-md">
-                <svg class="w-3 h-3 fill-current ml-0.5" viewBox="0 0 24 24">
+        {{-- Play Icon Overlay (Sleek on hover) --}}
+        <div class="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 group-hover:bg-black/40 transition-all duration-200 pointer-events-none">
+            <div class="w-5 h-5 rounded-full bg-primary-600/90 flex items-center justify-center text-white shadow-md transform scale-90 group-hover:scale-100 transition-transform">
+                <svg class="w-2.5 h-2.5 fill-current ml-0.5" viewBox="0 0 24 24">
                     <path d="M8 5v14l11-7z"/>
                 </svg>
             </div>
         </div>
-
-        {{-- Duration Badge Overlay --}}
-        @if($durationText && $durationText !== '00:00')
-            <span class="absolute bottom-1 right-1 px-1 py-0.5 text-[9px] font-mono font-semibold rounded bg-black/80 text-white/95 backdrop-blur-xs pointer-events-none leading-none border border-white/10">
-                {{ $durationText }}
-            </span>
-        @endif
     </div>
 </div>
 
