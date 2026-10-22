@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DeployWebhookController;
 use App\Http\Controllers\SocialOAuthController;
 use App\Http\Controllers\SocialWebhookController;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -17,3 +18,7 @@ Route::middleware(['web', 'auth'])->group(function () {
 Route::match(['get', 'post'], '/webhooks/social/{platform}', [SocialWebhookController::class, 'handle'])
     ->withoutMiddleware([VerifyCsrfToken::class])
     ->name('webhooks.social');
+
+Route::post('/webhooks/deploy', [DeployWebhookController::class, 'handle'])
+    ->withoutMiddleware([VerifyCsrfToken::class])
+    ->name('webhooks.deploy');

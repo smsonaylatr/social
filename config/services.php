@@ -35,6 +35,10 @@ return [
         ],
     ],
 
+    'deploy' => [
+        'webhook_secret' => env('DEPLOY_WEBHOOK_SECRET'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Official Social Media Partner OAuth 2.0 & API Integrations
