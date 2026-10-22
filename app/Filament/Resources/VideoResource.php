@@ -91,13 +91,6 @@ class VideoResource extends Resource
                             ->modalCancelActionLabel('Kapat')
                     ),
 
-                TextColumn::make('title')
-                    ->label('Video Başlığı')
-                    ->searchable()
-                    ->sortable()
-                    ->weight('bold')
-                    ->limit(45),
-
                 TextColumn::make('duration_seconds')
                     ->label('Süre')
                     ->formatStateUsing(fn (Video $record): string => $record->formatted_duration)
