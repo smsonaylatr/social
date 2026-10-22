@@ -45,16 +45,19 @@ Route::match(['get', 'post'], '/admin/quick-fix', function () {
 Route::get('/quick-fix', fn () => redirect('/admin/quick-fix'));
 
 Route::get('/php-path', function () {
-    putenv('PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/plesk/php/8.4/bin');
-    $_ENV['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/plesk/php/8.4/bin';
-
-    $composerCmd = 'COMPOSER_HOME=/tmp/.composer /opt/plesk/php/8.4/bin/php /usr/local/psa/var/modules/composer/composer.phar install --no-dev --optimize-autoloader --no-interaction --working-dir=' . escapeshellarg(base_path()) . ' 2>&1';
-    $output = @shell_exec($composerCmd);
+    $canCurl = function_exists('curl_init');
+    $ch = curl_init('https://httpbin.org/get');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    $res = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
 
     return response()->json([
-        'uname' => php_uname(),
-        'output' => $output,
-        'getid3_exists' => file_exists(base_path('vendor/james-heinrich/getid3/getid3/getid3.php')),
+        'can_curl' => $canCurl,
+        'http_code' => $httpCode,
+        'curl_error' => $curlError,
     ]);
 });
 
