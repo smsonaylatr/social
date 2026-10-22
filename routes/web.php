@@ -48,7 +48,7 @@ Route::get('/php-path', function () {
     putenv('PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/plesk/php/8.4/bin');
     $_ENV['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/plesk/php/8.4/bin';
 
-    $composerCmd = 'COMPOSER_HOME=/tmp/.composer /opt/plesk/php/8.4/bin/php /usr/local/bin/composer install --no-dev --optimize-autoloader --no-interaction --working-dir=' . escapeshellarg(base_path()) . ' 2>&1';
+    $composerCmd = 'COMPOSER_HOME=/tmp/.composer /opt/plesk/php/8.4/bin/php /usr/local/psa/var/modules/composer/composer.phar install --no-dev --optimize-autoloader --no-interaction --working-dir=' . escapeshellarg(base_path()) . ' 2>&1';
     $output = @shell_exec($composerCmd);
 
     return response()->json([
