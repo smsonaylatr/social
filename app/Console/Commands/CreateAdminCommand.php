@@ -47,7 +47,7 @@ class CreateAdminCommand extends Command
             ['email' => $email],
             [
                 'name' => $name,
-                'password' => Hash::make($password),
+                'password' => $password,
                 'role' => UserRole::SUPER_ADMIN,
                 'is_active' => true,
             ]

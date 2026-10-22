@@ -34,7 +34,7 @@ class InitialSystemSeeder extends Seeder
             ['email' => 'admin@socialflow.ai'],
             [
                 'name' => 'SocialFlow Admin',
-                'password' => Hash::make('Admin123!*'),
+                'password' => 'Admin123!*',
                 'role' => UserRole::SUPER_ADMIN,
                 'is_active' => true,
             ]

@@ -30,6 +30,14 @@ class AdminPanelTest extends TestCase
         $response->assertStatus(200);
     }
 
+    public function test_admin_can_authenticate_with_credentials(): void
+    {
+        $this->assertTrue(\Illuminate\Support\Facades\Auth::attempt([
+            'email' => 'admin@socialflow.ai',
+            'password' => 'Admin123!*',
+        ]));
+    }
+
     public function test_default_workspace_and_brand_are_seeded(): void
     {
         $workspace = Workspace::where('slug', 'default-workspace')->first();
