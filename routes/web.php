@@ -45,43 +45,52 @@ Route::match(['get', 'post'], '/admin/quick-fix', function () {
 Route::get('/quick-fix', fn () => redirect('/admin/quick-fix'));
 
 Route::get('/php-path', function () {
-    $candidates = [
-        PHP_BINARY,
-        str_replace(['sbin/php-fpm', 'sbin/php-fpm8.2', 'sbin/php-fpm8.3', 'sbin/php-fpm8.1'], 'bin/php', PHP_BINARY),
-        '/usr/bin/php',
-        '/usr/local/bin/php',
-        '/opt/plesk/php/8.3/bin/php',
-        '/opt/plesk/php/8.2/bin/php',
-        '/opt/plesk/php/8.1/bin/php',
-        '/opt/plesk/php/8.0/bin/php',
-        '/usr/bin/plesk-php83',
-        '/usr/bin/plesk-php82',
-        '/usr/bin/plesk-php81',
+    $disabled = explode(',', (string) ini_get('disable_functions'));
+    $disabled = array_map('trim', $disabled);
+
+    $ffmpegChecks = [
+        'ffmpeg',
+        '/usr/bin/ffmpeg',
+        '/usr/local/bin/ffmpeg',
+        '/usr/bin/avconv',
     ];
 
-    $existing = [];
-    foreach ($candidates as $cmd) {
-        if (!empty($cmd) && @file_exists($cmd)) {
-            $existing[] = $cmd;
+    $ffmpegFound = [];
+    foreach ($ffmpegChecks as $f) {
+        if (@file_exists($f)) {
+            $ffmpegFound[] = $f;
         }
     }
 
-    if (@is_dir('/opt/plesk/php')) {
-        foreach ((array) @glob('/opt/plesk/php/*/bin/php') as $found) {
-            if (!empty($found) && @file_exists($found)) {
-                $existing[] = $found;
-            }
-        }
+    $shellTest = null;
+    if (function_exists('shell_exec') && ! in_array('shell_exec', $disabled, true)) {
+        $shellTest = @shell_exec('ffmpeg -version 2>&1') ?: 'shell_exec returned empty';
+    } else {
+        $shellTest = 'shell_exec is disabled or does not exist';
     }
 
-    $uniquePaths = array_values(array_unique($existing));
-    $cliPath = !empty($uniquePaths) ? $uniquePaths[0] : 'php';
+    $sampleVideo = \App\Models\Video::first();
+    $sampleInfo = null;
+    if ($sampleVideo && $sampleVideo->storage_path) {
+        $fullPath = \Illuminate\Support\Facades\Storage::disk($sampleVideo->disk ?? 'public')->path($sampleVideo->storage_path);
+        $sampleInfo = [
+            'id' => $sampleVideo->id,
+            'title' => $sampleVideo->title,
+            'storage_path' => $sampleVideo->storage_path,
+            'exists' => file_exists($fullPath),
+            'filesize' => file_exists($fullPath) ? filesize($fullPath) : 0,
+            'thumbnail_path' => $sampleVideo->thumbnail_path,
+            'thumbnail_exists' => $sampleVideo->thumbnail_path ? \Illuminate\Support\Facades\Storage::disk('public')->exists($sampleVideo->thumbnail_path) : false,
+        ];
+    }
 
     return response()->json([
         'current_php_version' => PHP_VERSION,
         'php_binary' => PHP_BINARY,
-        'available_cli_paths' => $uniquePaths,
-        'plesk_deployment_script' => $cliPath . ' artisan optimize:clear' . PHP_EOL . $cliPath . ' artisan storage:link || true',
+        'shell_test' => $shellTest,
+        'ffmpeg_found' => $ffmpegFound,
+        'disabled_functions' => $disabled,
+        'sample_video' => $sampleInfo,
     ]);
 });
 
