@@ -125,7 +125,7 @@ class BrandResource extends Resource
 
                 TextColumn::make('slogan')
                     ->label('Slogan')
-                    ->italic(),
+                    ->extraAttributes(['class' => 'italic']),
 
                 TextColumn::make('brand_tone')
                     ->label('Ton')

@@ -40,23 +40,26 @@ class AutomationOrchestratorService
             return null;
         }
 
-        $playlist = $schedule->playlist;
-        if (! $playlist) {
-            Log::warning("Schedule #{$schedule->id} has no playlist assigned.");
-            return null;
-        }
-
         $targetAccountIds = $schedule->target_social_account_ids ?: [];
         if (empty($targetAccountIds)) {
             Log::warning("Schedule #{$schedule->id} has no target social accounts selected.");
             return null;
         }
 
-        // 1. Pick the next eligible video using the Circular Playlist Engine
-        $video = $this->playlistEngine->getNextVideo($playlist);
+        // 1. Pick the next eligible video: from playlist if available, otherwise directly from video pool
+        $playlist = $schedule->playlist;
+        if ($playlist) {
+            $video = $this->playlistEngine->getNextVideo($playlist);
+        } else {
+            // Pick next eligible video from the global pool (ordered by least recently used)
+            $video = Video::where('status', 'ready')
+                ->where('is_reusable', true)
+                ->orderByRaw('last_used_at IS NULL DESC, last_used_at ASC')
+                ->first();
+        }
 
         if (! $video) {
-            Log::info("Playlist #{$playlist->id} has no eligible video right now (cooldown/exhausted).");
+            Log::info("Schedule #{$schedule->id} has no eligible video right now (pool empty or cooldown active).");
             return null;
         }
 
@@ -65,7 +68,7 @@ class AutomationOrchestratorService
             video: $video,
             scheduledAt: now(),
             socialAccountIds: $targetAccountIds,
-            playlistId: $playlist->id,
+            playlistId: $playlist?->id,
             scheduleId: $schedule->id,
             campaignId: $schedule->campaign_id
         );

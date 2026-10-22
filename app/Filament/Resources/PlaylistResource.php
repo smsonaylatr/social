@@ -28,6 +28,7 @@ use Illuminate\Support\Str;
 class PlaylistResource extends Resource
 {
     protected static ?string $model = Playlist::class;
+    protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $navigationIcon = 'heroicon-o-queue-list';
     protected static ?string $navigationGroup = 'Video Yönetimi';

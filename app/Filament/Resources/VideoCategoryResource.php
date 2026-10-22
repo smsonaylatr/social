@@ -20,6 +20,7 @@ use Illuminate\Support\Str;
 class VideoCategoryResource extends Resource
 {
     protected static ?string $model = VideoCategory::class;
+    protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $navigationIcon = 'heroicon-o-tag';
     protected static ?string $navigationGroup = 'Video Yönetimi';

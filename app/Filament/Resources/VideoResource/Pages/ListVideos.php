@@ -9,12 +9,14 @@ use Filament\Resources\Pages\ListRecords;
 class ListVideos extends ListRecords
 {
     protected static string $resource = VideoResource::class;
+    protected static ?string $title = 'Video Havuzu & Medya Kütüphanesi';
 
     protected function getHeaderActions(): array
     {
         return [
             Actions\CreateAction::make()
-                ->label('Yeni Video Yükle'),
+                ->label('Toplu Video Yükle')
+                ->icon('heroicon-o-arrow-up-tray'),
         ];
     }
 }

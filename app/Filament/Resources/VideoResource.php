@@ -5,24 +5,16 @@ namespace App\Filament\Resources;
 use App\Enums\VideoStatus;
 use App\Filament\Resources\VideoResource\Pages;
 use App\Models\Video;
-use App\Models\VideoCategory;
 use App\Services\Media\VideoProcessingService;
-use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TagsInput;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\BulkAction;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -44,86 +36,29 @@ class VideoResource extends Resource
     {
         return $form
             ->schema([
-                Section::make('Video Dosyası ve Önizleme')
-                    ->description('MP4, QuickTime (MOV) veya WebM formatında video yükleyin')
+                Section::make('Toplu Video Yükleme Alanı')
+                    ->description('Tüm video dosyalarınızı (MP4, MOV, WebM) tek seferde buraya sürükleyip bırakabilirsiniz. Başlık, süre, çözünürlük, en-boy oranı ve kapak görseli otomatik olarak oluşturulacaktır.')
                     ->schema([
-                        FileUpload::make('storage_path')
-                            ->label('Video Dosyası')
+                        FileUpload::make('video_files')
+                            ->label('Videolarınızı Sürükleyip Bırakın ya da Dosya Seçin')
+                            ->multiple()
                             ->disk('public')
                             ->directory('videos')
                             ->acceptedFileTypes(['video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo'])
                             ->maxSize(512000) // 500 MB
-                            ->required()
+                            ->panelLayout('grid')
+                            ->reorderable()
+                            ->openable()
+                            ->downloadable()
+                            ->required(fn (string $context): bool => $context === 'create')
+                            ->visible(fn (string $context): bool => $context === 'create')
                             ->columnSpanFull(),
 
                         TextInput::make('title')
                             ->label('Video Başlığı')
-                            ->placeholder('Örn: Patenli Ayakkabı Yeni Sezon Tanıtımı')
+                            ->visible(fn (string $context): bool => $context === 'edit')
                             ->required()
-                            ->maxLength(255),
-
-                        Select::make('category_id')
-                            ->label('Kategori')
-                            ->relationship('category', 'name')
-                            ->searchable()
-                            ->preload(),
-
-                        Select::make('brand_id')
-                            ->label('Marka')
-                            ->relationship('brand', 'name')
-                            ->default(1)
-                            ->searchable()
-                            ->preload()
-                            ->required(),
-
-                        Select::make('status')
-                            ->label('Yayın Durumu')
-                            ->options([
-                                VideoStatus::READY->value => 'Yayına Hazır',
-                                VideoStatus::PENDING->value => 'Beklemede',
-                                VideoStatus::ARCHIVED->value => 'Arşivlendi',
-                            ])
-                            ->default(VideoStatus::READY->value)
-                            ->required(),
-                    ])->columns(2),
-
-                Section::make('İçerik, SEO ve Özel Tanımlamalar')
-                    ->schema([
-                        Textarea::make('custom_caption')
-                            ->label('Özel Video Açıklaması')
-                            ->placeholder('Yapay zekâ yerine videoya özel bir açıklama kullanmak isterseniz buraya yazın...')
-                            ->rows(3)
                             ->columnSpanFull(),
-
-                        TagsInput::make('custom_hashtags')
-                            ->label('Özel Hashtag\'ler')
-                            ->placeholder('Hashtag ekle ve enter\'a bas')
-                            ->columnSpanFull(),
-
-                        TextInput::make('product_url')
-                            ->label('İlgili Ürün / Sayfa Bağlantısı')
-                            ->placeholder('https://patenliayakkabilar.com/urun-sayfasi')
-                            ->url()
-                            ->columnSpanFull(),
-
-                        CheckboxList::make('restricted_platforms')
-                            ->label('Yayınlanması Engellenecek Platformlar')
-                            ->options([
-                                'facebook' => 'Facebook',
-                                'instagram' => 'Instagram',
-                                'youtube' => 'YouTube',
-                                'x' => 'X (Twitter)',
-                                'pinterest' => 'Pinterest',
-                                'tiktok' => 'TikTok',
-                                'linkedin' => 'LinkedIn',
-                            ])
-                            ->columns(4)
-                            ->columnSpanFull(),
-
-                        Toggle::make('is_reusable')
-                            ->label('Döngüde Yeniden Kullanıma İzin Ver')
-                            ->helperText('Döngü sona erdiğinde bekleme süresi sonrasında bu video tekrar sıraya girebilir mi?')
-                            ->default(true),
                     ]),
             ]);
     }
@@ -131,6 +66,7 @@ class VideoResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 ImageColumn::make('thumbnail_path')
                     ->label('Önizleme')
@@ -142,22 +78,28 @@ class VideoResource extends Resource
                     ->label('Video Başlığı')
                     ->searchable()
                     ->sortable()
-                    ->description(fn (Video $record): string => $record->category?->name ?? 'Kategorisiz')
-                    ->limit(35),
+                    ->weight('bold')
+                    ->limit(45),
 
                 TextColumn::make('duration_seconds')
                     ->label('Süre')
                     ->formatStateUsing(fn (Video $record): string => $record->formatted_duration)
+                    ->badge()
+                    ->color('info')
                     ->sortable(),
 
                 TextColumn::make('aspect_ratio')
-                    ->label('En-Boy')
+                    ->label('Format')
                     ->badge()
-                    ->color('primary')
+                    ->color(fn (string $state): string => match ($state) {
+                        '9:16' => 'success',
+                        '16:9' => 'primary',
+                        default => 'gray',
+                    })
                     ->sortable(),
 
                 TextColumn::make('file_size')
-                    ->label('Boyut')
+                    ->label('Dosya Boyutu')
                     ->formatStateUsing(fn (Video $record): string => $record->formatted_file_size)
                     ->sortable(),
 
@@ -165,81 +107,48 @@ class VideoResource extends Resource
                     ->label('Yayın Sayısı')
                     ->badge()
                     ->color(fn (int $state): string => $state > 0 ? 'success' : 'gray')
+                    ->suffix(' kez')
                     ->sortable(),
 
                 TextColumn::make('status')
                     ->label('Durum')
                     ->badge()
-                    ->color(fn (VideoStatus $state): string => match ($state) {
-                        VideoStatus::READY => 'success',
-                        VideoStatus::PROCESSING, VideoStatus::PENDING => 'warning',
-                        VideoStatus::FAILED => 'danger',
-                        VideoStatus::ARCHIVED => 'gray',
-                    })
-                    ->formatStateUsing(fn (VideoStatus $state): string => $state->label()),
+                    ->color('success')
+                    ->formatStateUsing(fn (): string => 'Yayına Hazır'),
 
                 TextColumn::make('created_at')
-                    ->label('Yüklenme')
+                    ->label('Yüklenme Tarihi')
                     ->dateTime('d.m.Y H:i')
                     ->sortable(),
             ])
             ->filters([
-                SelectFilter::make('category_id')
-                    ->label('Kategori')
-                    ->relationship('category', 'name'),
-
-                SelectFilter::make('status')
-                    ->label('Durum')
-                    ->options([
-                        VideoStatus::READY->value => 'Yayına Hazır',
-                        VideoStatus::PENDING->value => 'Beklemede',
-                        VideoStatus::ARCHIVED->value => 'Arşivlendi',
-                    ]),
-
                 SelectFilter::make('aspect_ratio')
-                    ->label('En-Boy Oranı')
+                    ->label('Format (En-Boy)')
                     ->options([
-                        '9:16' => '9:16 (Dikey / Reels / Shorts)',
-                        '16:9' => '16:9 (Yatay / Klasik)',
-                        '1:1' => '1:1 (Kare / Feed)',
+                        '9:16' => '9:16 (Dikey / Reels & Shorts)',
+                        '16:9' => '16:9 (Yatay / YouTube)',
+                        '1:1' => '1:1 (Kare / Akış)',
                     ]),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Action::make('reanalyze')
-                    ->label('Yeniden Analiz Et')
-                    ->icon('heroicon-o-arrow-path')
-                    ->action(function (Video $record) {
-                        try {
-                            $service = app(VideoProcessingService::class);
-                            $metadata = $service->analyzeVideo($record->storage_path);
-                            $record->update($metadata->toArray());
-                            Notification::make()
-                                ->title('Metadata Analizi Tamamlandı')
-                                ->success()
-                                ->send();
-                        } catch (\Throwable $e) {
-                            Notification::make()
-                                ->title('Analiz Hatası')
-                                ->body($e->getMessage())
-                                ->danger()
-                                ->send();
-                        }
-                    }),
-                Tables\Actions\DeleteAction::make(),
+                Action::make('play')
+                    ->label('İzle')
+                    ->icon('heroicon-o-play')
+                    ->color('primary')
+                    ->modalHeading(fn (Video $record): string => $record->title)
+                    ->modalContent(fn (Video $record) => view('filament.modals.video-player-modal', ['video' => $record]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Kapat'),
+
+                Tables\Actions\DeleteAction::make()
+                    ->label('Sil'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     BulkAction::make('mark_as_ready')
-                        ->label('Yayına Hazır Yap')
+                        ->label('Yayına Hazır Olarak İşaretle')
                         ->icon('heroicon-o-check-circle')
                         ->action(fn (Collection $records) => $records->each->update(['status' => VideoStatus::READY])),
-
-                    BulkAction::make('archive')
-                        ->label('Arşivle')
-                        ->icon('heroicon-o-archive-box')
-                        ->action(fn (Collection $records) => $records->each->update(['status' => VideoStatus::ARCHIVED])),
 
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),

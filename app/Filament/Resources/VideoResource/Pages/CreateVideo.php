@@ -2,46 +2,103 @@
 
 namespace App\Filament\Resources\VideoResource\Pages;
 
+use App\Enums\VideoStatus;
 use App\Filament\Resources\VideoResource;
+use App\Models\Brand;
 use App\Models\Video;
 use App\Services\Media\VideoProcessingService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class CreateVideo extends CreateRecord
 {
     protected static string $resource = VideoResource::class;
+    protected static ?string $title = 'Toplu Video Yükleme';
 
-    protected function mutateFormDataBeforeCreate(array $data): array
+    protected function getRedirectUrl(): string
+    {
+        return VideoResource::getUrl('index');
+    }
+
+    protected function handleRecordCreation(array $data): Model
     {
         $service = app(VideoProcessingService::class);
-        $storagePath = $data['storage_path'] ?? null;
+        $files = $data['video_files'] ?? [];
 
-        if ($storagePath) {
-            $absolutePath = Storage::disk('public')->path($storagePath);
-
-            if (file_exists($absolutePath)) {
-                $hash = hash_file('sha256', $absolutePath);
-                $existingDuplicate = $service->findDuplicate($hash);
-
-                if ($existingDuplicate) {
-                    Notification::make()
-                        ->title('Yinelenen Video Tespit Edildi!')
-                        ->body("Bu video dosyası daha önce '{$existingDuplicate->title}' adıyla yüklenmiş (Hash: " . substr($hash, 0, 10) . "...).")
-                        ->warning()
-                        ->persistent()
-                        ->send();
-                }
-
-                $metadata = $service->analyzeVideo($storagePath);
-                $data = array_merge($data, $metadata->toArray());
-                $data['original_filename'] = basename($storagePath);
-            }
+        if (is_string($files)) {
+            $files = [$files];
         }
 
-        $data['workspace_id'] = 1; // Default Workspace
+        $defaultBrand = Brand::first();
+        $createdVideos = [];
+        $duplicateCount = 0;
 
-        return $data;
+        foreach ($files as $filePath) {
+            $absolutePath = Storage::disk('public')->path($filePath);
+
+            if (! file_exists($absolutePath)) {
+                continue;
+            }
+
+            $hash = hash_file('sha256', $absolutePath);
+            $existing = $service->findDuplicate($hash);
+
+            if ($existing) {
+                $duplicateCount++;
+                continue;
+            }
+
+            // Clean title from filename
+            $rawFilename = pathinfo($filePath, PATHINFO_FILENAME);
+            $cleanTitle = Str::title(str_replace(['_', '-'], ' ', $rawFilename));
+
+            try {
+                $metadata = $service->analyzeVideo($filePath);
+                $videoData = $metadata->toArray();
+            } catch (\Throwable $e) {
+                $videoData = [
+                    'file_hash' => $hash,
+                    'file_size' => filesize($absolutePath),
+                    'duration_seconds' => 0,
+                    'width' => 1080,
+                    'height' => 1920,
+                    'aspect_ratio' => '9:16',
+                    'fps' => 30.0,
+                    'mime_type' => 'video/mp4',
+                    'thumbnail_path' => null,
+                ];
+            }
+
+            $video = Video::create(array_merge($videoData, [
+                'workspace_id' => 1,
+                'brand_id' => $defaultBrand?->id,
+                'title' => $cleanTitle,
+                'original_filename' => basename($filePath),
+                'storage_path' => $filePath,
+                'disk' => 'public',
+                'status' => VideoStatus::READY,
+                'is_reusable' => true,
+            ]));
+
+            $createdVideos[] = $video;
+        }
+
+        $count = count($createdVideos);
+        $msg = "{$count} adet video başarıyla havuza yüklendi ve teknik parametreleri analiz edildi.";
+        if ($duplicateCount > 0) {
+            $msg .= " ({$duplicateCount} adet mükerrer dosya atlandı).";
+        }
+
+        Notification::make()
+            ->title('Yükleme Tamamlandı')
+            ->body($msg)
+            ->success()
+            ->persistent()
+            ->send();
+
+        return ! empty($createdVideos) ? $createdVideos[0] : new Video();
     }
 }

@@ -44,10 +44,10 @@ class ScheduleResource extends Resource
                             ->maxLength(255),
 
                         Select::make('playlist_id')
-                            ->label('Video Oynatma Listesi (Havuz)')
+                            ->label('Video Kaynağı')
                             ->options(Playlist::pluck('name', 'id'))
-                            ->searchable()
-                            ->required(),
+                            ->placeholder('Tüm Video Havuzundan Sırayla Seç')
+                            ->searchable(),
 
                         TimePicker::make('time_of_day')
                             ->label('Günlük Paylaşım Saati')
