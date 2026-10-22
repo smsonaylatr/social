@@ -35,6 +35,7 @@ class CreateVideo extends CreateRecord
         $defaultBrand = Brand::first();
         $createdVideos = [];
         $duplicateCount = 0;
+        $counter = Video::count() + 1;
 
         foreach ($files as $filePath) {
             $absolutePath = Storage::disk('public')->path($filePath);
@@ -51,9 +52,16 @@ class CreateVideo extends CreateRecord
                 continue;
             }
 
-            // Clean title from filename
+            // Naming: Sequential name "X. Video" if filename is a random hash
             $rawFilename = pathinfo($filePath, PATHINFO_FILENAME);
-            $cleanTitle = Str::title(str_replace(['_', '-'], ' ', $rawFilename));
+            $isHash = (strlen($rawFilename) >= 20 && ! str_contains($rawFilename, ' '));
+            if ($isHash) {
+                $cleanTitle = "{$counter}. Video";
+            } else {
+                $clean = trim(Str::title(str_replace(['_', '-'], ' ', $rawFilename)));
+                $cleanTitle = ! empty($clean) ? $clean : "{$counter}. Video";
+            }
+            $counter++;
 
             try {
                 $metadata = $service->analyzeVideo($filePath);

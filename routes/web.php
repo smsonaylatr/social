@@ -50,7 +50,15 @@ Route::match(['get', 'post'], '/admin/quick-fix', function () {
         }
     }
 
-    $msg = "{$count} adet video başarıyla analiz edildi ve teknik parametreleri güncellendi.";
+    // Name all existing videos sequentially by upload order: "1. Video", "2. Video", ...
+    $orderedVideos = \App\Models\Video::orderBy('created_at', 'asc')->orderBy('id', 'asc')->get();
+    $seq = 1;
+    foreach ($orderedVideos as $v) {
+        $v->update(['title' => "{$seq}. Video"]);
+        $seq++;
+    }
+
+    $msg = "{$count} adet video başarıyla analiz edildi, önizlemeleri ve başlıkları (1. Video, 2. Video...) güncellendi.";
     if (! empty($errors)) {
         $msg .= " Hatalar: " . implode(', ', array_slice($errors, 0, 3));
     }

@@ -40,6 +40,16 @@ class ListVideos extends ListRecords
                             \Illuminate\Support\Facades\Log::warning("Reanalyze video #{$video->id} error: " . $e->getMessage());
                         }
                     }
+
+                    // Rename sequential if titles are hashes
+                    $orderedVideos = \App\Models\Video::orderBy('created_at', 'asc')->orderBy('id', 'asc')->get();
+                    $seq = 1;
+                    foreach ($orderedVideos as $v) {
+                        if (strlen($v->title) > 20 && ! str_contains($v->title, ' ')) {
+                            $v->update(['title' => "{$seq}. Video"]);
+                        }
+                        $seq++;
+                    }
                     \Filament\Notifications\Notification::make()
                         ->title("{$count} video başarıyla yeniden analiz edildi.")
                         ->success()
