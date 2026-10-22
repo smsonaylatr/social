@@ -74,8 +74,22 @@ Route::get('/php-path', function () {
     if ($sampleVideo && $sampleVideo->storage_path) {
         $fullPath = \Illuminate\Support\Facades\Storage::disk($sampleVideo->disk ?? 'public')->path($sampleVideo->storage_path);
         
-        $getID3 = new \getID3();
-        $fileInfo = $getID3->analyze($fullPath);
+        $getid3Result = [];
+        try {
+            $getID3 = new \getID3();
+            $fileInfo = $getID3->analyze($fullPath);
+            $getid3Result = [
+                'playtime_seconds' => $fileInfo['playtime_seconds'] ?? null,
+                'video' => $fileInfo['video'] ?? null,
+                'error' => $fileInfo['error'] ?? null,
+            ];
+        } catch (\Throwable $e) {
+            $getid3Result = [
+                'exception' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ];
+        }
 
         $sampleInfo = [
             'id' => $sampleVideo->id,
@@ -85,9 +99,7 @@ Route::get('/php-path', function () {
             'filesize' => file_exists($fullPath) ? filesize($fullPath) : 0,
             'thumbnail_path' => $sampleVideo->thumbnail_path,
             'thumbnail_exists' => $sampleVideo->thumbnail_path ? \Illuminate\Support\Facades\Storage::disk('public')->exists($sampleVideo->thumbnail_path) : false,
-            'getid3_playtime_seconds' => $fileInfo['playtime_seconds'] ?? null,
-            'getid3_video' => $fileInfo['video'] ?? null,
-            'getid3_error' => $fileInfo['error'] ?? null,
+            'getid3' => $getid3Result,
         ];
     }
 
