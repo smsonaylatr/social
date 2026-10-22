@@ -520,8 +520,42 @@
                                 <input type="text" wire:model="connectName" class="mc-form-input" placeholder="Örn: {{ $activeDef['name'] }} Hesabım" />
                             </div>
                             <div>
-                                <label class="mc-form-label">Kullanıcı Adı (@) <span style="font-weight:400; color:#71717a;">(Opsiyonel)</span></label>
-                                <input type="text" wire:model="connectUsername" class="mc-form-input" placeholder="kullanici_adi" />
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <label class="mc-form-label" style="margin-bottom:0;">Kullanıcı Adı (@) <span style="font-weight:400; color:#71717a;">(Opsiyonel)</span></label>
+                                    @if(count($this->getRecentUsernames()) > 0)
+                                        <span style="font-size:0.68rem; color:#10b981; font-weight:600;">✓ Hatırlandı</span>
+                                    @endif
+                                </div>
+                                <input
+                                    type="text"
+                                    wire:model="connectUsername"
+                                    list="recent-connect-usernames"
+                                    class="mc-form-input"
+                                    style="margin-top:0.35rem;"
+                                    placeholder="kullanici_adi"
+                                    autocomplete="on"
+                                />
+                                <datalist id="recent-connect-usernames">
+                                    @foreach($this->getRecentUsernames() as $u)
+                                        <option value="{{ $u }}"></option>
+                                    @endforeach
+                                </datalist>
+
+                                @if(count($this->getRecentUsernames()) > 0)
+                                    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.35rem; margin-top:0.45rem;">
+                                        <span style="font-size:0.68rem; color:#71717a;">Geçmişten Seç:</span>
+                                        @foreach($this->getRecentUsernames() as $u)
+                                            <button
+                                                type="button"
+                                                wire:click="$set('connectUsername', '{{ $u }}')"
+                                                style="font-size:0.72rem; padding:0.18rem 0.55rem; border-radius:0.4rem; background:rgba(59,130,246,0.12); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); cursor:pointer; font-weight:600;"
+                                                title="Bu kullanıcı adını seç"
+                                            >
+                                                @<span>{{ $u }}</span>
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                @endif
                             </div>
                         </div>
 

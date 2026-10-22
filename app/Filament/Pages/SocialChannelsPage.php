@@ -503,7 +503,7 @@ class SocialChannelsPage extends Page
         $userPrefix = $user ? $user->name : 'Resmi';
 
         $this->connectName = "{$def['name']} Hesabım";
-        $this->connectUsername = '';
+        $this->connectUsername = $this->getDefaultUsernameForPlatform($code);
         $this->connectAccountId = strtolower($code) . '_oauth_' . substr(md5(uniqid()), 0, 10);
         $this->connectAccountType = $def['default_type'] ?? 'business';
 
@@ -516,6 +516,71 @@ class SocialChannelsPage extends Page
     public function closeConnectModal(): void
     {
         $this->showConnectModal = false;
+    }
+
+    /**
+     * Get the default/remembered username for a platform
+     */
+    public function getDefaultUsernameForPlatform(string $platformCode): string
+    {
+        // 1. Direct saved setting for this specific platform
+        $lastSaved = Setting::get("last_username_{$platformCode}");
+        if (!empty($lastSaved)) {
+            return (string) $lastSaved;
+        }
+
+        // 2. Existing active accounts on this platform
+        $platform = SocialPlatform::where('code', $platformCode)->first();
+        if ($platform) {
+            $existing = SocialAccount::where('platform_id', $platform->id)
+                ->whereNotNull('username')
+                ->where('username', '!=', '')
+                ->where('username', 'not like', '%_official')
+                ->latest('updated_at')
+                ->first();
+            if ($existing && !empty($existing->username)) {
+                return (string) $existing->username;
+            }
+        }
+
+        // 3. Global last used username setting
+        $globalLast = Setting::get('last_used_username');
+        if (!empty($globalLast)) {
+            return (string) $globalLast;
+        }
+
+        // 4. Any custom username across all accounts
+        $any = SocialAccount::whereNotNull('username')
+            ->where('username', '!=', '')
+            ->where('username', 'not like', '%_official')
+            ->latest('updated_at')
+            ->first();
+
+        return (string) ($any?->username ?? '');
+    }
+
+    /**
+     * Get a unique list of recently used usernames for autocomplete and quick-select
+     */
+    public function getRecentUsernames(): array
+    {
+        $usernames = SocialAccount::query()
+            ->whereNotNull('username')
+            ->where('username', '!=', '')
+            ->pluck('username')
+            ->map(fn ($u) => ltrim(trim($u), '@'))
+            ->filter(fn ($u) => !empty($u) && !str_ends_with($u, '_official'))
+            ->unique()
+            ->values()
+            ->take(6)
+            ->toArray();
+
+        $globalLast = Setting::get('last_used_username');
+        if (!empty($globalLast) && !in_array($globalLast, $usernames, true)) {
+            array_unshift($usernames, (string) $globalLast);
+        }
+
+        return array_values(array_unique(array_filter($usernames)));
     }
 
     /**
@@ -541,7 +606,10 @@ class SocialChannelsPage extends Page
 
         $workspaceId = Workspace::first()?->id ?? 1;
         $cleanUsername = ltrim(trim($this->connectUsername), '@');
-        if ($cleanUsername === '') {
+        if ($cleanUsername !== '') {
+            Setting::set("last_username_{$this->connectPlatformCode}", $cleanUsername);
+            Setting::set('last_used_username', $cleanUsername);
+        } else {
             $cleanUsername = strtolower($this->connectPlatformCode) . '_' . substr($this->connectAccountId, -5);
         }
 
@@ -750,9 +818,15 @@ class SocialChannelsPage extends Page
 
     public function startOAuthRedirect(): void
     {
+        $cleanUsername = ltrim(trim($this->connectUsername), '@');
+        if ($cleanUsername !== '') {
+            Setting::set("last_username_{$this->connectPlatformCode}", $cleanUsername);
+            Setting::set('last_used_username', $cleanUsername);
+        }
+
         session([
             'oauth_custom_name' => trim($this->connectName),
-            'oauth_custom_username' => trim($this->connectUsername),
+            'oauth_custom_username' => $cleanUsername,
             'oauth_custom_account_id' => trim($this->connectAccountId),
         ]);
 
