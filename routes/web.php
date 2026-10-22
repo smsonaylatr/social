@@ -45,22 +45,11 @@ Route::match(['get', 'post'], '/admin/quick-fix', function () {
 Route::get('/quick-fix', fn () => redirect('/admin/quick-fix'));
 
 Route::get('/php-path', function () {
-    $video = \App\Models\Video::first();
-    if (! $video || ! $video->storage_path) {
-        return response()->json(['error' => 'No video']);
-    }
-
-    $path = \Illuminate\Support\Facades\Storage::disk($video->disk ?? 'public')->path($video->storage_path);
-    
-    // Test pure PHP MP4 reader
-    $info = \App\Services\Media\VideoProcessingService::parseMp4Quick($path);
+    $videos = \App\Models\Video::select('id', 'title', 'storage_path', 'thumbnail_path', 'duration_seconds', 'width', 'height')->get();
 
     return response()->json([
-        'video_id' => $video->id,
-        'title' => $video->title,
-        'path' => $path,
-        'filesize' => filesize($path),
-        'parsed_info' => $info,
+        'total' => $videos->count(),
+        'videos' => $videos,
     ]);
 });
 
