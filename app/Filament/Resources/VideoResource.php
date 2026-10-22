@@ -84,11 +84,11 @@ class VideoResource extends Resource
                         Action::make('preview_play')
                             ->label('İzle')
                             ->modalWidth(MaxWidth::Medium)
-                            ->modalHeading(fn (Video $record): string => $record->title)
-                            ->modalDescription(fn (Video $record): string => "{$record->aspect_ratio} • {$record->formatted_duration} • {$record->formatted_file_size}")
+                            ->modalHeading(false)
                             ->modalContent(fn (Video $record) => view('filament.modals.video-player-modal', ['video' => $record]))
                             ->modalSubmitAction(false)
-                            ->modalCancelActionLabel('Kapat')
+                            ->modalCancelAction(false)
+                            ->modalFooterActions([])
                     ),
 
                 TextColumn::make('duration_seconds')
@@ -146,11 +146,11 @@ class VideoResource extends Resource
                     ->icon('heroicon-o-play')
                     ->color('primary')
                     ->modalWidth(MaxWidth::Medium)
-                    ->modalHeading(fn (Video $record): string => $record->title)
-                    ->modalDescription(fn (Video $record): string => "{$record->aspect_ratio} • {$record->formatted_duration} • {$record->formatted_file_size}")
+                    ->modalHeading(false)
                     ->modalContent(fn (Video $record) => view('filament.modals.video-player-modal', ['video' => $record]))
                     ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Kapat'),
+                    ->modalCancelAction(false)
+                    ->modalFooterActions([]),
 
                 Tables\Actions\DeleteAction::make()
                     ->label('Sil'),
