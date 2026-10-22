@@ -83,7 +83,7 @@ class VideoResource extends Resource
                     ->action(
                         Action::make('preview_play')
                             ->label('İzle')
-                            ->modalWidth(MaxWidth::Medium)
+                            ->modalWidth(MaxWidth::Small)
                             ->modalHeading(fn (Video $record): string => $record->title)
                             ->modalDescription(fn (Video $record): string => "{$record->aspect_ratio} • {$record->formatted_duration} • {$record->formatted_file_size}")
                             ->modalContent(fn (Video $record) => view('filament.modals.video-player-modal', ['video' => $record]))
@@ -146,7 +146,7 @@ class VideoResource extends Resource
                     ->label('İzle')
                     ->icon('heroicon-o-play')
                     ->color('primary')
-                    ->modalWidth(MaxWidth::Medium)
+                    ->modalWidth(MaxWidth::Small)
                     ->modalHeading(fn (Video $record): string => $record->title)
                     ->modalDescription(fn (Video $record): string => "{$record->aspect_ratio} • {$record->formatted_duration} • {$record->formatted_file_size}")
                     ->modalContent(fn (Video $record) => view('filament.modals.video-player-modal', ['video' => $record]))
