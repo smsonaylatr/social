@@ -45,83 +45,25 @@ Route::match(['get', 'post'], '/admin/quick-fix', function () {
 Route::get('/quick-fix', fn () => redirect('/admin/quick-fix'));
 
 Route::get('/php-path', function () {
-    $disabled = explode(',', (string) ini_get('disable_functions'));
-    $disabled = array_map('trim', $disabled);
-
-    $ffmpegChecks = [
-        'ffmpeg',
-        '/usr/bin/ffmpeg',
-        '/usr/local/bin/ffmpeg',
-        '/usr/bin/avconv',
+    $commands = [
+        'whoami' => 'whoami',
+        'pwd' => 'pwd',
+        'ffmpeg_which' => 'which ffmpeg 2>&1',
+        'composer_which' => 'which composer 2>&1',
+        'git_which' => 'which git 2>&1',
+        'curl_which' => 'which curl 2>&1',
+        'tar_which' => 'which tar 2>&1',
+        'find_ffmpeg' => 'find /usr /opt /bin -name ffmpeg 2>/dev/null',
     ];
 
-    $ffmpegFound = [];
-    foreach ($ffmpegChecks as $f) {
-        if (@file_exists($f)) {
-            $ffmpegFound[] = $f;
-        }
-    }
-
-    $shellTest = null;
-    if (function_exists('shell_exec') && ! in_array('shell_exec', $disabled, true)) {
-        $shellTest = @shell_exec('ffmpeg -version 2>&1') ?: 'shell_exec returned empty';
-    } else {
-        $shellTest = 'shell_exec is disabled or does not exist';
-    }
-
-    $sampleVideo = \App\Models\Video::first();
-    $sampleInfo = null;
-    if ($sampleVideo && $sampleVideo->storage_path) {
-        $fullPath = \Illuminate\Support\Facades\Storage::disk($sampleVideo->disk ?? 'public')->path($sampleVideo->storage_path);
-        
-        $getid3Path = base_path('vendor/james-heinrich/getid3/getid3/getid3.php');
-        $getid3FileExists = file_exists($getid3Path);
-        if ($getid3FileExists && ! class_exists('getID3', false)) {
-            require_once $getid3Path;
-        }
-
-        $getid3Result = [];
-        try {
-            if (class_exists('getID3')) {
-                $getID3 = new \getID3();
-                $fileInfo = $getID3->analyze($fullPath);
-                $getid3Result = [
-                    'playtime_seconds' => $fileInfo['playtime_seconds'] ?? null,
-                    'video' => $fileInfo['video'] ?? null,
-                    'error' => $fileInfo['error'] ?? null,
-                ];
-            } else {
-                $getid3Result = ['error' => 'Class getID3 still not found after require check', 'file_exists' => $getid3FileExists];
-            }
-        } catch (\Throwable $e) {
-            $getid3Result = [
-                'exception' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ];
-        }
-
-        $sampleInfo = [
-            'id' => $sampleVideo->id,
-            'title' => $sampleVideo->title,
-            'storage_path' => $sampleVideo->storage_path,
-            'exists' => file_exists($fullPath),
-            'filesize' => file_exists($fullPath) ? filesize($fullPath) : 0,
-            'thumbnail_path' => $sampleVideo->thumbnail_path,
-            'thumbnail_exists' => $sampleVideo->thumbnail_path ? \Illuminate\Support\Facades\Storage::disk('public')->exists($sampleVideo->thumbnail_path) : false,
-            'getid3' => $getid3Result,
-        ];
+    $results = [];
+    foreach ($commands as $key => $cmd) {
+        $results[$key] = trim((string) @shell_exec($cmd));
     }
 
     return response()->json([
-        'current_php_version' => PHP_VERSION,
-        'php_binary' => PHP_BINARY,
         'uname' => php_uname(),
-        'arch' => php_uname('m'),
-        'shell_test' => $shellTest,
-        'ffmpeg_found' => $ffmpegFound,
-        'disabled_functions' => $disabled,
-        'sample_video' => $sampleInfo,
+        'results' => $results,
     ]);
 });
 
