@@ -203,10 +203,10 @@ class SocialPlatformSetupGuide
                 'webhook_uri' => url('/webhooks/social/linkedin'),
                 'id_field_hint' => 'Şirket Sayfası ID (Örn: urn:li:organization:1234567) veya Kişisel Profil URN (urn:li:person:xxxx).',
                 'scopes' => [
-                    'w_member_social',
-                    'w_organization_social',
-                    'r_liteprofile',
                     'openid',
+                    'profile',
+                    'email',
+                    'w_member_social',
                 ],
                 'steps' => [
                     '1. Uygulama Oluşturma: linkedin.com/developers/apps adresinden "Create app" butonuna tıklayın ve LinkedIn Şirket Sayfanızı bağlayın.',

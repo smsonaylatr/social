@@ -29,7 +29,7 @@ class SocialOAuthController extends Controller
         ],
         'x' => ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
         'pinterest' => ['pins:write', 'pins:read', 'boards:read'],
-        'linkedin' => ['w_member_social', 'w_organization_social', 'r_liteprofile'],
+        'linkedin' => ['openid', 'profile', 'w_member_social', 'email'],
         'whatsapp' => ['whatsapp_business_messaging', 'whatsapp_business_management'],
         'telegram' => ['bot:send_video', 'bot:get_chat'],
     ];
