@@ -184,31 +184,31 @@ class OpenAiContentService implements AiContentProviderInterface
             'instagram' => new GeneratedPlatformContentDTO(
                 platformCode: 'instagram',
                 title: null,
-                hookSentence: 'Düz yolda yürürken anında kaymaya başlamak nasıl bir his? 🛼👟',
-                caption: "Her adımında özgürlüğü hisset! 🌟 {$video->title} ile yürümek artık çok daha eğlenceli. Hem şık spor ayakkabı, hem tek tıkla paten! Çocuklar ve paten tutkunları için benzersiz bir deneyim.\n\n{$defaultCta}",
-                hashtags: ['patenliayakkabi', 'reelskesfet', 'tekerlekliayakkabi', 'cocukmodasi', 'isikliayakkabi', 'walkrollfly'],
+                hookSentence: 'Sıradan yürüyüşleri unutun! ✨',
+                caption: "Sıradan yürüyüşleri unutun! ✨\n\nHem şık bir spor ayakkabı hem de tek hareketle eğlenceli bir paten! Çocuklar için hem hareket dolu hem de çok keyifli bir deneyim.\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🎁 Doğum günü ve özel günler için farklı bir hediye\n🚚 Hızlı kargo • Güvenli alışveriş\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n🌐 patenliayakkabilar.com\n📸 @patenliayakkabilar\n\n#PatenliAyakkabı #PatenliAyakkabılar #ÇocukPatenliAyakkabı #TekerlekliAyakkabı #RollerShoes",
+                hashtags: ['PatenliAyakkabı', 'PatenliAyakkabılar', 'ÇocukPatenliAyakkabı', 'TekerlekliAyakkabı', 'RollerShoes'],
                 seoKeywords: $seoKeywords,
-                callToAction: 'Profildeki linkten hemen sipariş verin! 📲',
+                callToAction: 'Profildeki linkten hemen sipariş verin! 🛍️',
                 suggestedProductUrl: $productUrl,
                 isTestMode: true
             ),
             'facebook' => new GeneratedPlatformContentDTO(
                 platformCode: 'facebook',
-                title: "{$video->title} - {$brandName}",
-                hookSentence: 'Çocuklarınız için hem hareketli hem de güvenli bir ayakkabı mı arıyorsunuz?',
-                caption: "Tekerlekli ve patenli ayakkabılarımız ile çocuklarınızı ekran başından kaldırın! {$video->title} modelimiz gizlenebilir tekerlek sistemi, dayanıklı taban ve ortopedik tasarımıyla güvenli sürüş sağlar. Ücretsiz kargo ve kolay değişim garantisiyle kapınızda.\n\n👉 Detaylı bilgi ve sipariş için: {$productUrl}",
-                hashtags: ['patenliayakkabi', 'cocukgelisimi', 'hediyefikri', 'aile'],
+                title: "✨ Ekran Başından Kaldıracak Eğlenceli Fikir: Patenli Ayakkabılar",
+                hookSentence: 'Ekran başından kaldıracak, hareketi sevdirecek bir fikir arayanlara! ⚡',
+                caption: "Ekran başından kaldıracak, hareketi sevdirecek bir fikir arayanlara! ⚡\n\nHem günlük kullanıma uygun rahat bir ayakkabı, hem de tek hareketle kaymaya hazır eğlenceli bir paten! Çocukların dışarıda daha aktif ve neşeli vakit geçirmesi için tasarlandı.\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🎁 Doğum günü ve özel günler için farklı bir hediye\n🚚 Hızlı kargo • Güvenli alışveriş\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n👉 Detaylı bilgi ve sipariş için: {$productUrl}\n📸 @patenliayakkabilar\n\n#PatenliAyakkabı #PatenliAyakkabılar #ÇocukPatenliAyakkabı #TekerlekliAyakkabı #RollerShoes",
+                hashtags: ['PatenliAyakkabı', 'PatenliAyakkabılar', 'ÇocukPatenliAyakkabı', 'TekerlekliAyakkabı', 'RollerShoes'],
                 seoKeywords: $seoKeywords,
-                callToAction: 'Web sitemizden güvenle sipariş oluşturun.',
+                callToAction: "Detaylı bilgi ve sipariş için: {$productUrl}",
                 suggestedProductUrl: $productUrl,
                 isTestMode: true
             ),
             'youtube' => new GeneratedPlatformContentDTO(
                 platformCode: 'youtube',
-                title: "{$video->title} #Shorts | Patenli Ayakkabılar",
-                hookSentence: 'Yürürken bir anda patene dönüşen ayakkabı incelemesi!',
-                caption: "Patenli ayakkabılar nasıl kullanılır? {$video->title} modelinin kullanımını ve eğlenceli anlarını inceleyin. #Shorts formatında en pratik ipuçları.\n\n🌐 Resmi Web Sitesi: {$productUrl}\nAbone olmayı ve videoyu beğenmeyi unutmayın!",
-                hashtags: ['Shorts', 'patenliayakkabi', 'rollershoes', 'paten'],
+                title: "✨ Onun Yeni Favori Ayakkabısı Olmaya Hazır! 🎁 #patenliayakkabı",
+                hookSentence: 'Onun Yeni Favori Ayakkabısı Olmaya Hazır! 🎁',
+                caption: "Onun Yeni Favori Ayakkabısı Olmaya Hazır! 🎁\n\nSadece bir ayakkabı değil, aynı zamanda gün boyu süren bir eğlence! Hem şık tasarımıyla günlük hayatta rahatça kullanılır, hem de gizli tekerlekleriyle anında patene dönüşür.\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🎁 Doğum günü ve özel günler için harika bir hediye sürprizi\n🚚 Hızlı kargo • Güvenli alışveriş\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n🌐 Resmi Web Sitesi: {$productUrl}\n📸 @patenliayakkabilar\n\n#Shorts #PatenliAyakkabı #PatenliAyakkabılar #TekerlekliAyakkabı #RollerShoes",
+                hashtags: ['Shorts', 'PatenliAyakkabı', 'PatenliAyakkabılar', 'TekerlekliAyakkabı', 'RollerShoes'],
                 seoKeywords: $seoKeywords,
                 callToAction: 'Kanalımıza abone olun ve yeni modelleri ilk siz keşfedin!',
                 suggestedProductUrl: $productUrl,
@@ -217,9 +217,9 @@ class OpenAiContentService implements AiContentProviderInterface
             'x' => new GeneratedPlatformContentDTO(
                 platformCode: 'x',
                 title: null,
-                hookSentence: 'Walk. Roll. Fly. 🛼',
-                caption: "Yürümekten sıkılanlar için: {$video->title}! Tek bir dokunuşla tekerlekleri açın ve akmaya başlayın. Sınırlı stoklarla: {$productUrl} #patenliayakkabi",
-                hashtags: ['patenliayakkabi', 'rollershoes'],
+                hookSentence: 'Yürümek güzel ama kayarak ilerlemek çok daha eğlenceli! 🔥',
+                caption: "Yürümek güzel ama kayarak ilerlemek çok daha eğlenceli! 🔥\n\nTek hareketle patene dönüşen spor ayakkabılarla sokaklar artık bir pist! 👟✨\n\nÇocukların yeni favorisini şimdi keşfet 🛍️\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #TekerlekliAyakkabı",
+                hashtags: ['PatenliAyakkabı', 'TekerlekliAyakkabı'],
                 seoKeywords: array_slice($seoKeywords, 0, 2),
                 callToAction: "Hemen tıkla: {$productUrl}",
                 suggestedProductUrl: $productUrl,
@@ -227,10 +227,10 @@ class OpenAiContentService implements AiContentProviderInterface
             ),
             'pinterest' => new GeneratedPlatformContentDTO(
                 platformCode: 'pinterest',
-                title: "En Popüler {$video->title} Modelleri",
-                hookSentence: 'Çocuklar ve gençler için en havalı patenli spor ayakkabı kombinleri.',
-                caption: "Hem günlük spor ayakkabı hem de tekerlekli paten olarak kullanılabilen harika bir tasarım. Doğum günü hediyesi ve eğlenceli aktiviteler için ideal. Renk seçeneklerini keşfetmek için tıklayın.",
-                hashtags: ['patenliayakkabi', 'cocukhediyesi', 'dogumgunuhediyesi', 'modafikirleri'],
+                title: "✨ Çocuk Patenli Ayakkabı Modelleri & Tekerlekli Spor Ayakkabı",
+                hookSentence: 'Çocuklar ve gençler için en havalı patenli spor ayakkabı modelleri!',
+                caption: "Sıradan yürüyüşleri unutun! ✨\n\nHem şık bir spor ayakkabı hem de tek hareketle eğlenceli bir paten! Çocuklar için hem hareket dolu hem de çok keyifli bir deneyim.\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🎁 Doğum günü ve özel günler için farklı bir hediye\n🚚 Hızlı kargo • Güvenli alışveriş\n\nÇocuk patenli ayakkabı modellerini şimdi keşfet! 🛍️\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #PatenliAyakkabılar #ÇocukHediyesi #TekerlekliAyakkabı",
+                hashtags: ['PatenliAyakkabı', 'PatenliAyakkabılar', 'ÇocukHediyesi', 'TekerlekliAyakkabı'],
                 seoKeywords: $seoKeywords,
                 callToAction: 'Ürünü İncele ve Satın Al',
                 suggestedProductUrl: $productUrl,
@@ -239,9 +239,9 @@ class OpenAiContentService implements AiContentProviderInterface
             'tiktok' => new GeneratedPlatformContentDTO(
                 platformCode: 'tiktok',
                 title: null,
-                hookSentence: 'Sen olsan bu ayakkabıyla nereye kayardın? Yorumlara yaz! 👇',
-                caption: "Tekerlekler gizlendiğinde spor ayakkabı, açıldığında paten! {$video->title} akımı başladı 🛼✨ #patenliayakkabi #foryou #fyp #kesfet #rollershoes",
-                hashtags: ['fyp', 'kesfet', 'patenliayakkabi', 'rollershoes', 'foryoupage'],
+                hookSentence: 'Yürümek güzel ama kayarak ilerlemek çok daha eğlenceli! 🔥',
+                caption: "Yürümek güzel ama kayarak ilerlemek çok daha eğlenceli! 🔥\n\nHem şık bir spor ayakkabı hem de tek tıkla eğlenceli bir paten! Sokakta, parkta özgürce kaymaya hazır mısın? 👟✨\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🎁 Doğum günü ve özel günler için farklı bir hediye\n🚚 Hızlı kargo • Güvenli alışveriş\n\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #PatenliAyakkabılar #TekerlekliAyakkabı #RollerShoes #fyp #kesfet",
+                hashtags: ['PatenliAyakkabı', 'PatenliAyakkabılar', 'TekerlekliAyakkabı', 'RollerShoes', 'fyp', 'kesfet'],
                 seoKeywords: $seoKeywords,
                 callToAction: 'Takip etmeyi ve videoyu kaydetmeyi unutma!',
                 suggestedProductUrl: $productUrl,
@@ -250,9 +250,9 @@ class OpenAiContentService implements AiContentProviderInterface
             'linkedin' => new GeneratedPlatformContentDTO(
                 platformCode: 'linkedin',
                 title: null,
-                hookSentence: 'Fiziksel aktiviteyi eğlenceli bir deneyime dönüştüren yeni nesil tekerlekli ayakkabı tasarımlarımız.',
-                caption: "{$brandName} olarak genç neslin hareket kabiliyetini ve spor sevgisini artıran inovatif ayakkabı çözümleri sunuyoruz. {$video->title} serimiz ergonomik taban yapısı ve gizlenebilir mekanizması ile sektörde fark yaratmaya devam ediyor.",
-                hashtags: ['inovasyon', 'eticaret', 'perakende', 'girisimcilik'],
+                hookSentence: 'Fiziksel aktiviteyi eğlenceli bir deneyime dönüştüren yeni nesil tekerlekli ayakkabı tasarımlarımız. ⚡',
+                caption: "Fiziksel aktiviteyi eğlenceli bir deneyime dönüştüren yeni nesil tekerlekli ayakkabı tasarımlarımız. ⚡\n\n{$brandName} olarak genç neslin hareket kabiliyetini ve spor sevgisini artıran inovatif ayakkabı çözümleri sunuyoruz. Ergonomik taban yapısı ve gizlenebilir mekanizması ile sokak modası ve eğlence bir arada.\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🚚 Hızlı kargo • Güvenli alışveriş\n\nÜrünlerimizi ve detayları web sitemizden inceleyebilirsiniz:\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #İnovasyon #Eticaret #Perakende #Girişimcilik",
+                hashtags: ['PatenliAyakkabı', 'İnovasyon', 'Eticaret', 'Perakende', 'Girişimcilik'],
                 seoKeywords: ['e-ticaret', 'ürün inovasyonu', 'patenli ayakkabı'],
                 callToAction: 'Ürün geliştirme ve kurumsal çözümlerimiz için web sitemizi ziyaret edin.',
                 suggestedProductUrl: $productUrl,
@@ -315,6 +315,34 @@ Marka Bilgileri:
 - Slogan: {$slogan}
 - Ton: {$brandTone}
 - Kesinlikle Yasaklı Kelimeler: {$forbidden}
+
+══════════════════════════════════════════════════════════════════════════════════
+KRİTİK EMOJİ VE MASAÜSTÜ UYUMLULUK KURALLARI (HAYATİ ÖNEM TAŞIR!):
+══════════════════════════════════════════════════════════════════════════════════
+- Windows masaüstü Chrome/Edge/Firefox tarayıcılarında görünmeyen veya içi boş kare [ ] (tofu box) şeklinde bozuk çıkan paten ("\\u{1F6FC}"), buz pateni ("\\u{26F8}"), kaykay ("\\u{1F6F9}") emojilerini KESİNLİKLE KULLANMA!
+- SADECE tüm masaüstü ve mobil işletim sistemlerinde %100 sorunsuz ve net görünen evrensel emojileri kullan:
+  ✨, 🔥, ⚡, 🎁, 👟, 🚚, 🛍️, 🌐, 📸, 📲, 👉, 👇, 🛒, 🌟, 🚀, 💬, 💖, ⭐, 🎉, 💯
+
+══════════════════════════════════════════════════════════════════════════════════
+İÇERİK ŞABLON YAPISI (ÖRNEK KÜTÜPHANEYE BİREBİR UYGUN):
+══════════════════════════════════════════════════════════════════════════════════
+İçeriklerin gövdesi şu 5 aşamalı dönüşüm şablonunu takip etmelidir:
+1) Vurucu Kanca (1. satır, sonu ✨, 🔥, ⚡ veya 🎁 emojisiyle biten merak uyandırıcı soru/cümle)
+2) Gövde Metni (2-3 cümlelik samimi ve spor ayakkabı + paten konforunu anlatan kısa paragraf)
+3) 4 Maddelik Vurgu Listesi:
+   ✨ Dikkat çeken modern tasarımlar
+   👟 Ayakkabı + paten deneyimi bir arada
+   🎁 Doğum günü ve özel günler için farklı bir hediye
+   🚚 Hızlı kargo • Güvenli alışveriş
+4) Eylem Çağrısı (CTA) & Yönlendirme:
+   Çocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️
+   🌐 patenliayakkabilar.com
+   📸 @patenliayakkabilar
+5) En Etkili 5 SEO Hashtag:
+   #PatenliAyakkabı #PatenliAyakkabılar #ÇocukPatenliAyakkabı #TekerlekliAyakkabı #RollerShoes
+
+* X (Twitter) için bu metni 280 karakter limitine sığacak şekilde özetle (ana kanca + ayakkabı deneyimi + site linki + 2 ana hashtag).
+* YouTube başlığı: Max 100 karakter, dikkat çekici, başında/sonunda masaüstü uyumlu emoji (örn: ✨ Onun Yeni Favori Ayakkabısı Olmaya Hazır! 🎁 #patenliayakkabı).
 
 Çıktıyı kesinlikle aşağıdaki JSON şemasına uygun tek bir JSON objesi olarak üret:
 {
