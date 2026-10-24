@@ -17,6 +17,8 @@ class LinkedInPublisher extends AbstractSocialPublisher
 
     public function publish(Video $video, ScheduledPostTarget $target, SocialAccount $account): array
     {
+        @set_time_limit(180);
+
         $token = $this->getAccessToken($account);
 
         if ($this->isSandboxToken($token)) {
@@ -29,70 +31,111 @@ class LinkedInPublisher extends AbstractSocialPublisher
             ];
         }
 
-        $authorUrn = str_starts_with($account->account_id, 'urn:li:')
-            ? $account->account_id
-            : ($account->account_type === 'profile'
-                ? "urn:li:person:{$account->account_id}"
-                : "urn:li:organization:{$account->account_id}");
+        // Auto-resolve authentic LinkedIn author URN (urn:li:person:xxx) via OpenID /v2/userinfo
+        $authorUrn = $this->resolveAuthorUrn($account, $token);
+        $commentary = mb_substr($this->buildFullCaption($target), 0, 3000);
 
         $headers = [
             'X-Restli-Protocol-Version' => '2.0.0',
-            'LinkedIn-Version' => config('services.linkedin.api_version', '202401'),
         ];
 
-        $videoUrn = null;
-        $videoFilePath = Storage::disk($video->disk ?: 'public')->path($video->storage_path);
-        if (file_exists($videoFilePath)) {
-            $initUpload = Http::withToken($token)
-                ->withHeaders($headers)
-                ->post('https://api.linkedin.com/rest/videos?action=initializeUpload', [
-                    'initializeUploadRequest' => [
-                        'owner' => $authorUrn,
-                        'fileSizeBytes' => filesize($videoFilePath),
-                        'uploadCaptions' => false,
-                        'uploadThumbnail' => false,
-                    ],
-                ]);
+        // 1. Try uploading video asset via LinkedIn v2 Assets API
+        $assetUrn = null;
+        if ($video->storage_path) {
+            $videoFilePath = Storage::disk($video->disk ?: 'public')->path($video->storage_path);
+            if (file_exists($videoFilePath)) {
+                try {
+                    $registerResp = Http::withToken($token)
+                        ->withHeaders($headers)
+                        ->timeout(30)
+                        ->post('https://api.linkedin.com/v2/assets?action=registerUpload', [
+                            'registerUploadRequest' => [
+                                'recipes' => ['urn:li:digitalmediaRecipe:feedshare-video'],
+                                'owner' => $authorUrn,
+                                'serviceRelationships' => [
+                                    [
+                                        'relationshipType' => 'OWNER',
+                                        'identifier' => 'urn:li:userGeneratedContent',
+                                    ],
+                                ],
+                            ],
+                        ]);
 
-            if ($initUpload->successful()) {
-                $videoUrn = $initUpload->json('value.video');
-                $uploadInstructions = $initUpload->json('value.uploadInstructions', []);
-                if (! empty($uploadInstructions[0]['uploadUrl'])) {
-                    Http::withBody(file_get_contents($videoFilePath), 'application/octet-stream')
-                        ->put($uploadInstructions[0]['uploadUrl']);
+                    if ($registerResp->successful()) {
+                        $candidateAsset = $registerResp->json('value.asset');
+                        $uploadUrl = $registerResp->json('value.uploadMechanism.com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest.uploadUrl');
+
+                        if ($candidateAsset && $uploadUrl) {
+                            $stream = fopen($videoFilePath, 'rb');
+                            $uploadResp = Http::withToken($token)
+                                ->timeout(180)
+                                ->withBody($stream, 'application/octet-stream')
+                                ->put($uploadUrl);
+                            if (is_resource($stream)) {
+                                fclose($stream);
+                            }
+
+                            if ($uploadResp->successful()) {
+                                $assetUrn = $candidateAsset;
+                            }
+                        }
+                    }
+                } catch (\Throwable) {
+                    $assetUrn = null;
                 }
             }
         }
 
-        // LinkedIn Posts API (Restli 2.0.0)
-        $postData = [
-            'author' => $authorUrn,
-            'commentary' => mb_substr($this->buildFullCaption($target), 0, 3000),
-            'visibility' => 'PUBLIC',
-            'distribution' => [
-                'feedDistribution' => 'MAIN_FEED',
-                'targetEntities' => [],
-                'thirdPartyDistributionChannels' => [],
+        // 2. Publish via LinkedIn v2 ugcPosts API
+        $shareContent = [
+            'shareCommentary' => [
+                'text' => $commentary,
             ],
-            'lifecycleState' => 'PUBLISHED',
-            'isReshareDisabledByAuthor' => false,
+            'shareMediaCategory' => $assetUrn ? 'VIDEO' : 'NONE',
         ];
 
-        if ($videoUrn) {
-            $postData['content'] = [
-                'media' => [
-                    'title' => mb_substr($target->title ?: $video->title, 0, 200),
-                    'id' => $videoUrn,
+        if ($assetUrn) {
+            $shareContent['media'] = [
+                [
+                    'status' => 'READY',
+                    'media' => $assetUrn,
+                    'title' => [
+                        'text' => mb_substr($target->title ?: $video->title, 0, 200),
+                    ],
                 ],
             ];
         }
 
+        $ugcPayload = [
+            'author' => $authorUrn,
+            'lifecycleState' => 'PUBLISHED',
+            'specificContent' => [
+                'com.linkedin.ugc.ShareContent' => $shareContent,
+            ],
+            'visibility' => [
+                'com.linkedin.ugc.MemberNetworkVisibility' => 'PUBLIC',
+            ],
+        ];
+
         $response = Http::withToken($token)
             ->withHeaders($headers)
-            ->post('https://api.linkedin.com/rest/posts', $postData);
+            ->timeout(30)
+            ->post('https://api.linkedin.com/v2/ugcPosts', $ugcPayload);
+
+        // Fallback: If VIDEO share fails (e.g. asset still processing), publish text share immediately
+        if (! $response->successful() && $assetUrn) {
+            $ugcPayload['specificContent']['com.linkedin.ugc.ShareContent'] = [
+                'shareCommentary' => ['text' => $commentary],
+                'shareMediaCategory' => 'NONE',
+            ];
+            $response = Http::withToken($token)
+                ->withHeaders($headers)
+                ->timeout(30)
+                ->post('https://api.linkedin.com/v2/ugcPosts', $ugcPayload);
+        }
 
         if (! $response->successful()) {
-            throw new \RuntimeException('LinkedIn Post API Hatası: ' . $response->body());
+            throw new \RuntimeException('LinkedIn Paylaşım Hatası (' . $response->status() . '): ' . $response->body());
         }
 
         $postUrn = $response->header('x-restli-id') ?: $response->json('id');
@@ -102,6 +145,34 @@ class LinkedInPublisher extends AbstractSocialPublisher
             'post_url' => "https://www.linkedin.com/feed/update/{$postUrn}",
             'status' => 'published',
         ];
+    }
+
+    /**
+     * Automatically resolve urn:li:person:{sub} using /v2/userinfo
+     */
+    protected function resolveAuthorUrn(SocialAccount $account, string $token): string
+    {
+        try {
+            $infoResp = Http::withToken($token)
+                ->timeout(10)
+                ->get('https://api.linkedin.com/v2/userinfo');
+
+            if ($infoResp->successful() && $infoResp->json('sub')) {
+                $personUrn = 'urn:li:person:' . $infoResp->json('sub');
+                if ($account->account_id !== $personUrn) {
+                    $account->update(['account_id' => $personUrn]);
+                }
+                return $personUrn;
+            }
+        } catch (\Throwable) {
+            // Fallback below
+        }
+
+        if (str_starts_with((string) $account->account_id, 'urn:li:')) {
+            return (string) $account->account_id;
+        }
+
+        return "urn:li:person:{$account->account_id}";
     }
 
     public function refreshToken(SocialAccount $account): bool

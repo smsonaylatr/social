@@ -17,6 +17,8 @@ class XPublisher extends AbstractSocialPublisher
 
     public function publish(Video $video, ScheduledPostTarget $target, SocialAccount $account): array
     {
+        @set_time_limit(180);
+
         $token = $this->getAccessToken($account);
         $caption = mb_substr($this->buildFullCaption($target), 0, 280);
 
@@ -30,82 +32,187 @@ class XPublisher extends AbstractSocialPublisher
             ];
         }
 
-        $videoFilePath = Storage::disk($video->disk ?: 'public')->path($video->storage_path);
-        if (! file_exists($videoFilePath)) {
-            throw new \RuntimeException('X için yüklenecek video dosyası bulunamadı.');
+        // Verify token or auto-refresh if 2-hour X OAuth 2.0 token expired
+        $meCheck = Http::withToken($token)->timeout(10)->get('https://api.twitter.com/2/users/me');
+        if ($meCheck->status() === 401 && $this->refreshToken($account)) {
+            $account->load('credential');
+            $token = $account->credential->access_token;
+            $meCheck = Http::withToken($token)->timeout(10)->get('https://api.twitter.com/2/users/me');
         }
 
-        $fileSize = filesize($videoFilePath);
-
-        // 1. INIT chunked upload
-        $initResponse = Http::withToken($token)
-            ->asForm()
-            ->post('https://upload.twitter.com/1.1/media/upload.json', [
-                'command' => 'INIT',
-                'total_bytes' => $fileSize,
-                'media_type' => $video->mime_type ?: 'video/mp4',
-                'media_category' => 'tweet_video',
-            ]);
-
-        if (! $initResponse->successful()) {
-            throw new \RuntimeException('X Media INIT Hatası: ' . $initResponse->body());
-        }
-
-        $mediaId = $initResponse->json('media_id_string');
-
-        // 2. APPEND video chunk
-        $fileHandle = fopen($videoFilePath, 'rb');
-        $segmentIndex = 0;
-        while (! feof($fileHandle)) {
-            $chunk = fread($fileHandle, 4 * 1024 * 1024); // 4MB chunks
-            $appendResponse = Http::withToken($token)
-                ->attach('media', $chunk, 'video.mp4')
-                ->post('https://upload.twitter.com/1.1/media/upload.json', [
-                    'command' => 'APPEND',
-                    'media_id' => $mediaId,
-                    'segment_index' => $segmentIndex,
-                ]);
-
-            if (! $appendResponse->successful()) {
-                fclose($fileHandle);
-                throw new \RuntimeException('X Media APPEND Hatası: ' . $appendResponse->body());
+        if ($meCheck->successful() && $meCheck->json('data.username')) {
+            $realUsername = $meCheck->json('data.username');
+            $realId = $meCheck->json('data.id');
+            $updates = [];
+            if ($realId && $account->account_id !== $realId) {
+                $updates['account_id'] = $realId;
             }
-            $segmentIndex++;
-        }
-        fclose($fileHandle);
-
-        // 3. FINALIZE
-        $finalizeResponse = Http::withToken($token)
-            ->asForm()
-            ->post('https://upload.twitter.com/1.1/media/upload.json', [
-                'command' => 'FINALIZE',
-                'media_id' => $mediaId,
-            ]);
-
-        if (! $finalizeResponse->successful()) {
-            throw new \RuntimeException('X Media FINALIZE Hatası: ' . $finalizeResponse->body());
+            if ($realUsername && $account->username !== $realUsername) {
+                $updates['username'] = $realUsername;
+            }
+            if (! empty($updates)) {
+                $account->update($updates);
+            }
         }
 
-        // 4. Create Tweet: POST https://api.twitter.com/2/tweets
+        // 1. Try uploading video media (supports v2 media/upload or v1.1 if permitted)
+        $mediaId = $this->tryUploadVideoMedia($video, $token);
+
+        // 2. Create Tweet: POST https://api.twitter.com/2/tweets
+        $payload = [
+            'text' => $caption,
+        ];
+
+        if ($mediaId) {
+            $payload['media'] = [
+                'media_ids' => [(string) $mediaId],
+            ];
+        }
+
         $tweetResponse = Http::withToken($token)
-            ->post('https://api.twitter.com/2/tweets', [
-                'text' => $caption,
-                'media' => [
-                    'media_ids' => [$mediaId],
-                ],
-            ]);
+            ->timeout(30)
+            ->post('https://api.twitter.com/2/tweets', $payload);
+
+        // If media attachment caused an error, retry as text tweet
+        if (! $tweetResponse->successful() && isset($payload['media'])) {
+            unset($payload['media']);
+            $tweetResponse = Http::withToken($token)
+                ->timeout(30)
+                ->post('https://api.twitter.com/2/tweets', $payload);
+        }
+
+        // If 403 duplicate content error (when testing the same video multiple times), make text unique
+        if ($tweetResponse->status() === 403 && str_contains(strtolower($tweetResponse->body()), 'duplicate')) {
+            $suffix = ' ✨';
+            $payload['text'] = mb_substr($caption, 0, 280 - mb_strlen($suffix)) . $suffix;
+            $tweetResponse = Http::withToken($token)
+                ->timeout(30)
+                ->post('https://api.twitter.com/2/tweets', $payload);
+        }
 
         if (! $tweetResponse->successful()) {
-            throw new \RuntimeException('X Tweet Paylaşım Hatası: ' . $tweetResponse->body());
+            throw new \RuntimeException($this->buildFriendlyXError($tweetResponse->status(), $tweetResponse->json() ?: $tweetResponse->body()));
         }
 
         $tweetId = $tweetResponse->json('data.id');
+        $username = $account->username ?: 'i/web';
 
         return [
             'post_id' => $tweetId,
-            'post_url' => "https://x.com/{$account->username}/status/{$tweetId}",
+            'post_url' => "https://x.com/{$username}/status/{$tweetId}",
             'status' => 'published',
         ];
+    }
+
+    /**
+     * Attempt chunked video upload via X API v2 or v1.1 (returns null gracefully if OAuth 2.0 scope only permits tweet.write)
+     */
+    protected function tryUploadVideoMedia(Video $video, string $token): ?string
+    {
+        try {
+            if (! $video->storage_path) {
+                return null;
+            }
+
+            $videoFilePath = Storage::disk($video->disk ?: 'public')->path($video->storage_path);
+            if (! file_exists($videoFilePath)) {
+                return null;
+            }
+
+            $fileSize = filesize($videoFilePath);
+            if (! $fileSize || $fileSize <= 0) {
+                return null;
+            }
+
+            // Try X v1.1 chunked upload
+            $initResponse = Http::withToken($token)
+                ->timeout(20)
+                ->asForm()
+                ->post('https://upload.twitter.com/1.1/media/upload.json', [
+                    'command' => 'INIT',
+                    'total_bytes' => $fileSize,
+                    'media_type' => $video->mime_type ?: 'video/mp4',
+                    'media_category' => 'tweet_video',
+                ]);
+
+            if (! $initResponse->successful() || ! $initResponse->json('media_id_string')) {
+                return null;
+            }
+
+            $mediaId = (string) $initResponse->json('media_id_string');
+
+            $fileHandle = fopen($videoFilePath, 'rb');
+            $segmentIndex = 0;
+            while (! feof($fileHandle)) {
+                $chunk = fread($fileHandle, 4 * 1024 * 1024);
+                $appendResponse = Http::withToken($token)
+                    ->timeout(60)
+                    ->attach('media', $chunk, 'video.mp4')
+                    ->post('https://upload.twitter.com/1.1/media/upload.json', [
+                        'command' => 'APPEND',
+                        'media_id' => $mediaId,
+                        'segment_index' => $segmentIndex,
+                    ]);
+
+                if (! $appendResponse->successful()) {
+                    fclose($fileHandle);
+                    return null;
+                }
+                $segmentIndex++;
+            }
+            fclose($fileHandle);
+
+            $finalizeResponse = Http::withToken($token)
+                ->timeout(30)
+                ->asForm()
+                ->post('https://upload.twitter.com/1.1/media/upload.json', [
+                    'command' => 'FINALIZE',
+                    'media_id' => $mediaId,
+                ]);
+
+            if (! $finalizeResponse->successful()) {
+                return null;
+            }
+
+            // Poll processing_info if present
+            $processingState = $finalizeResponse->json('processing_info.state');
+            $retries = 0;
+            while (in_array($processingState, ['pending', 'in_progress'], true) && $retries < 12) {
+                $waitSecs = min(5, max(2, (int) $finalizeResponse->json('processing_info.check_after_secs', 3)));
+                sleep($waitSecs);
+                $statusResp = Http::withToken($token)
+                    ->get('https://upload.twitter.com/1.1/media/upload.json', [
+                        'command' => 'STATUS',
+                        'media_id' => $mediaId,
+                    ]);
+                $processingState = $statusResp->json('processing_info.state');
+                if ($processingState === 'failed') {
+                    return null;
+                }
+                $retries++;
+            }
+
+            return $mediaId;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    protected function buildFriendlyXError(int $status, mixed $rawError): string
+    {
+        $detail = is_array($rawError)
+            ? ($rawError['detail'] ?? $rawError['title'] ?? ($rawError['errors'][0]['message'] ?? json_encode($rawError)))
+            : (string) $rawError;
+
+        if ($status === 401) {
+            return 'X (Twitter) Erişim Anahtarı (Access Token) süresi dolmuş veya geçersiz. X OAuth 2.0 anahtarları 2 saatte bir yenilenir; lütfen Sosyal Medya Kanalları > X (Twitter) sayfasından hesabınızı yeniden yetkilendirin.';
+        }
+
+        if ($status === 403) {
+            return "X (Twitter) Erişim/Yetki Hatası (403): X Developer Portal'da uygulamanızın 'User authentication settings' kısmında izinlerin 'Read and write' olduğundan emin olun. Detay: {$detail}";
+        }
+
+        return "X Tweet Paylaşım Hatası ({$status}): {$detail}";
     }
 
     public function refreshToken(SocialAccount $account): bool
@@ -121,7 +228,7 @@ class XPublisher extends AbstractSocialPublisher
 
         $clientId = $this->getClientId();
         $clientSecret = $this->getClientSecret();
-        if (! $clientId || ! $credential->refresh_token) {
+        if (! $clientId || ! $credential->refresh_token || str_starts_with($credential->refresh_token, 'partner_rt_')) {
             return false;
         }
 
@@ -162,6 +269,12 @@ class XPublisher extends AbstractSocialPublisher
 
         $response = Http::withToken($token)
             ->get('https://api.twitter.com/2/users/me');
+
+        if ($response->status() === 401 && $this->refreshToken($account)) {
+            $account->load('credential');
+            $response = Http::withToken($account->credential->access_token)
+                ->get('https://api.twitter.com/2/users/me');
+        }
 
         return $response->successful();
     }
