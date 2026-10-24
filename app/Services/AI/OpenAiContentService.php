@@ -120,9 +120,12 @@ class OpenAiContentService implements AiContentProviderInterface
 
         foreach ($platformCodes as $code) {
             $pData = $content[$code] ?? [];
+            $hasTitle = in_array($code, ['youtube', 'pinterest', 'facebook'], true);
+            $platformTitle = $hasTitle ? ($pData['title'] ?? $video->title) : null;
+
             $platforms[$code] = new GeneratedPlatformContentDTO(
                 platformCode: $code,
-                title: $pData['title'] ?? $video->title,
+                title: $platformTitle,
                 hookSentence: $pData['hook_sentence'] ?? '',
                 caption: $pData['caption'] ?? $video->title,
                 hashtags: $pData['hashtags'] ?? [],
@@ -180,7 +183,7 @@ class OpenAiContentService implements AiContentProviderInterface
         $platforms = [
             'instagram' => new GeneratedPlatformContentDTO(
                 platformCode: 'instagram',
-                title: "{$video->title} - {$slogan}",
+                title: null,
                 hookSentence: 'Düz yolda yürürken anında kaymaya başlamak nasıl bir his? 🛼👟',
                 caption: "Her adımında özgürlüğü hisset! 🌟 {$video->title} ile yürümek artık çok daha eğlenceli. Hem şık spor ayakkabı, hem tek tıkla paten! Çocuklar ve paten tutkunları için benzersiz bir deneyim.\n\n{$defaultCta}",
                 hashtags: ['patenliayakkabi', 'reelskesfet', 'tekerlekliayakkabi', 'cocukmodasi', 'isikliayakkabi', 'walkrollfly'],
@@ -213,7 +216,7 @@ class OpenAiContentService implements AiContentProviderInterface
             ),
             'x' => new GeneratedPlatformContentDTO(
                 platformCode: 'x',
-                title: "{$video->title}",
+                title: null,
                 hookSentence: 'Walk. Roll. Fly. 🛼',
                 caption: "Yürümekten sıkılanlar için: {$video->title}! Tek bir dokunuşla tekerlekleri açın ve akmaya başlayın. Sınırlı stoklarla: {$productUrl} #patenliayakkabi",
                 hashtags: ['patenliayakkabi', 'rollershoes'],
@@ -235,7 +238,7 @@ class OpenAiContentService implements AiContentProviderInterface
             ),
             'tiktok' => new GeneratedPlatformContentDTO(
                 platformCode: 'tiktok',
-                title: "{$video->title} ile sokaklardayız! 🛹",
+                title: null,
                 hookSentence: 'Sen olsan bu ayakkabıyla nereye kayardın? Yorumlara yaz! 👇',
                 caption: "Tekerlekler gizlendiğinde spor ayakkabı, açıldığında paten! {$video->title} akımı başladı 🛼✨ #patenliayakkabi #foryou #fyp #kesfet #rollershoes",
                 hashtags: ['fyp', 'kesfet', 'patenliayakkabi', 'rollershoes', 'foryoupage'],
@@ -246,7 +249,7 @@ class OpenAiContentService implements AiContentProviderInterface
             ),
             'linkedin' => new GeneratedPlatformContentDTO(
                 platformCode: 'linkedin',
-                title: "{$brandName}: Yenilikçi E-Ticaret ve Çocuk Modasında Hareket Odaklı Ürünler",
+                title: null,
                 hookSentence: 'Fiziksel aktiviteyi eğlenceli bir deneyime dönüştüren yeni nesil tekerlekli ayakkabı tasarımlarımız.',
                 caption: "{$brandName} olarak genç neslin hareket kabiliyetini ve spor sevgisini artıran inovatif ayakkabı çözümleri sunuyoruz. {$video->title} serimiz ergonomik taban yapısı ve gizlenebilir mekanizması ile sektörde fark yaratmaya devam ediyor.",
                 hashtags: ['inovasyon', 'eticaret', 'perakende', 'girisimcilik'],
@@ -299,13 +302,13 @@ class OpenAiContentService implements AiContentProviderInterface
         return <<<PROMPT
 Sen kıdemli bir Sosyal Medya İçerik Mimarı ve Sosyal SEO uzmanısın.
 Görevin, verilen video metadata ve marka profiline dayanarak aşağıdaki 7 sosyal medya platformu için tam uyumlu, özgün, yüksek dönüşüm sağlayan Türkçe içerik üretmektir:
-1. instagram (Reels odaklı, samimi, etkileyici kanca, emojiler, ilgili hashtagler)
-2. facebook (Fayda odaklı, aile ve ebeveyn dostu, güven verici, bağlantı yönlendirmesi)
-3. youtube (Shorts ve arama odaklı SEO başlığı, detaylı açıklama, etiketler)
-4. x (Twitter: 280 karakteri aşmayan dinamik, çarpıcı metin)
-5. pinterest (Arama niyetine uygun Pin başlığı, SEO açıklaması)
-6. tiktok (Trendlere uygun, genç kitle dili, izleyici etkileşimi, CTA)
-7. linkedin (Marka ve perakende vizyonu, profesyonel ama samimi ton)
+1. instagram (Reels odaklı, samimi kanca, emojiler, ilgili hashtagler. DİKKAT: Instagram'da ayrı başlık YOKTUR, title boş olmalıdır.)
+2. facebook (Fayda odaklı, aile ve ebeveyn dostu, video başlığı, bağlantı yönlendirmesi)
+3. youtube (Shorts ve arama odaklı SEO başlığı - ZORUNLU max 100 karakter, detaylı açıklama, etiketler)
+4. x (Twitter: DİKKAT: Başlık YOKTUR, 280 karakteri aşmayan dinamik tweet metni)
+5. pinterest (Görsel SEO Pin başlığı - ZORUNLU max 100 karakter, arama açıklaması, landing URL)
+6. tiktok (Trendlere uygun, genç kitle dili, izleyici etkileşimi, CTA. DİKKAT: Başlık YOKTUR, title boş olmalıdır.)
+7. linkedin (Marka ve perakende vizyonu, profesyonel ama samimi gönderi metni. DİKKAT: Gönderide ayrı başlık YOKTUR.)
 
 Marka Bilgileri:
 - Marka: {$brandName}
@@ -315,13 +318,13 @@ Marka Bilgileri:
 
 Çıktıyı kesinlikle aşağıdaki JSON şemasına uygun tek bir JSON objesi olarak üret:
 {
-  "instagram": { "title": "...", "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
+  "instagram": { "title": null, "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
   "facebook": { "title": "...", "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
   "youtube": { "title": "...", "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
-  "x": { "title": "...", "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
+  "x": { "title": null, "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
   "pinterest": { "title": "...", "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
-  "tiktok": { "title": "...", "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
-  "linkedin": { "title": "...", "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." }
+  "tiktok": { "title": null, "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
+  "linkedin": { "title": null, "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." }
 }
 PROMPT;
     }

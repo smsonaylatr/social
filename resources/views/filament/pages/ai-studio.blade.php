@@ -110,16 +110,10 @@
                         </div>
                     @endif
                     @php
+                        $cfg = $this->getPlatformConfig($activeTab);
                         $cur = $platformContents[$activeTab] ?? null;
                         $charCount = mb_strlen($cur['caption'] ?? '');
-                        $maxChar = match($activeTab) {
-                            'x' => 280,
-                            'pinterest' => 500,
-                            'instagram', 'tiktok' => 2200,
-                            'linkedin' => 3000,
-                            'youtube' => 5000,
-                            default => 60000,
-                        };
+                        $maxChar = $cfg['caption_max'] ?? 2200;
                     @endphp
 
                     @if(!empty($cur['ai_model']) && str_contains($cur['ai_model'], 'test-mode'))
@@ -129,67 +123,128 @@
                         </div>
                     @endif
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {{-- Platform Başlığı ve Hook Alanları (Platform Yapısına Özel) --}}
+                    @if($cfg['has_title'] && $cfg['has_hook'])
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                                        {{ $cfg['title_label'] }}
+                                        @if(!empty($cfg['title_required']))
+                                            <span class="text-rose-500">*</span>
+                                        @endif
+                                    </label>
+                                    @if(!empty($cfg['title_max']))
+                                        <span class="text-[11px] text-gray-400 font-mono">
+                                            {{ mb_strlen($cur['title'] ?? '') }} / {{ $cfg['title_max'] }}
+                                        </span>
+                                    @endif
+                                </div>
+                                <input 
+                                    type="text" 
+                                    wire:model="platformContents.{{ $activeTab }}.title" 
+                                    class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                                    placeholder="{{ $cfg['title_placeholder'] }}"
+                                    maxlength="{{ $cfg['title_max'] ?? 255 }}"
+                                />
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $cfg['hook_label'] }}</label>
+                                <input 
+                                    type="text" 
+                                    wire:model="platformContents.{{ $activeTab }}.hook_sentence" 
+                                    class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                                    placeholder="{{ $cfg['hook_placeholder'] }}"
+                                />
+                            </div>
+                        </div>
+                    @elseif($cfg['has_title'])
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Platform Başlığı</label>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                                    {{ $cfg['title_label'] }}
+                                    @if(!empty($cfg['title_required']))
+                                        <span class="text-rose-500">*</span>
+                                    @endif
+                                </label>
+                                @if(!empty($cfg['title_max']))
+                                    <span class="text-[11px] text-gray-400 font-mono">
+                                        {{ mb_strlen($cur['title'] ?? '') }} / {{ $cfg['title_max'] }}
+                                    </span>
+                                @endif
+                            </div>
                             <input 
                                 type="text" 
                                 wire:model="platformContents.{{ $activeTab }}.title" 
                                 class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                                placeholder="Başlık girin..."
+                                placeholder="{{ $cfg['title_placeholder'] }}"
+                                maxlength="{{ $cfg['title_max'] ?? 255 }}"
                             />
                         </div>
-
+                    @elseif($cfg['has_hook'])
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Dikkat Çekici Giriş Cümlesi (Hook)</label>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $cfg['hook_label'] }}</label>
                             <input 
                                 type="text" 
                                 wire:model="platformContents.{{ $activeTab }}.hook_sentence" 
                                 class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                                placeholder="İlk 3 saniye kancası..."
+                                placeholder="{{ $cfg['hook_placeholder'] }}"
                             />
                         </div>
-                    </div>
+                    @endif
 
+                    {{-- Açıklama / Gönderi Metni --}}
                     <div>
                         <div class="flex items-center justify-between mb-1">
-                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Açıklama Metni (Caption)</label>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">{{ $cfg['caption_label'] }}</label>
                             <span class="text-xs {{ $charCount > $maxChar ? 'text-rose-600 font-bold' : 'text-gray-400' }}">
                                 {{ $charCount }} / {{ $maxChar }} karakter
                             </span>
                         </div>
                         <textarea 
-                            rows="6" 
+                            rows="{{ $activeTab === 'x' ? 4 : 6 }}" 
                             wire:model="platformContents.{{ $activeTab }}.caption"
-                            class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                            placeholder="Açıklama metni..."
+                            class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500 font-normal"
+                            placeholder="{{ $cfg['caption_placeholder'] }}"
                         ></textarea>
                     </div>
 
+                    {{-- Hashtag'ler ve Call to Action --}}
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Hashtag'ler</label>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $cfg['hashtags_label'] }}</label>
                             <input 
                                 type="text" 
                                 wire:model="platformContents.{{ $activeTab }}.hashtags" 
                                 class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                                placeholder="#patenliayakkabi #walkrollfly"
+                                placeholder="{{ $cfg['hashtags_placeholder'] }}"
                             />
                         </div>
 
                         <div>
-                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Call To Action (CTA)</label>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $cfg['cta_label'] }}</label>
                             <input 
                                 type="text" 
                                 wire:model="platformContents.{{ $activeTab }}.call_to_action" 
                                 class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                                placeholder="Hemen web sitemizi ziyaret edin..."
+                                placeholder="Hemen inceleyin veya sipariş verin..."
                             />
                         </div>
                     </div>
 
+                    {{-- Hedef URL ve Platforma Özel Yönlendirme Notu --}}
                     <div>
-                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Hedef Ürün / Landing URL</label>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                                {{ $cfg['url_label'] }}
+                            </label>
+                            @if(!empty($cfg['url_note']))
+                                <span class="text-[11px] text-gray-500 dark:text-gray-400 font-normal">
+                                    {{ $cfg['url_note'] }}
+                                </span>
+                            @endif
+                        </div>
                         <input 
                             type="url" 
                             wire:model="platformContents.{{ $activeTab }}.suggested_product_url" 

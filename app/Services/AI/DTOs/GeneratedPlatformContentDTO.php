@@ -6,12 +6,12 @@ class GeneratedPlatformContentDTO
 {
     public function __construct(
         public string $platformCode,
-        public string $title,
-        public string $hookSentence,
-        public string $caption,
-        public array $hashtags,
-        public array $seoKeywords,
-        public string $callToAction,
+        public string $caption = '',
+        public array $hashtags = [],
+        public array $seoKeywords = [],
+        public string $callToAction = '',
+        public ?string $title = null,
+        public string $hookSentence = '',
         public ?string $suggestedProductUrl = null,
         public bool $isTestMode = false
     ) {}
