@@ -33,12 +33,21 @@ class AiStudio extends Page implements HasForms
     public array $platformContents = [];
     public bool $isTestMode = false;
     public ?string $modelUsed = null;
+    public bool $onlyConnected = true;
 
     public function mount(): void
     {
-        $firstVideo = Video::latest()->first();
+        $firstVideo = Video::orderBy('id', 'asc')->first();
         if ($firstVideo) {
             $this->selectedVideoId = $firstVideo->id;
+        }
+
+        $available = $this->availablePlatforms;
+        if (! empty($available)) {
+            $this->activeTab = array_key_first($available);
+        }
+
+        if ($this->selectedVideoId) {
             $this->loadVideoContents();
         }
     }
@@ -46,6 +55,74 @@ class AiStudio extends Page implements HasForms
     public function updatedSelectedVideoId(): void
     {
         $this->loadVideoContents();
+    }
+
+    public function updatedOnlyConnected(): void
+    {
+        $available = $this->availablePlatforms;
+        if (! isset($available[$this->activeTab]) && ! empty($available)) {
+            $this->activeTab = array_key_first($available);
+        }
+        $this->loadVideoContents();
+    }
+
+    /**
+     * Get available platforms filtered by connection status if onlyConnected is active
+     */
+    public function getAvailablePlatformsProperty(): array
+    {
+        $allPlatforms = [
+            'instagram' => ['name' => 'Instagram Reels', 'icon' => 'heroicon-m-camera'],
+            'facebook' => ['name' => 'Facebook', 'icon' => 'heroicon-m-globe-alt'],
+            'youtube' => ['name' => 'YouTube Shorts', 'icon' => 'heroicon-m-play-circle'],
+            'x' => ['name' => 'X (Twitter)', 'icon' => 'heroicon-m-chat-bubble-bottom-center-text'],
+            'pinterest' => ['name' => 'Pinterest Pin', 'icon' => 'heroicon-m-bookmark'],
+            'tiktok' => ['name' => 'TikTok', 'icon' => 'heroicon-m-sparkles'],
+            'linkedin' => ['name' => 'LinkedIn Post', 'icon' => 'heroicon-m-briefcase'],
+        ];
+
+        $connectedAccounts = \App\Models\SocialAccount::where('status', 'active')
+            ->with('platform')
+            ->get();
+
+        $connectedCodes = $connectedAccounts->map(function ($acc) {
+            return $acc->platform?->code instanceof \BackedEnum
+                ? $acc->platform->code->value
+                : (string) $acc->platform?->code;
+        })->filter()->unique()->values()->toArray();
+
+        $result = [];
+        foreach ($allPlatforms as $code => $info) {
+            $isConnected = in_array($code, $connectedCodes, true);
+            $acc = $isConnected ? $connectedAccounts->first(function ($a) use ($code) {
+                $c = $a->platform?->code instanceof \BackedEnum ? $a->platform->code->value : (string) $a->platform?->code;
+                return $c === $code;
+            }) : null;
+
+            // Eğer "Yalnızca Bağlı Hesaplar" modu açıksa ve hesap bağlı değilse atla
+            if ($this->onlyConnected && ! $isConnected) {
+                continue;
+            }
+
+            $result[$code] = array_merge($info, [
+                'is_connected' => $isConnected,
+                'account_name' => $acc?->name ?? null,
+                'username' => $acc?->username ?? null,
+            ]);
+        }
+
+        // Eğer sadece bağlı hesaplar seçiliyken henüz hiç bağlı hesap yoksa, ekranın boş kalmaması için tümünü bağlantısız göster
+        if (empty($result) && $this->onlyConnected) {
+            foreach ($allPlatforms as $code => $info) {
+                $result[$code] = array_merge($info, [
+                    'is_connected' => false,
+                    'account_name' => null,
+                    'username' => null,
+                ]);
+            }
+        }
+
+        return $result;
     }
 
     public function loadVideoContents(): void
@@ -56,7 +133,7 @@ class AiStudio extends Page implements HasForms
 
         $generations = AiContentGeneration::where('video_id', $this->selectedVideoId)->get();
 
-        $platformCodes = ['instagram', 'facebook', 'youtube', 'x', 'pinterest', 'tiktok', 'linkedin'];
+        $platformCodes = array_keys($this->availablePlatforms);
         $this->platformContents = [];
 
         foreach ($platformCodes as $code) {
@@ -113,10 +190,11 @@ class AiStudio extends Page implements HasForms
 
             $this->loadVideoContents();
 
+            $availableCount = count($this->availablePlatforms);
             $modeText = $result->isTestMode ? ' (Test Modu Şablonu)' : ' (' . $result->modelUsed . ')';
             Notification::make()
-                ->title('7 Platform İçin İçerik Başarıyla Üretildi' . $modeText)
-                ->body('Instagram, Facebook, YouTube, X, Pinterest, TikTok ve LinkedIn taslakları hazırlandı.')
+                ->title("{$availableCount} Platform İçin İçerik Başarıyla Üretildi" . $modeText)
+                ->body('Sosyal medya kanallarınız için içerik ve hashtag taslakları hazırlandı.')
                 ->success()
                 ->send();
         } catch (\Throwable $e) {

@@ -91,6 +91,29 @@ class AiContentStudioTest extends TestCase
         $response = $this->get('/admin/ai-studio');
         $response->assertStatus(200);
         $response->assertSee('AI İçerik ve Sosyal SEO Stüdyosu');
-        $response->assertSee('7 Platform İçin Akıllı İçerik Üret');
+        $response->assertSee('Platform İçin Akıllı İçerik Üret');
+        $response->assertSee('Yalnızca Bağlı Hesapları Göster');
+    }
+
+    public function test_ai_studio_filters_unconnected_platforms(): void
+    {
+        $this->actingAs($this->admin);
+
+        // Connect only Instagram
+        $platform = \App\Models\SocialPlatform::where('code', 'instagram')->first();
+        \App\Models\SocialAccount::create([
+            'workspace_id' => $this->workspace->id,
+            'platform_id' => $platform->id,
+            'account_id' => 'ig_123',
+            'name' => 'Instagram Test',
+            'status' => 'active',
+        ]);
+
+        $component = Livewire::test(AiStudio::class)
+            ->set('selectedVideoId', $this->video->id);
+
+        $available = $component->get('availablePlatforms');
+        $this->assertArrayHasKey('instagram', $available);
+        $this->assertArrayNotHasKey('tiktok', $available, 'TikTok should not be in available platforms when inactive and onlyConnected is true');
     }
 }

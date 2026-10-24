@@ -35,7 +35,14 @@ class CreateVideo extends CreateRecord
         $defaultBrand = Brand::first();
         $createdVideos = [];
         $duplicateCount = 0;
-        $counter = Video::count() + 1;
+
+        $maxNum = 0;
+        foreach (Video::pluck('title') as $title) {
+            if (preg_match('/^(\d+)\.\s*Video/i', trim($title), $m)) {
+                $maxNum = max($maxNum, (int) $m[1]);
+            }
+        }
+        $counter = max($maxNum + 1, Video::count() + 1);
 
         foreach ($files as $filePath) {
             $absolutePath = Storage::disk('public')->path($filePath);

@@ -7,7 +7,7 @@
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">İçerik Üretilecek Video</label>
                     <select wire:model.live="selectedVideoId" class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500">
                         <option value="">-- Bir Video Seçin --</option>
-                        @foreach(\App\Models\Video::latest()->get() as $v)
+                        @foreach(\App\Models\Video::orderBy('id', 'asc')->get() as $v)
                             <option value="{{ $v->id }}">{{ $v->title }} ({{ $v->formatted_duration }} - {{ $v->aspect_ratio }})</option>
                         @endforeach
                     </select>
@@ -21,7 +21,7 @@
                         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 transition"
                     >
                         <x-heroicon-m-sparkles class="w-5 h-5 text-amber-300" />
-                        <span wire:loading.remove>7 Platform İçin Akıllı İçerik Üret</span>
+                        <span wire:loading.remove>{{ count($this->availablePlatforms) }} Platform İçin Akıllı İçerik Üret</span>
                         <span wire:loading>Yapay Zekâ Analiz Ediyor...</span>
                     </button>
                 </div>
@@ -40,28 +40,57 @@
         @if($this->selectedVideoId)
             {{-- Platform Sekmeleri --}}
             <div class="ai-studio-panel bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-xs overflow-hidden">
-                <div class="border-b border-gray-200 dark:border-gray-800 flex overflow-x-auto bg-gray-50/50 dark:bg-gray-950/40">
-                    @php
-                        $tabList = [
-                            'instagram' => ['name' => 'Instagram Reels', 'icon' => 'heroicon-m-camera'],
-                            'facebook' => ['name' => 'Facebook', 'icon' => 'heroicon-m-globe-alt'],
-                            'youtube' => ['name' => 'YouTube Shorts', 'icon' => 'heroicon-m-play-circle'],
-                            'x' => ['name' => 'X (Twitter)', 'icon' => 'heroicon-m-chat-bubble-bottom-center-text'],
-                            'pinterest' => ['name' => 'Pinterest Pin', 'icon' => 'heroicon-m-bookmark'],
-                            'tiktok' => ['name' => 'TikTok', 'icon' => 'heroicon-m-sparkles'],
-                            'linkedin' => ['name' => 'LinkedIn Post', 'icon' => 'heroicon-m-briefcase'],
-                        ];
-                    @endphp
+                {{-- Platform Filtresi ve Yönetim Çubuğu --}}
+                <div class="border-b border-gray-200 dark:border-gray-800 px-4 py-2.5 bg-gray-50/70 dark:bg-gray-950/60 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">Yayın Kanalları:</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-primary-50 dark:bg-primary-950/50 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800">
+                            {{ count($this->availablePlatforms) }} Platform
+                        </span>
+                    </div>
 
-                    @foreach($tabList as $key => $tabInfo)
+                    <div class="flex items-center gap-4">
+                        <label class="inline-flex items-center gap-2 cursor-pointer select-none text-gray-600 dark:text-gray-300 text-xs">
+                            <input 
+                                type="checkbox" 
+                                wire:model.live="onlyConnected"
+                                class="rounded border-gray-300 dark:border-gray-700 text-primary-600 focus:ring-primary-500 w-3.5 h-3.5"
+                            />
+                            <span>Yalnızca Bağlı Hesapları Göster</span>
+                        </label>
+                        <a 
+                            href="{{ route('filament.admin.pages.social-channels') }}" 
+                            class="text-xs text-primary-600 dark:text-primary-400 hover:underline inline-flex items-center gap-1 font-medium"
+                        >
+                            <span>Hesapları Yönet</span>
+                            <x-heroicon-m-arrow-top-right-on-square class="w-3.5 h-3.5" />
+                        </a>
+                    </div>
+                </div>
+
+                <div class="border-b border-gray-200 dark:border-gray-800 flex overflow-x-auto bg-gray-50/50 dark:bg-gray-950/40">
+                    @foreach($this->availablePlatforms as $key => $tabInfo)
                         <button 
                             type="button"
                             wire:click="$set('activeTab', '{{ $key }}')"
                             class="px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 whitespace-nowrap transition {{ $activeTab === $key ? 'border-primary-600 text-primary-600 dark:text-primary-400 bg-white dark:bg-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 hover:border-gray-300' }}"
                         >
                             <span>{{ $tabInfo['name'] }}</span>
+
+                            @if(!empty($tabInfo['is_connected']))
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                    Bağlı
+                                </span>
+                            @else
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                                    Bağlantı Yok
+                                </span>
+                            @endif
+
                             @if(!empty($platformContents[$key]['id']))
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-medium bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300" title="Taslak İçerik Kayıtlı">
+                                    Taslak Var
+                                </span>
                             @endif
                         </button>
                     @endforeach
@@ -69,6 +98,17 @@
 
                 {{-- Aktif Platform İçerik Formu --}}
                 <div class="p-6 space-y-4">
+                    @if(isset($this->availablePlatforms[$activeTab]) && empty($this->availablePlatforms[$activeTab]['is_connected']))
+                        <div class="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 text-xs flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2">
+                                <x-heroicon-m-exclamation-triangle class="w-4 h-4 text-amber-500 shrink-0" />
+                                <span>Bu platform ({{ $this->availablePlatforms[$activeTab]['name'] }}) için henüz aktif bir sosyal medya hesabı bağlı değil. Taslak hazırlayabilir veya kanalı bağlayabilirsiniz.</span>
+                            </div>
+                            <a href="{{ route('filament.admin.pages.social-channels', ['platform' => $activeTab]) }}" class="font-semibold underline shrink-0 hover:text-amber-900 dark:hover:text-amber-100">
+                                Kanalı Bağla →
+                            </a>
+                        </div>
+                    @endif
                     @php
                         $cur = $platformContents[$activeTab] ?? null;
                         $charCount = mb_strlen($cur['caption'] ?? '');
