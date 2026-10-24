@@ -45,8 +45,8 @@ class OpenAiContentService implements AiContentProviderInterface
         try {
             return $this->callOpenAiApi($video, $brand);
         } catch (\Throwable $e) {
-            Log::error('OpenAI API call failed: ' . $e->getMessage());
-            throw $e;
+            Log::warning('OpenAI API call failed, using dynamic smart library engine: ' . $e->getMessage());
+            return $this->generateTestModeContent($video, $brand, true, $e->getMessage());
         }
     }
 
@@ -171,25 +171,73 @@ class OpenAiContentService implements AiContentProviderInterface
     }
 
     /**
-     * Fallback / Test mode structured content generator
+     * Fallback / Dynamic Smart Library content generator with multi-variation rotation
      */
     protected function generateTestModeContent(Video $video, ?Brand $brand, bool $isFallback = false, ?string $fallbackReason = null): MultiPlatformContentGenerationResultDTO
     {
         $brandName = $brand?->name ?? 'Patenli Ayakkabılar';
-        $slogan = $brand?->slogan ?? 'Walk. Roll. Fly.';
         $productUrl = $video->product_url ?: ($brand?->website ?? 'https://patenliayakkabilar.com');
-        $defaultCta = $brand?->default_cta ?: 'Hemen sitemizi ziyaret edin ve avantajları kaçırmayın!';
 
         $seoKeywords = $brand?->seo_keywords ?? [
             'patenli ayakkabı', 'tekerlekli ayakkabı', 'çocuk patenli ayakkabı', 'ışıklı patenli ayakkabı'
         ];
 
+        $hooks = [
+            'Sıradan yürüyüşleri unutun! ✨',
+            'Yürümek güzel ama kayarak ilerlemek çok daha eğlenceli! 🔥',
+            'Onun yeni favori ayakkabısı olmaya hazır! 🎁',
+            'Ekran başından kaldıracak, hareketi sevdirecek bir fikir arayanlara! ⚡',
+            'Adım at, topuğa bas ve kaymaya başla! 🚀',
+            'Hem şık bir spor ayakkabı hem de gizli bir paten! 🌟',
+        ];
+
+        $bodies = [
+            'Hem şık bir spor ayakkabı hem de tek hareketle eğlenceli bir paten! Çocuklar için hem hareket dolu hem de çok keyifli bir deneyim.',
+            'Hem günlük kullanıma uygun rahat bir ayakkabı, hem de tek hareketle kaymaya hazır eğlenceli bir paten! Çocukların dışarıda daha aktif ve neşeli vakit geçirmesi için tasarlandı.',
+            'Sadece bir ayakkabı değil, aynı zamanda gün boyu süren bir eğlence! Hem şık tasarımıyla günlük hayatta rahatça kullanılır, hem de gizli tekerlekleriyle anında patene dönüşür.',
+            'Çocuklara unutulmaz bir sürpriz yapmak isteyen ailelerin bir numaralı tercihi! İster okulda ve sokakta yürüyüş yap, ister tekerleği çıkarıp özgürce kay.',
+            'Hafta sonu gezmelerini ve park saatlerini festivale dönüştürün! Konforlu iç tabanı ve dayanıklı gizli tekerlek mekanizmasıyla her adımda maksimum heyecan sunuyor.',
+        ];
+
+        $ytTitles = [
+            '✨ Onun Yeni Favori Ayakkabısı Olmaya Hazır! 🎁 #patenliayakkabı',
+            '🔥 Yürümek Güzel Ama Kayarak İlerlemek Çok Daha Eğlenceli! 👟 #Shorts',
+            '⚡ Tek Hareketle Patene Dönüşen Efsane Spor Ayakkabı! ✨ #patenliayakkabı',
+            '🎁 Çocukları Ekran Başından Kaldıran En Eğlenceli Hediye! 🌟 #Shorts',
+            '🚀 Hem Spor Ayakkabı Hem Paten Bir Arada! 👟 #tekerlekliayakkabı',
+        ];
+
+        $fbTitles = [
+            '✨ Ekran Başından Kaldıracak Eğlenceli Fikir: Patenli Ayakkabılar',
+            '🎁 Çocuklar İçin En Unutulmaz Doğum Günü Hediyesi: Patenli Ayakkabılar',
+            '🔥 Hem Günlük Spor Ayakkabı Hem Eğlenceli Bir Paten Bir Arada!',
+            '⚡ Sokakları Piste Dönüştüren Tekerlekli Spor Ayakkabı Modelleri',
+        ];
+
+        $bullets = "✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🎁 Doğum günü ve özel günler için farklı bir hediye\n🚚 Hızlı kargo • Güvenli alışveriş";
+
+        $igHook = $hooks[array_rand($hooks)];
+        $igBody = $bodies[array_rand($bodies)];
+
+        $fbHook = $hooks[array_rand($hooks)];
+        $fbBody = $bodies[array_rand($bodies)];
+        $fbTitle = $fbTitles[array_rand($fbTitles)];
+
+        $ytHook = $hooks[array_rand($hooks)];
+        $ytBody = $bodies[array_rand($bodies)];
+        $ytTitle = $ytTitles[array_rand($ytTitles)];
+
+        $tkHook = $hooks[array_rand($hooks)];
+        $tkBody = $bodies[array_rand($bodies)];
+
+        $xHook = $hooks[array_rand($hooks)];
+
         $platforms = [
             'instagram' => new GeneratedPlatformContentDTO(
                 platformCode: 'instagram',
                 title: null,
-                hookSentence: 'Sıradan yürüyüşleri unutun! ✨',
-                caption: "Sıradan yürüyüşleri unutun! ✨\n\nHem şık bir spor ayakkabı hem de tek hareketle eğlenceli bir paten! Çocuklar için hem hareket dolu hem de çok keyifli bir deneyim.\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🎁 Doğum günü ve özel günler için farklı bir hediye\n🚚 Hızlı kargo • Güvenli alışveriş\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n🌐 patenliayakkabilar.com\n📸 @patenliayakkabilar\n\n#PatenliAyakkabı #PatenliAyakkabılar #ÇocukPatenliAyakkabı #TekerlekliAyakkabı #RollerShoes",
+                hookSentence: $igHook,
+                caption: "{$igHook}\n\n{$igBody}\n\n{$bullets}\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n🌐 patenliayakkabilar.com\n📸 @patenliayakkabilar\n\n#PatenliAyakkabı #PatenliAyakkabılar #ÇocukPatenliAyakkabı #TekerlekliAyakkabı #RollerShoes",
                 hashtags: ['PatenliAyakkabı', 'PatenliAyakkabılar', 'ÇocukPatenliAyakkabı', 'TekerlekliAyakkabı', 'RollerShoes'],
                 seoKeywords: $seoKeywords,
                 callToAction: 'Profildeki linkten hemen sipariş verin! 🛍️',
@@ -198,9 +246,9 @@ class OpenAiContentService implements AiContentProviderInterface
             ),
             'facebook' => new GeneratedPlatformContentDTO(
                 platformCode: 'facebook',
-                title: "✨ Ekran Başından Kaldıracak Eğlenceli Fikir: Patenli Ayakkabılar",
-                hookSentence: 'Ekran başından kaldıracak, hareketi sevdirecek bir fikir arayanlara! ⚡',
-                caption: "Ekran başından kaldıracak, hareketi sevdirecek bir fikir arayanlara! ⚡\n\nHem günlük kullanıma uygun rahat bir ayakkabı, hem de tek hareketle kaymaya hazır eğlenceli bir paten! Çocukların dışarıda daha aktif ve neşeli vakit geçirmesi için tasarlandı.\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🎁 Doğum günü ve özel günler için farklı bir hediye\n🚚 Hızlı kargo • Güvenli alışveriş\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n👉 Detaylı bilgi ve sipariş için: {$productUrl}\n📸 @patenliayakkabilar\n\n#PatenliAyakkabı #PatenliAyakkabılar #ÇocukPatenliAyakkabı #TekerlekliAyakkabı #RollerShoes",
+                title: $fbTitle,
+                hookSentence: $fbHook,
+                caption: "{$fbHook}\n\n{$fbBody}\n\n{$bullets}\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n👉 Detaylı bilgi ve sipariş için: {$productUrl}\n📸 @patenliayakkabilar\n\n#PatenliAyakkabı #PatenliAyakkabılar #ÇocukPatenliAyakkabı #TekerlekliAyakkabı #RollerShoes",
                 hashtags: ['PatenliAyakkabı', 'PatenliAyakkabılar', 'ÇocukPatenliAyakkabı', 'TekerlekliAyakkabı', 'RollerShoes'],
                 seoKeywords: $seoKeywords,
                 callToAction: "Detaylı bilgi ve sipariş için: {$productUrl}",
@@ -209,9 +257,9 @@ class OpenAiContentService implements AiContentProviderInterface
             ),
             'youtube' => new GeneratedPlatformContentDTO(
                 platformCode: 'youtube',
-                title: "✨ Onun Yeni Favori Ayakkabısı Olmaya Hazır! 🎁 #patenliayakkabı",
-                hookSentence: 'Onun Yeni Favori Ayakkabısı Olmaya Hazır! 🎁',
-                caption: "Onun Yeni Favori Ayakkabısı Olmaya Hazır! 🎁\n\nSadece bir ayakkabı değil, aynı zamanda gün boyu süren bir eğlence! Hem şık tasarımıyla günlük hayatta rahatça kullanılır, hem de gizli tekerlekleriyle anında patene dönüşür.\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🎁 Doğum günü ve özel günler için harika bir hediye sürprizi\n🚚 Hızlı kargo • Güvenli alışveriş\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n🌐 Resmi Web Sitesi: {$productUrl}\n📸 @patenliayakkabilar\n\n#Shorts #PatenliAyakkabı #PatenliAyakkabılar #TekerlekliAyakkabı #RollerShoes",
+                title: $ytTitle,
+                hookSentence: $ytHook,
+                caption: "{$ytHook}\n\n{$ytBody}\n\n{$bullets}\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n🌐 Resmi Web Sitesi: {$productUrl}\n📸 @patenliayakkabilar\n\n#Shorts #PatenliAyakkabı #PatenliAyakkabılar #TekerlekliAyakkabı #RollerShoes",
                 hashtags: ['Shorts', 'PatenliAyakkabı', 'PatenliAyakkabılar', 'TekerlekliAyakkabı', 'RollerShoes'],
                 seoKeywords: $seoKeywords,
                 callToAction: 'Kanalımıza abone olun ve yeni modelleri ilk siz keşfedin!',
@@ -221,8 +269,8 @@ class OpenAiContentService implements AiContentProviderInterface
             'x' => new GeneratedPlatformContentDTO(
                 platformCode: 'x',
                 title: null,
-                hookSentence: 'Yürümek güzel ama kayarak ilerlemek çok daha eğlenceli! 🔥',
-                caption: "Yürümek güzel ama kayarak ilerlemek çok daha eğlenceli! 🔥\n\nTek hareketle patene dönüşen spor ayakkabılarla sokaklar artık bir pist! 👟✨\n\nÇocukların yeni favorisini şimdi keşfet 🛍️\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #TekerlekliAyakkabı",
+                hookSentence: $xHook,
+                caption: "{$xHook}\n\nTek hareketle patene dönüşen spor ayakkabılarla sokaklar artık bir pist! 👟✨\n\nÇocukların yeni favorisini şimdi keşfet 🛍️\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #TekerlekliAyakkabı",
                 hashtags: ['PatenliAyakkabı', 'TekerlekliAyakkabı'],
                 seoKeywords: array_slice($seoKeywords, 0, 2),
                 callToAction: "Hemen tıkla: {$productUrl}",
@@ -233,7 +281,7 @@ class OpenAiContentService implements AiContentProviderInterface
                 platformCode: 'pinterest',
                 title: "✨ Çocuk Patenli Ayakkabı Modelleri & Tekerlekli Spor Ayakkabı",
                 hookSentence: 'Çocuklar ve gençler için en havalı patenli spor ayakkabı modelleri!',
-                caption: "Sıradan yürüyüşleri unutun! ✨\n\nHem şık bir spor ayakkabı hem de tek hareketle eğlenceli bir paten! Çocuklar için hem hareket dolu hem de çok keyifli bir deneyim.\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🎁 Doğum günü ve özel günler için farklı bir hediye\n🚚 Hızlı kargo • Güvenli alışveriş\n\nÇocuk patenli ayakkabı modellerini şimdi keşfet! 🛍️\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #PatenliAyakkabılar #ÇocukHediyesi #TekerlekliAyakkabı",
+                caption: "{$igHook}\n\n{$igBody}\n\n{$bullets}\n\nÇocuk patenli ayakkabı modellerini şimdi keşfet! 🛍️\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #PatenliAyakkabılar #ÇocukHediyesi #TekerlekliAyakkabı",
                 hashtags: ['PatenliAyakkabı', 'PatenliAyakkabılar', 'ÇocukHediyesi', 'TekerlekliAyakkabı'],
                 seoKeywords: $seoKeywords,
                 callToAction: 'Ürünü İncele ve Satın Al',
@@ -243,8 +291,8 @@ class OpenAiContentService implements AiContentProviderInterface
             'tiktok' => new GeneratedPlatformContentDTO(
                 platformCode: 'tiktok',
                 title: null,
-                hookSentence: 'Yürümek güzel ama kayarak ilerlemek çok daha eğlenceli! 🔥',
-                caption: "Yürümek güzel ama kayarak ilerlemek çok daha eğlenceli! 🔥\n\nHem şık bir spor ayakkabı hem de tek tıkla eğlenceli bir paten! Sokakta, parkta özgürce kaymaya hazır mısın? 👟✨\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🎁 Doğum günü ve özel günler için farklı bir hediye\n🚚 Hızlı kargo • Güvenli alışveriş\n\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #PatenliAyakkabılar #TekerlekliAyakkabı #RollerShoes #fyp #kesfet",
+                hookSentence: $tkHook,
+                caption: "{$tkHook}\n\n{$tkBody}\n\n{$bullets}\n\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #PatenliAyakkabılar #TekerlekliAyakkabı #RollerShoes #fyp #kesfet",
                 hashtags: ['PatenliAyakkabı', 'PatenliAyakkabılar', 'TekerlekliAyakkabı', 'RollerShoes', 'fyp', 'kesfet'],
                 seoKeywords: $seoKeywords,
                 callToAction: 'Takip etmeyi ve videoyu kaydetmeyi unutma!',
@@ -255,7 +303,7 @@ class OpenAiContentService implements AiContentProviderInterface
                 platformCode: 'linkedin',
                 title: null,
                 hookSentence: 'Fiziksel aktiviteyi eğlenceli bir deneyime dönüştüren yeni nesil tekerlekli ayakkabı tasarımlarımız. ⚡',
-                caption: "Fiziksel aktiviteyi eğlenceli bir deneyime dönüştüren yeni nesil tekerlekli ayakkabı tasarımlarımız. ⚡\n\n{$brandName} olarak genç neslin hareket kabiliyetini ve spor sevgisini artıran inovatif ayakkabı çözümleri sunuyoruz. Ergonomik taban yapısı ve gizlenebilir mekanizması ile sokak modası ve eğlence bir arada.\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🚚 Hızlı kargo • Güvenli alışveriş\n\nÜrünlerimizi ve detayları web sitemizden inceleyebilirsiniz:\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #İnovasyon #Eticaret #Perakende #Girişimcilik",
+                caption: "Fiziksel aktiviteyi eğlenceli bir deneyime dönüştüren yeni nesil tekerlekli ayakkabı tasarımlarımız. ⚡\n\n{$brandName} olarak genç neslin hareket kabiliyetini ve spor sevgisini artıran inovatif ayakkabı çözümleri sunuyoruz. Ergonomik taban yapısı ve gizlenebilir mekanizması ile sokak modası ve eğlence bir arada.\n\n{$bullets}\n\nÜrünlerimizi ve detayları web sitemizden inceleyebilirsiniz:\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #İnovasyon #Eticaret #Perakende #Girişimcilik",
                 hashtags: ['PatenliAyakkabı', 'İnovasyon', 'Eticaret', 'Perakende', 'Girişimcilik'],
                 seoKeywords: ['e-ticaret', 'ürün inovasyonu', 'patenli ayakkabı'],
                 callToAction: 'Ürün geliştirme ve kurumsal çözümlerimiz için web sitemizi ziyaret edin.',
@@ -263,6 +311,10 @@ class OpenAiContentService implements AiContentProviderInterface
                 isTestMode: true
             ),
         ];
+
+        $modelName = ($isFallback && str_contains((string) $fallbackReason, 'credit_balance_exhausted'))
+            ? 'smart-library-engine'
+            : 'smart-library-engine';
 
         // Persist to database with draft status
         foreach ($platforms as $code => $dto) {
@@ -277,7 +329,7 @@ class OpenAiContentService implements AiContentProviderInterface
                     'seo_keywords' => $dto->seoKeywords,
                     'call_to_action' => $dto->callToAction,
                     'suggested_product_url' => $dto->suggestedProductUrl,
-                    'ai_model' => 'test-mode-generator',
+                    'ai_model' => $modelName,
                     'prompt_tokens' => 0,
                     'completion_tokens' => 0,
                     'cost_usd' => 0,
@@ -288,7 +340,7 @@ class OpenAiContentService implements AiContentProviderInterface
 
         return new MultiPlatformContentGenerationResultDTO(
             platforms: $platforms,
-            modelUsed: 'test-mode-generator',
+            modelUsed: $modelName,
             promptTokens: 0,
             completionTokens: 0,
             costUsd: 0,

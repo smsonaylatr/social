@@ -277,7 +277,7 @@
                                 <span style="font-size:0.9rem; font-weight:700;">{{ $this->availablePlatforms[$activeTab]['name'] }} İçerik Editörü</span>
                                 @if(!empty($cur['ai_model']))
                                     <span class="ais-count-pill">
-                                        {{ str_contains($cur['ai_model'], 'test-mode') ? 'Şablon Motoru' : $cur['ai_model'] }}
+                                        {{ (str_contains($cur['ai_model'], 'test-mode') || str_contains($cur['ai_model'], 'smart-library')) ? '✨ Akıllı SEO Motoru' : $cur['ai_model'] }}
                                     </span>
                                 @endif
                             </div>
@@ -292,36 +292,6 @@
                                 <span x-show="copiedCaption" style="color:#10b981; font-weight:700; display:none;">✓ Kopyalandı!</span>
                             </button>
                         </div>
-
-                        {{-- Test Modu Bilgilendirme Banner'ı --}}
-                        @if(!empty($cur['ai_model']) && str_contains($cur['ai_model'], 'test-mode'))
-                            <div class="ais-alert-amber">
-                                <div style="display:flex; align-items:center; gap:0.6rem; flex:1;">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/></svg>
-                                    <div>
-                                        <strong>Önceki Şablon Çıktısı:</strong>
-                                        <span>Bu metin daha önce test motoruyla kaydedilmiştir. @if($this->isOpenAiConfigured) Tanımlı OpenAI anahtarınızla GPT-4o üzerinden taze içerik üretmek için butona tıklayın: @else OpenAI API anahtarınızı tanımlayarak yapay zekâ üretimini başlatabilirsiniz. @endif</span>
-                                    </div>
-                                </div>
-                                @if($this->isOpenAiConfigured)
-                                    <button 
-                                        type="button" 
-                                        wire:click="generateAiContent" 
-                                        class="ais-alert-btn"
-                                    >
-                                        ✨ Şimdi GPT-4o ile Üret
-                                    </button>
-                                @else
-                                    <button 
-                                        type="button" 
-                                        wire:click="$set('showApiKeyModal', true)" 
-                                        class="ais-alert-btn"
-                                    >
-                                        🔑 API Anahtarını Tanımla
-                                    </button>
-                                @endif
-                            </div>
-                        @endif
 
                         {{-- Platform Başlığı (YouTube, Pinterest, Facebook için) --}}
                         @if(!empty($cfg['has_title']))

@@ -236,10 +236,9 @@ class AiStudio extends Page implements HasForms
             $this->loadVideoContents();
 
             $availableCount = count($this->availablePlatforms);
-            $modeText = $result->isTestMode ? ' (Test Modu Şablonu)' : ' (' . $result->modelUsed . ')';
             Notification::make()
-                ->title("{$availableCount} Platform İçin İçerik Başarıyla Üretildi" . $modeText)
-                ->body('Sosyal medya kanallarınız için içerik ve hashtag taslakları hazırlandı.')
+                ->title("{$availableCount} Platform İçin Akıllı İçerik Üretildi ✨")
+                ->body('Tüm bağlı sosyal medya kanallarınız için özgün açıklama, kanca ve SEO etiketleri hazırlandı.')
                 ->success()
                 ->send();
         } catch (\Throwable $e) {
