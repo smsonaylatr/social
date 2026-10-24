@@ -214,9 +214,7 @@
                             <span>{{ $tabInfo['name'] }}</span>
 
                             @if($isConnected)
-                                <span class="ais-tab-badge-conn">
-                                    ● {{ $tabInfo['username'] ? '@' . $tabInfo['username'] : 'Bağlı' }}
-                                </span>
+                                <span class="ais-tab-badge-conn">Bağlı</span>
                             @else
                                 <span class="ais-tab-badge-off">Bağlantı Yok</span>
                             @endif
