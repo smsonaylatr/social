@@ -1026,3 +1026,151 @@ html.dark .scheduled-target-card .border-t,
     border-top-color: #27272a;
 }
 
+/* ==========================================================================
+   AI Studio 2.0 - Next-Gen Creative Workspace & Simulator
+   ========================================================================== */
+
+.ai-studio-hero {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(168, 85, 247, 0.03) 100%), #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+}
+
+.dark .ai-studio-hero {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.05) 50%, rgba(24, 24, 27, 0.95) 100%), #141417;
+    border-color: #27272a;
+    box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.4);
+}
+
+.ai-studio-btn-magic {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+    color: #ffffff !important;
+    box-shadow: 0 4px 16px -2px rgba(139, 92, 246, 0.45);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-studio-btn-magic:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px -2px rgba(139, 92, 246, 0.6);
+    filter: brightness(1.08);
+}
+
+.ai-studio-btn-magic:active {
+    transform: translateY(0);
+}
+
+/* Phone Bezel Simulator */
+.ai-phone-frame {
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+    border-radius: 36px;
+    border: 8px solid #1e1e24;
+    background: #09090b;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+.dark .ai-phone-frame {
+    border-color: #22222a;
+    box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.ai-phone-island {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 18px;
+    background: #000000;
+    border-radius: 12px;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.ai-phone-island-lens {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #111827;
+    border: 1px solid #374151;
+}
+
+/* Hook Overlay Banner on Video */
+.ai-hook-sticker {
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    border-radius: 0.6rem;
+    animation: pulse-subtle 3s infinite ease-in-out;
+}
+
+@keyframes pulse-subtle {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+/* Interactive Hashtag Chips */
+.ai-hashtag-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    transition: all 0.15s ease;
+}
+
+.dark .ai-hashtag-chip {
+    background: rgba(99, 102, 241, 0.18);
+    color: #a5b4fc;
+    border-color: rgba(99, 102, 241, 0.35);
+}
+
+.ai-hashtag-chip:hover {
+    background: rgba(99, 102, 241, 0.25);
+    border-color: #6366f1;
+}
+
+/* Tab Pill Active Styles */
+.ai-platform-tab {
+    position: relative;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-platform-tab.is-active {
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.dark .ai-platform-tab.is-active {
+    background: #1f1f24;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* X (Twitter) Card Mockup */
+.ai-x-card {
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    border-radius: 1rem;
+}
+
+.dark .ai-x-card {
+    border-color: #27272a;
+    background: #000000;
+}
+
+

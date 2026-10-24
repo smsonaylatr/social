@@ -34,9 +34,14 @@ class AiStudio extends Page implements HasForms
     public bool $isTestMode = false;
     public ?string $modelUsed = null;
     public bool $onlyConnected = true;
+    public ?string $openAiKeyInput = null;
+    public ?string $openAiModelInput = 'gpt-4o-mini';
+    public bool $showApiKeyModal = false;
 
     public function mount(): void
     {
+        $this->openAiModelInput = config('services.openai.model') ?: \App\Models\Setting::get('openai_model', 'gpt-4o-mini');
+
         $firstVideo = Video::orderBy('id', 'asc')->first();
         if ($firstVideo) {
             $this->selectedVideoId = $firstVideo->id;
@@ -50,6 +55,46 @@ class AiStudio extends Page implements HasForms
         if ($this->selectedVideoId) {
             $this->loadVideoContents();
         }
+    }
+
+    public function getIsOpenAiConfiguredProperty(): bool
+    {
+        $key = config('services.openai.api_key') ?: env('OPENAI_API_KEY') ?: \App\Models\Setting::get('openai_api_key');
+        return ! empty($key) && ! str_starts_with($key, 'mock_');
+    }
+
+    public function getMaskedApiKeyProperty(): ?string
+    {
+        $key = config('services.openai.api_key') ?: env('OPENAI_API_KEY') ?: \App\Models\Setting::get('openai_api_key');
+        if (empty($key)) {
+            return null;
+        }
+
+        if (strlen($key) <= 8) {
+            return '••••••••';
+        }
+
+        return substr($key, 0, 7) . '••••••••' . substr($key, -4);
+    }
+
+    public function saveOpenAiSettings(): void
+    {
+        if (! empty($this->openAiKeyInput)) {
+            \App\Models\Setting::set('openai_api_key', trim($this->openAiKeyInput));
+        }
+
+        if (! empty($this->openAiModelInput)) {
+            \App\Models\Setting::set('openai_model', trim($this->openAiModelInput));
+        }
+
+        $this->openAiKeyInput = null;
+        $this->showApiKeyModal = false;
+
+        Notification::make()
+            ->title('OpenAI Ayarları Kaydedildi')
+            ->body('API anahtarı ve model yapılandırması başarıyla güncellendi.')
+            ->success()
+            ->send();
     }
 
     public function updatedSelectedVideoId(): void
@@ -206,30 +251,92 @@ class AiStudio extends Page implements HasForms
         }
     }
 
-    public function savePlatformContent(string $platformCode): void
+    public function previousVideo(): void
+    {
+        if (! $this->selectedVideoId) {
+            return;
+        }
+
+        $prev = Video::where('id', '<', $this->selectedVideoId)->orderBy('id', 'desc')->first();
+        if ($prev) {
+            $this->selectedVideoId = $prev->id;
+            $this->loadVideoContents();
+        }
+    }
+
+    public function nextVideo(): void
+    {
+        if (! $this->selectedVideoId) {
+            return;
+        }
+
+        $next = Video::where('id', '>', $this->selectedVideoId)->orderBy('id', 'asc')->first();
+        if ($next) {
+            $this->selectedVideoId = $next->id;
+            $this->loadVideoContents();
+        }
+    }
+
+    public function getHasPreviousVideoProperty(): bool
+    {
+        return $this->selectedVideoId ? Video::where('id', '<', $this->selectedVideoId)->exists() : false;
+    }
+
+    public function getHasNextVideoProperty(): bool
+    {
+        return $this->selectedVideoId ? Video::where('id', '>', $this->selectedVideoId)->exists() : false;
+    }
+
+    public function getVideoListProperty()
+    {
+        return Video::orderBy('id', 'asc')->get();
+    }
+
+    public function savePlatformContent(string $platformCode, bool $notify = true): void
     {
         if (! $this->selectedVideoId || empty($this->platformContents[$platformCode])) {
             return;
         }
 
         $data = $this->platformContents[$platformCode];
-        $hashtagsArray = array_filter(array_map('trim', explode(' ', str_replace(['#', ','], ' ', $data['hashtags']))));
+        $hashtagsArray = array_filter(array_map('trim', explode(' ', str_replace(['#', ','], ' ', $data['hashtags'] ?? ''))));
 
         AiContentGeneration::updateOrCreate(
             ['video_id' => $this->selectedVideoId, 'platform_code' => $platformCode],
             [
-                'title' => $data['title'],
-                'hook_sentence' => $data['hook_sentence'],
-                'caption' => $data['caption'],
+                'title' => $data['title'] ?? null,
+                'hook_sentence' => $data['hook_sentence'] ?? null,
+                'caption' => $data['caption'] ?? '',
                 'hashtags' => array_values($hashtagsArray),
-                'call_to_action' => $data['call_to_action'],
-                'suggested_product_url' => $data['suggested_product_url'],
+                'call_to_action' => $data['call_to_action'] ?? null,
+                'suggested_product_url' => $data['suggested_product_url'] ?? null,
                 'status' => $data['status'] ?? 'approved',
             ]
         );
 
+        if ($notify) {
+            Notification::make()
+                ->title(ucfirst($platformCode) . ' içeriği kaydedildi')
+                ->success()
+                ->send();
+        }
+    }
+
+    public function saveAllPlatformContents(): void
+    {
+        if (! $this->selectedVideoId) {
+            return;
+        }
+
+        foreach (array_keys($this->availablePlatforms) as $platformCode) {
+            if (! empty($this->platformContents[$platformCode])) {
+                $this->savePlatformContent($platformCode, false);
+            }
+        }
+
         Notification::make()
-            ->title(ucfirst($platformCode) . ' içeriği kaydedildi')
+            ->title('Tüm Platform İçerikleri Kaydedildi')
+            ->body('Aktif tüm kanallardaki metinler ve durumlar başarıyla güncellendi.')
             ->success()
             ->send();
     }

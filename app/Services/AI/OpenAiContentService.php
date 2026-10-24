@@ -21,13 +21,14 @@ class OpenAiContentService implements AiContentProviderInterface
 
     public function __construct()
     {
-        $this->apiKey = env('OPENAI_API_KEY') ?: Setting::get('openai_api_key');
-        $this->model = Setting::get('openai_model', 'gpt-4o-mini');
+        $this->apiKey = config('services.openai.api_key') ?: env('OPENAI_API_KEY') ?: Setting::get('openai_api_key');
+        $this->model = config('services.openai.model') ?: Setting::get('openai_model', 'gpt-4o-mini');
     }
 
     public function isConfigured(): bool
     {
-        return ! empty($this->apiKey) && ! str_starts_with($this->apiKey, 'mock_');
+        $key = config('services.openai.api_key') ?: env('OPENAI_API_KEY') ?: Setting::get('openai_api_key');
+        return ! empty($key) && ! str_starts_with($key, 'mock_');
     }
 
     /**
@@ -44,8 +45,8 @@ class OpenAiContentService implements AiContentProviderInterface
         try {
             return $this->callOpenAiApi($video, $brand);
         } catch (\Throwable $e) {
-            Log::error('OpenAI API call failed, falling back to test mode: ' . $e->getMessage());
-            return $this->generateTestModeContent($video, $brand, true, $e->getMessage());
+            Log::error('OpenAI API call failed: ' . $e->getMessage());
+            throw $e;
         }
     }
 
@@ -69,6 +70,9 @@ class OpenAiContentService implements AiContentProviderInterface
      */
     protected function callOpenAiApi(Video $video, ?Brand $brand): MultiPlatformContentGenerationResultDTO
     {
+        $this->apiKey = config('services.openai.api_key') ?: env('OPENAI_API_KEY') ?: Setting::get('openai_api_key');
+        $this->model = config('services.openai.model') ?: Setting::get('openai_model', 'gpt-4o-mini');
+
         $startTime = microtime(true);
         $systemPrompt = $this->buildSystemPrompt($brand);
         $userPrompt = $this->buildUserPrompt($video, $brand);

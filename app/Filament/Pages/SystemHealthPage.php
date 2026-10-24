@@ -72,7 +72,7 @@ class SystemHealthPage extends Page
         }
 
         // 5. OpenAI
-        $aiKeyConfigured = ! empty(env('OPENAI_API_KEY')) || ! empty(Setting::get('openai_api_key'));
+        $aiKeyConfigured = ! empty(config('services.openai.api_key')) || ! empty(env('OPENAI_API_KEY')) || ! empty(Setting::get('openai_api_key'));
 
         // 6. Social Platforms
         $platforms = SocialPlatform::withCount(['accounts as active_accounts_count' => function ($q) {

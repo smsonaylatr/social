@@ -53,7 +53,7 @@ class SystemHealthOverviewWidget extends Widget
         }
 
         // 5. OpenAI API Key configured?
-        $openAiKeyConfigured = ! empty(env('OPENAI_API_KEY')) || ! empty(Setting::get('openai_api_key'));
+        $openAiKeyConfigured = ! empty(config('services.openai.api_key')) || ! empty(env('OPENAI_API_KEY')) || ! empty(Setting::get('openai_api_key'));
 
         return [
             'services' => [
