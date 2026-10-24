@@ -42,6 +42,9 @@ class AiStudio extends Page implements HasForms
     {
         $this->openAiModelInput = config('services.openai.model') ?: \App\Models\Setting::get('openai_model', 'gpt-4o-mini');
 
+        // Tüm mevcut taslak içerikleri otomatik olarak Yayına Hazır (approved) durumuna geçir
+        AiContentGeneration::where('status', 'draft')->update(['status' => 'approved']);
+
         $firstVideo = Video::orderBy('id', 'asc')->first();
         if ($firstVideo) {
             $this->selectedVideoId = $firstVideo->id;
@@ -86,6 +89,8 @@ class AiStudio extends Page implements HasForms
         if (! empty($this->openAiModelInput)) {
             \App\Models\Setting::set('openai_model', trim($this->openAiModelInput));
         }
+
+        \Illuminate\Support\Facades\Cache::forget('openai_quota_exhausted');
 
         $this->openAiKeyInput = null;
         $this->showApiKeyModal = false;
@@ -177,8 +182,37 @@ class AiStudio extends Page implements HasForms
         }
 
         $generations = AiContentGeneration::where('video_id', $this->selectedVideoId)->get();
-
         $platformCodes = array_keys($this->availablePlatforms);
+
+        // Eğer seçili video için henüz içerik üretilmemişse veya eksik platform varsa otomatik doldur
+        $needsAutoGeneration = false;
+        foreach ($platformCodes as $code) {
+            $gen = $generations->firstWhere('platform_code', $code);
+            if (! $gen || empty(trim((string) $gen->caption))) {
+                $needsAutoGeneration = true;
+                break;
+            }
+        }
+
+        if ($needsAutoGeneration) {
+            $video = Video::find($this->selectedVideoId);
+            if ($video) {
+                try {
+                    /** @var AiContentProviderInterface $service */
+                    $service = app(AiContentProviderInterface::class);
+                    $service->generateForVideo($video);
+                    $generations = AiContentGeneration::where('video_id', $this->selectedVideoId)->get();
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Auto AI content fill failed: ' . $e->getMessage());
+                }
+            }
+        }
+
+        // Tüm taslakları otomatik olarak Yayına Hazır (approved) durumuna yükselt
+        AiContentGeneration::where('video_id', $this->selectedVideoId)
+            ->where('status', 'draft')
+            ->update(['status' => 'approved']);
+
         $this->platformContents = [];
 
         foreach ($platformCodes as $code) {
@@ -193,7 +227,7 @@ class AiStudio extends Page implements HasForms
                     'hashtags' => is_array($gen->hashtags) ? implode(' ', array_map(fn ($t) => '#' . ltrim($t, '#'), $gen->hashtags)) : '',
                     'call_to_action' => $gen->call_to_action,
                     'suggested_product_url' => $gen->suggested_product_url,
-                    'status' => $gen->status,
+                    'status' => ($gen->status === 'draft' || empty($gen->status)) ? 'approved' : $gen->status,
                     'ai_model' => $gen->ai_model,
                 ];
             } else {
@@ -205,7 +239,7 @@ class AiStudio extends Page implements HasForms
                     'hashtags' => '',
                     'call_to_action' => '',
                     'suggested_product_url' => '',
-                    'status' => 'draft',
+                    'status' => 'approved',
                     'ai_model' => null,
                 ];
             }
@@ -338,6 +372,150 @@ class AiStudio extends Page implements HasForms
             ->body('Aktif tüm kanallardaki metinler ve durumlar başarıyla güncellendi.')
             ->success()
             ->send();
+    }
+
+    public function publishSinglePlatform(string $platformCode): void
+    {
+        if (! $this->selectedVideoId) {
+            Notification::make()->title('Lütfen önce bir video seçin')->warning()->send();
+            return;
+        }
+
+        $video = Video::find($this->selectedVideoId);
+        if (! $video) {
+            Notification::make()->title('Video bulunamadı')->danger()->send();
+            return;
+        }
+
+        $this->platformContents[$platformCode]['status'] = 'approved';
+        $this->savePlatformContent($platformCode, false);
+
+        $account = \App\Models\SocialAccount::where('status', 'active')
+            ->whereHas('platform', fn ($q) => $q->where('code', $platformCode))
+            ->first();
+
+        if (! $account) {
+            Notification::make()
+                ->title('Bağlı Hesap Bulunamadı')
+                ->body('Bu platform (' . ($this->availablePlatforms[$platformCode]['name'] ?? ucfirst($platformCode)) . ') için aktif bir hesap bağlı değil. Lütfen Hesapları Yönet sayfasından kanalı bağlayın.')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        try {
+            $schedulingService = app(\App\Services\Publisher\SchedulingService::class);
+            $scheduledPost = $schedulingService->createScheduledPost($video, now(), [$account->id]);
+            $target = $scheduledPost->targets()->first();
+
+            if ($target) {
+                \App\Jobs\DispatchPlatformPostJob::dispatchSync($target->id);
+                $target->refresh();
+
+                $platformName = $this->availablePlatforms[$platformCode]['name'] ?? ucfirst($platformCode);
+
+                if ($target->status === \App\Enums\PublishStatus::PUBLISHED) {
+                    Notification::make()
+                        ->title("🚀 {$platformName} Kanalında Yayınlandı!")
+                        ->body("Video (@{$account->username}) hesabında başarıyla paylaşıldı." . ($target->external_post_id ? " (Post ID: {$target->external_post_id})" : ''))
+                        ->success()
+                        ->send();
+                } else {
+                    Notification::make()
+                        ->title("{$platformName} Yayınlama Hatası")
+                        ->body($target->error_message ?: 'Yayınlama sırasında bilinmeyen bir hata oluştu.')
+                        ->danger()
+                        ->send();
+                }
+            }
+        } catch (\Throwable $e) {
+            Notification::make()
+                ->title('Yayınlama Hatası')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function publishAllPlatforms(): void
+    {
+        if (! $this->selectedVideoId) {
+            Notification::make()->title('Lütfen önce bir video seçin')->warning()->send();
+            return;
+        }
+
+        $video = Video::find($this->selectedVideoId);
+        if (! $video) {
+            Notification::make()->title('Video bulunamadı')->danger()->send();
+            return;
+        }
+
+        foreach (array_keys($this->availablePlatforms) as $code) {
+            if (isset($this->platformContents[$code])) {
+                $this->platformContents[$code]['status'] = 'approved';
+                $this->savePlatformContent($code, false);
+            }
+        }
+
+        $accounts = \App\Models\SocialAccount::where('status', 'active')
+            ->whereHas('platform', fn ($q) => $q->whereIn('code', array_keys($this->availablePlatforms)))
+            ->get();
+
+        if ($accounts->isEmpty()) {
+            Notification::make()
+                ->title('Bağlı Hesap Bulunamadı')
+                ->body('Yayın yapılacak aktif bir sosyal medya hesabı bulunamadı.')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        try {
+            $schedulingService = app(\App\Services\Publisher\SchedulingService::class);
+            $scheduledPost = $schedulingService->createScheduledPost($video, now(), $accounts->pluck('id')->toArray());
+
+            $successCount = 0;
+            $failCount = 0;
+            $errors = [];
+
+            foreach ($scheduledPost->targets as $target) {
+                \App\Jobs\DispatchPlatformPostJob::dispatchSync($target->id);
+                $target->refresh();
+
+                if ($target->status === \App\Enums\PublishStatus::PUBLISHED) {
+                    $successCount++;
+                } else {
+                    $failCount++;
+                    $errors[] = strtoupper($target->platform_code) . ': ' . ($target->error_message ?: 'Hata');
+                }
+            }
+
+            if ($successCount > 0 && $failCount === 0) {
+                Notification::make()
+                    ->title("🚀 {$successCount} Platformda Başarıyla Yayınlandı!")
+                    ->body('Seçili video tüm bağlı sosyal medya kanallarınızda anında paylaşıldı.')
+                    ->success()
+                    ->send();
+            } elseif ($successCount > 0 && $failCount > 0) {
+                Notification::make()
+                    ->title("⚠️ Kısmi Yayınlama ({$successCount} Başarılı, {$failCount} Hatalı)")
+                    ->body(implode(' | ', array_slice($errors, 0, 2)))
+                    ->warning()
+                    ->send();
+            } else {
+                Notification::make()
+                    ->title('Yayınlama Başarısız Oldu')
+                    ->body(implode(' | ', array_slice($errors, 0, 2)))
+                    ->danger()
+                    ->send();
+            }
+        } catch (\Throwable $e) {
+            Notification::make()
+                ->title('Toplu Yayınlama Hatası')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
     }
 
     public function getSelectedVideoProperty(): ?Video

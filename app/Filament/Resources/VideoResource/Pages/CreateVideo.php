@@ -101,6 +101,12 @@ class CreateVideo extends CreateRecord
                 'is_reusable' => true,
             ]));
 
+            try {
+                app(\App\Services\AI\Contracts\AiContentProviderInterface::class)->generateForVideo($video, $defaultBrand);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Otomatik AI içerik üretimi hatası: ' . $e->getMessage());
+            }
+
             $createdVideos[] = $video;
         }
 

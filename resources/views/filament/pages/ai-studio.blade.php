@@ -93,20 +93,37 @@
                 @endif
             </div>
 
-            {{-- Sağ: AI Üretim Butonu ve API Ayarları --}}
+            {{-- Sağ: AI Üretim, Toplu Yayınlama ve API Ayarları --}}
             <div class="ais-hero-right">
-                <button 
-                    type="button"
-                    wire:click="generateAiContent"
-                    wire:loading.attr="disabled"
-                    class="ais-btn-magic"
-                >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#fde047" style="flex-shrink:0;">
-                        <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/>
-                    </svg>
-                    <span wire:loading.remove wire:target="generateAiContent">{{ $platformsCount }} Platform İçin Akıllı İçerik Üret</span>
-                    <span wire:loading wire:target="generateAiContent">Yapay Zekâ Analiz Ediyor...</span>
-                </button>
+                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.6rem;">
+                    <button 
+                        type="button"
+                        wire:click="generateAiContent"
+                        wire:loading.attr="disabled"
+                        class="ais-btn-magic"
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#fde047" style="flex-shrink:0;">
+                            <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/>
+                        </svg>
+                        <span wire:loading.remove wire:target="generateAiContent">{{ $platformsCount }} Platform İçin Akıllı İçerik Üret</span>
+                        <span wire:loading wire:target="generateAiContent">İçerik Üretiliyor...</span>
+                    </button>
+
+                    <button 
+                        type="button"
+                        wire:click="publishAllPlatforms"
+                        wire:loading.attr="disabled"
+                        class="ais-btn-save"
+                        style="padding:0.78rem 1.2rem; font-size:0.84rem; border-radius:0.75rem;"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                        <span wire:loading.remove wire:target="publishAllPlatforms">Tüm Kanallarda Yayınla</span>
+                        <span wire:loading wire:target="publishAllPlatforms">Yayınlanıyor...</span>
+                    </button>
+                </div>
 
                 <div class="ais-hero-subrow">
                     <button 
@@ -448,7 +465,7 @@
                             @endif
                         </div>
 
-                        {{-- Alt Kaydetme ve Durum Çubuğu --}}
+                        {{-- Alt Kaydetme, Yayınlama ve Durum Çubuğu --}}
                         <div class="ais-footer-bar">
                             <div style="display:flex; align-items:center; gap:0.6rem;">
                                 <label class="ais-label">Onay Durumu:</label>
@@ -457,20 +474,37 @@
                                     class="ais-select"
                                     style="width:auto; padding:0.4rem 1.8rem 0.4rem 0.65rem; font-size:0.78rem;"
                                 >
+                                    <option value="approved">Yayına Hazır (Onaylandı)</option>
                                     <option value="draft">Taslak</option>
-                                    <option value="approved">Onaylandı (Yayına Hazır)</option>
                                     <option value="rejected">Reddedildi</option>
                                 </select>
                             </div>
 
-                            <button 
-                                type="button"
-                                wire:click="savePlatformContent('{{ $activeTab }}')"
-                                class="ais-btn-save"
-                            >
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                <span>{{ ucfirst($activeTab) }} İçeriğini Kaydet</span>
-                            </button>
+                            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.55rem;">
+                                <button 
+                                    type="button"
+                                    wire:click="savePlatformContent('{{ $activeTab }}')"
+                                    class="ais-copy-btn"
+                                    style="padding:0.58rem 1rem; font-size:0.78rem;"
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    <span>Değişiklikleri Kaydet</span>
+                                </button>
+
+                                <button 
+                                    type="button"
+                                    wire:click="publishSinglePlatform('{{ $activeTab }}')"
+                                    wire:loading.attr="disabled"
+                                    class="ais-btn-save"
+                                >
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                    </svg>
+                                    <span wire:loading.remove wire:target="publishSinglePlatform('{{ $activeTab }}')">{{ $this->availablePlatforms[$activeTab]['name'] }} Kanalında Yayınla</span>
+                                    <span wire:loading wire:target="publishSinglePlatform('{{ $activeTab }}')">Yayınlanıyor...</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 

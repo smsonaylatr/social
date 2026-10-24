@@ -38,13 +38,16 @@ class OpenAiContentService implements AiContentProviderInterface
     {
         $brand = $brand ?: $video->brand ?: Brand::first();
 
-        if (! $this->isConfigured()) {
+        if (! $this->isConfigured() || \Illuminate\Support\Facades\Cache::get('openai_quota_exhausted')) {
             return $this->generateTestModeContent($video, $brand);
         }
 
         try {
             return $this->callOpenAiApi($video, $brand);
         } catch (\Throwable $e) {
+            if (str_contains($e->getMessage(), '429') || str_contains($e->getMessage(), 'credit_balance_exhausted') || str_contains($e->getMessage(), 'insufficient_quota')) {
+                \Illuminate\Support\Facades\Cache::put('openai_quota_exhausted', true, now()->addMinutes(15));
+            }
             Log::warning('OpenAI API call failed, using dynamic smart library engine: ' . $e->getMessage());
             return $this->generateTestModeContent($video, $brand, true, $e->getMessage());
         }
@@ -155,7 +158,7 @@ class OpenAiContentService implements AiContentProviderInterface
                     'prompt_tokens' => (int) round($promptTokens / 7),
                     'completion_tokens' => (int) round($completionTokens / 7),
                     'cost_usd' => $costUsd / 7,
-                    'status' => 'draft',
+                    'status' => 'approved',
                 ]
             );
         }
@@ -316,7 +319,7 @@ class OpenAiContentService implements AiContentProviderInterface
             ? 'smart-library-engine'
             : 'smart-library-engine';
 
-        // Persist to database with draft status
+        // Persist to database with approved status (ready to publish)
         foreach ($platforms as $code => $dto) {
             AiContentGeneration::updateOrCreate(
                 ['video_id' => $video->id, 'platform_code' => $code],
@@ -333,7 +336,7 @@ class OpenAiContentService implements AiContentProviderInterface
                     'prompt_tokens' => 0,
                     'completion_tokens' => 0,
                     'cost_usd' => 0,
-                    'status' => 'draft',
+                    'status' => 'approved',
                 ]
             );
         }
