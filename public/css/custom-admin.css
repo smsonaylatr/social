@@ -1868,5 +1868,121 @@ html.dark .scheduled-target-card .border-t,
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
+/* AI Studio Publishing Loading Popup Modal */
+.ais-publish-popup-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(9, 9, 11, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+}
+
+.ais-publish-popup-card {
+    width: 100%;
+    max-width: 440px;
+    background: #18181b;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    border-radius: 1.25rem;
+    padding: 1.85rem 1.65rem;
+    box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.75), 0 0 35px rgba(16, 185, 129, 0.15);
+    text-align: center;
+    color: #f4f4f5;
+    position: relative;
+    overflow: hidden;
+}
+
+.ais-publish-spinner-wrap {
+    width: 68px;
+    height: 68px;
+    margin: 0 auto 1.15rem auto;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ais-publish-spinner-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 3px solid rgba(16, 185, 129, 0.2);
+    border-top-color: #10b981;
+    border-right-color: #34d399;
+    animation: ais-spin 0.95s linear infinite;
+}
+
+.ais-publish-spinner-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(5, 150, 105, 0.12));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #34d399;
+}
+
+@keyframes ais-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes ais-progress-indeterminate {
+    0% {
+        transform: translateX(-100%);
+    }
+    50% {
+        transform: translateX(20%);
+    }
+    100% {
+        transform: translateX(120%);
+    }
+}
+
+.ais-publish-progress-track {
+    width: 100%;
+    height: 6px;
+    background: #27272a;
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 1.15rem 0;
+}
+
+.ais-publish-progress-bar {
+    width: 55%;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #059669, #10b981, #34d399);
+    animation: ais-progress-indeterminate 1.6s ease-in-out infinite;
+}
+
+.ais-publish-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 0.85rem;
+    padding: 0.85rem 1rem;
+    margin-top: 0.5rem;
+}
+
+.ais-publish-step-item {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.76rem;
+    color: #d4d4d8;
+    line-height: 1.35;
+}
+
+
 
 

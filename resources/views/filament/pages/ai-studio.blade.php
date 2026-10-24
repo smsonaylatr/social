@@ -735,5 +735,56 @@
                 </div>
             </div>
         @endif
+
+        {{-- Yayınlanıyor (Publishing) Canlı Durum Pop-up Modalı --}}
+        <div 
+            wire:loading.flex 
+            wire:target="publishSinglePlatform, publishAllPlatforms" 
+            class="ais-publish-popup-overlay"
+        >
+            <div class="ais-publish-popup-card">
+                <div class="ais-publish-spinner-wrap">
+                    <div class="ais-publish-spinner-ring"></div>
+                    <div class="ais-publish-spinner-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </div>
+                </div>
+
+                <div style="font-size:1.05rem; font-weight:800; color:#ffffff; margin-bottom:0.35rem;">
+                    <span wire:loading wire:target="publishSinglePlatform">
+                        {{ $this->availablePlatforms[$activeTab]['name'] ?? 'Sosyal Medya' }} Kanalında Yayınlanıyor...
+                    </span>
+                    <span wire:loading wire:target="publishAllPlatforms">
+                        Tüm Bağlı Kanallarda Yayınlanıyor...
+                    </span>
+                </div>
+
+                <div style="font-size:0.78rem; color:#a1a1aa; line-height:1.45;">
+                    Videonuz sosyal medya sunucularına yükleniyor ve işleniyor. Bu işlem platformun video işleme süresine göre <strong>15–45 saniye</strong> sürebilir.
+                </div>
+
+                <div class="ais-publish-progress-track">
+                    <div class="ais-publish-progress-bar"></div>
+                </div>
+
+                <div class="ais-publish-steps">
+                    <div class="ais-publish-step-item">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <span>İçerik metni, açıklama ve hashtag'ler hazırlandı</span>
+                    </div>
+                    <div class="ais-publish-step-item">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        <span>Video medya konteyneri sosyal ağa aktarılıyor...</span>
+                    </div>
+                    <div class="ais-publish-step-item" style="color:#fbbf24;">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        <span>Lütfen işlem tamamlanana kadar sayfayı kapatmayın</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </x-filament-panels::page>
