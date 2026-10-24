@@ -208,6 +208,10 @@ class XPublisher extends AbstractSocialPublisher
             return 'X (Twitter) Erişim Anahtarı (Access Token) süresi dolmuş veya geçersiz. X OAuth 2.0 anahtarları 2 saatte bir yenilenir; lütfen Sosyal Medya Kanalları > X (Twitter) sayfasından hesabınızı yeniden yetkilendirin.';
         }
 
+        if ($status === 402 || str_contains(strtolower($detail), 'credits depleted')) {
+            return 'X (Twitter) API Kredisi Tükendi (402 Credits Depleted): X Developer Portal (developer.x.com) hesabınızdaki API kullanım kredisi/kotası tükenmiş görünüyor.';
+        }
+
         if ($status === 403) {
             return "X (Twitter) Erişim/Yetki Hatası (403): X Developer Portal'da uygulamanızın 'User authentication settings' kısmında izinlerin 'Read and write' olduğundan emin olun. Detay: {$detail}";
         }
