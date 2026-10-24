@@ -52,8 +52,32 @@ class YouTubePublisher extends AbstractSocialPublisher
             ])
             ->post('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', $metadata);
 
+        // If 401 Unauthorized, automatically refresh token and retry once
+        if ($initResponse->status() === 401 && $this->refreshToken($account)) {
+            $account->load('credential');
+            $token = $account->credential->access_token;
+            $initResponse = Http::withToken($token)
+                ->withHeaders([
+                    'X-Upload-Content-Type' => $video->mime_type ?: 'video/mp4',
+                    'Content-Type' => 'application/json; charset=UTF-8',
+                ])
+                ->post('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', $metadata);
+        }
+
         if (! $initResponse->successful()) {
-            throw new \RuntimeException('YouTube Upload Session Hatası: ' . $initResponse->body());
+            $body = $initResponse->body();
+            if (str_contains($body, 'accessNotConfigured') || str_contains($body, 'SERVICE_DISABLED')) {
+                preg_match('/project=(\d+)/', $body, $matches);
+                $projectId = $matches[1] ?? '';
+                $enableUrl = $projectId
+                    ? "https://console.developers.google.com/apis/api/youtube.googleapis.com/overview?project={$projectId}"
+                    : 'https://console.cloud.google.com/apis/library/youtube.googleapis.com';
+                throw new \RuntimeException("Google Cloud projenizde 'YouTube Data API v3' servisi henüz etkinleştirilmemiş (Kapalı). Lütfen şu linke tıklayıp 'ETKİNLEŞTİR (ENABLE)' butonuna basın ve 1 dakika sonra tekrar deneyin: {$enableUrl}");
+            }
+            if (str_contains($body, 'youtubeSignupRequired')) {
+                throw new \RuntimeException('Bu Google hesabına bağlı aktif bir YouTube kanalı bulunamadı. Lütfen youtube.com adresine girip kanal oluşturun.');
+            }
+            throw new \RuntimeException('YouTube Upload Session Hatası: ' . $body);
         }
 
         $uploadUrl = $initResponse->header('Location');
