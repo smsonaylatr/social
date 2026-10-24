@@ -230,14 +230,8 @@
 
                             <span>{{ $tabInfo['name'] }}</span>
 
-                            @if($isConnected)
-                                <span class="ais-tab-badge-conn">Bağlı</span>
-                            @else
-                                <span class="ais-tab-badge-off">Bağlantı Yok</span>
-                            @endif
-
                             @if($hasContent)
-                                <span style="width:6px; height:6px; border-radius:50%; background:#6366f1; display:inline-block;" title="Taslak Mevcut"></span>
+                                <span style="width:6px; height:6px; border-radius:50%; background:#6366f1; display:inline-block;" title="İçerik Hazır"></span>
                             @endif
                         </button>
                     @endforeach
