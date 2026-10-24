@@ -20,8 +20,8 @@ class SocialOAuthController extends Controller
      */
     protected array $defaultScopes = [
         'tiktok' => ['video.publish', 'video.upload', 'user.info.basic'],
-        'instagram' => ['instagram_basic', 'instagram_content_publish', 'pages_show_list', 'pages_read_engagement'],
-        'facebook' => ['pages_manage_posts', 'pages_read_engagement', 'pages_show_list'],
+        'instagram' => ['instagram_basic', 'instagram_content_publish', 'pages_show_list', 'pages_read_engagement', 'business_management'],
+        'facebook' => ['pages_manage_posts', 'pages_read_engagement', 'pages_show_list', 'business_management'],
         'youtube' => [
             'https://www.googleapis.com/auth/youtube.upload',
             'https://www.googleapis.com/auth/youtube.readonly',
@@ -340,12 +340,12 @@ class SocialOAuthController extends Controller
             'instagram' => (function () use ($accessToken) {
                 $pages = Http::withToken($accessToken)
                     ->get('https://graph.facebook.com/v19.0/me/accounts', [
-                        'fields' => 'id,name,instagram_business_account{id,name,username,profile_picture_url}',
+                        'fields' => 'id,name,instagram_business_account{id,name,username,profile_picture_url},connected_instagram_account{id,name,username,profile_picture_url}',
                     ])->json('data', []);
 
                 foreach ($pages as $page) {
-                    if (! empty($page['instagram_business_account']['id'])) {
-                        $ig = $page['instagram_business_account'];
+                    $ig = $page['instagram_business_account'] ?? $page['connected_instagram_account'] ?? null;
+                    if (! empty($ig['id'])) {
                         return [
                             'id' => $ig['id'],
                             'name' => $ig['name'] ?? $ig['username'],
@@ -354,19 +354,88 @@ class SocialOAuthController extends Controller
                         ];
                     }
                 }
+
+                // Fallback: Check debug_token granular_scopes (works when /me/accounts is empty)
+                $debug = Http::get('https://graph.facebook.com/v19.0/debug_token', [
+                    'input_token' => $accessToken,
+                    'access_token' => $accessToken,
+                ])->json('data.granular_scopes', []);
+
+                foreach ($debug as $gs) {
+                    if (in_array($gs['scope'] ?? '', ['instagram_content_publish', 'instagram_basic'], true) && ! empty($gs['target_ids'][0])) {
+                        $igId = (string) $gs['target_ids'][0];
+                        $igInfo = Http::withToken($accessToken)
+                            ->get("https://graph.facebook.com/v19.0/{$igId}", [
+                                'fields' => 'id,name,username,profile_picture_url',
+                            ])->json();
+                        return [
+                            'id' => $igId,
+                            'name' => $igInfo['name'] ?? ($igInfo['username'] ?? 'Instagram Business'),
+                            'username' => $igInfo['username'] ?? null,
+                            'avatar_url' => $igInfo['profile_picture_url'] ?? null,
+                        ];
+                    }
+                }
+
+                foreach ($debug as $gs) {
+                    if (in_array($gs['scope'] ?? '', ['pages_show_list', 'pages_read_engagement', 'pages_manage_posts'], true)) {
+                        foreach ($gs['target_ids'] ?? [] as $pageId) {
+                            $pageInfo = Http::withToken($accessToken)
+                                ->get("https://graph.facebook.com/v19.0/{$pageId}", [
+                                    'fields' => 'instagram_business_account{id,name,username,profile_picture_url},connected_instagram_account{id,name,username,profile_picture_url}',
+                                ])->json();
+                            $ig = $pageInfo['instagram_business_account'] ?? $pageInfo['connected_instagram_account'] ?? null;
+                            if (! empty($ig['id'])) {
+                                return [
+                                    'id' => $ig['id'],
+                                    'name' => $ig['name'] ?? $ig['username'],
+                                    'username' => $ig['username'] ?? null,
+                                    'avatar_url' => $ig['profile_picture_url'] ?? null,
+                                ];
+                            }
+                        }
+                    }
+                }
+
                 return [];
             })(),
 
             'facebook' => (function () use ($accessToken) {
                 $page = Http::withToken($accessToken)
                     ->get('https://graph.facebook.com/v19.0/me/accounts', [
-                        'fields' => 'id,name,username',
+                        'fields' => 'id,name,username,access_token',
                     ])->json('data.0', []);
-                return [
-                    'id' => $page['id'] ?? null,
-                    'name' => $page['name'] ?? null,
-                    'username' => $page['username'] ?? null,
-                ];
+
+                if (! empty($page['id'])) {
+                    return [
+                        'id' => $page['id'],
+                        'name' => $page['name'] ?? null,
+                        'username' => $page['username'] ?? null,
+                    ];
+                }
+
+                // Fallback: Check debug_token granular_scopes
+                $debug = Http::get('https://graph.facebook.com/v19.0/debug_token', [
+                    'input_token' => $accessToken,
+                    'access_token' => $accessToken,
+                ])->json('data.granular_scopes', []);
+
+                foreach ($debug as $gs) {
+                    if (in_array($gs['scope'] ?? '', ['pages_manage_posts', 'pages_show_list', 'pages_read_engagement'], true) && ! empty($gs['target_ids'][0])) {
+                        $pageId = (string) $gs['target_ids'][0];
+                        $pageInfo = Http::withToken($accessToken)
+                            ->get("https://graph.facebook.com/v19.0/{$pageId}", [
+                                'fields' => 'id,name,username',
+                            ])->json();
+                        return [
+                            'id' => $pageId,
+                            'name' => $pageInfo['name'] ?? 'Facebook Sayfası',
+                            'username' => $pageInfo['username'] ?? null,
+                        ];
+                    }
+                }
+
+                return [];
             })(),
 
             'youtube' => (function () use ($accessToken) {

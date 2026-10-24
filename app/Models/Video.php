@@ -102,7 +102,14 @@ class Video extends Model
             return $this->storage_path;
         }
 
-        return asset('storage/' . ltrim($this->storage_path, '/'));
+        $segments = array_map('rawurlencode', explode('/', ltrim($this->storage_path, '/')));
+        $url = asset('storage/' . implode('/', $segments));
+
+        if (! str_contains($url, 'localhost') && ! str_contains($url, '127.0.0.1')) {
+            $url = preg_replace('/^http:\/\//i', 'https://', $url);
+        }
+
+        return $url;
     }
 
     public function getThumbnailUrlAttribute(): ?string

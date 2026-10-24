@@ -60,14 +60,13 @@ class SocialAccountResource extends Resource
 
                         TextInput::make('account_id')
                             ->label('Harici Hesap / Sayfa / Kanal Kimliği (ID)')
-                            ->placeholder('Örn: 17841405822304914')
+                            ->placeholder('Boş bırakırsanız Access Token ile otomatik bulunur (Örn: 178414...)')
                             ->helperText(function (Get $get): string {
                                 $platformId = $get('platform_id');
                                 $platform = $platformId ? SocialPlatform::find($platformId) : null;
                                 $code = $platform?->code instanceof \BackedEnum ? $platform->code->value : (string) ($platform?->code ?? 'instagram');
-                                return SocialPlatformSetupGuide::get($code)['id_field_hint'] ?? '';
+                                return (SocialPlatformSetupGuide::get($code)['id_field_hint'] ?? '') . ' (Access Token girdiğinizde sistem gerçek Hesap/Sayfa ID\'sini otomatik algılar.)';
                             })
-                            ->required()
                             ->maxLength(255),
 
                         Select::make('account_type')
@@ -321,6 +320,21 @@ class SocialAccountResource extends Resource
                                     'token_expires_at' => $tokenExpiresAt,
                                 ]
                             );
+
+                            // Auto-resolve real Instagram Business ID or Facebook Page ID from token
+                            try {
+                                $code = $record->platform?->code instanceof \BackedEnum
+                                    ? $record->platform->code->value
+                                    : (string) $record->platform?->code;
+                                $publisher = app(SocialPublisherManager::class)->getPublisher($code);
+                                if (method_exists($publisher, 'resolveInstagramAccount')) {
+                                    $publisher->resolveInstagramAccount($record, $accessToken, true);
+                                } elseif (method_exists($publisher, 'resolveFacebookPage')) {
+                                    $publisher->resolveFacebookPage($record, $accessToken);
+                                }
+                            } catch (\Throwable) {
+                                // Ignore resolution error during save
+                            }
                         }
 
                         return $record;

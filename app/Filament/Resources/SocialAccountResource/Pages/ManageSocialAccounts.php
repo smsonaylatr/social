@@ -25,6 +25,9 @@ class ManageSocialAccounts extends ManageRecords
                     unset($data['access_token'], $data['refresh_token'], $data['token_expires_at']);
 
                     $data['workspace_id'] = 1;
+                    if (empty($data['account_id'])) {
+                        $data['account_id'] = 'auto_' . uniqid();
+                    }
                     $account = static::getModel()::create($data);
 
                     if ($accessToken) {
@@ -34,6 +37,20 @@ class ManageSocialAccounts extends ManageRecords
                             'refresh_token' => $refreshToken,
                             'token_expires_at' => $tokenExpiresAt,
                         ]);
+
+                        try {
+                            $code = $account->platform?->code instanceof \BackedEnum
+                                ? $account->platform->code->value
+                                : (string) $account->platform?->code;
+                            $publisher = app(\App\Services\Social\SocialPublisherManager::class)->getPublisher($code);
+                            if (method_exists($publisher, 'resolveInstagramAccount')) {
+                                $publisher->resolveInstagramAccount($account, $accessToken, true);
+                            } elseif (method_exists($publisher, 'resolveFacebookPage')) {
+                                $publisher->resolveFacebookPage($account, $accessToken);
+                            }
+                        } catch (\Throwable) {
+                            // Ignore resolution error during creation
+                        }
                     }
 
                     return $account;

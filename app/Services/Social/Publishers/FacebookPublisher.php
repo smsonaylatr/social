@@ -6,6 +6,7 @@ use App\Models\ScheduledPostTarget;
 use App\Models\SocialAccount;
 use App\Models\Video;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 
 class FacebookPublisher extends AbstractSocialPublisher
 {
@@ -16,6 +17,8 @@ class FacebookPublisher extends AbstractSocialPublisher
 
     public function publish(Video $video, ScheduledPostTarget $target, SocialAccount $account): array
     {
+        @set_time_limit(180);
+
         $token = $this->getAccessToken($account);
         $caption = $this->buildFullCaption($target);
         $videoUrl = $video->url;
@@ -29,9 +32,13 @@ class FacebookPublisher extends AbstractSocialPublisher
             ];
         }
 
-        // Meta Graph API: POST /{page-id}/videos
-        $endpoint = "https://graph.facebook.com/v19.0/{$account->account_id}/videos";
-        $response = Http::withToken($token)
+        // Automatically resolve true Facebook Page ID and Page Access Token
+        $resolved = $this->resolveFacebookPage($account, $token);
+        $pageId = $resolved['page_id'];
+        $pageToken = $resolved['page_token'];
+
+        $endpoint = "https://graph.facebook.com/v19.0/{$pageId}/videos";
+        $response = Http::withToken($pageToken)
             ->timeout(120)
             ->post($endpoint, [
                 'description' => $caption,
@@ -39,8 +46,26 @@ class FacebookPublisher extends AbstractSocialPublisher
                 'file_url' => $videoUrl,
             ]);
 
+        // Fallback: Upload binary file directly from local disk if file_url fails or is unreachable
+        if (! $response->successful() && $video->storage_path) {
+            $videoFilePath = Storage::disk($video->disk ?: 'public')->path($video->storage_path);
+            if (file_exists($videoFilePath)) {
+                $stream = fopen($videoFilePath, 'rb');
+                $response = Http::withToken($pageToken)
+                    ->timeout(180)
+                    ->attach('source', $stream, basename($videoFilePath))
+                    ->post($endpoint, [
+                        'description' => $caption,
+                        'title' => $target->title ?: $video->title,
+                    ]);
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
+            }
+        }
+
         if (! $response->successful()) {
-            throw new \RuntimeException('Facebook Graph API Hatası: ' . $response->body());
+            throw new \RuntimeException($this->buildFriendlyFacebookError($response->json() ?: $response->body(), $pageId));
         }
 
         $result = $response->json();
@@ -48,10 +73,159 @@ class FacebookPublisher extends AbstractSocialPublisher
 
         return [
             'post_id' => $videoId,
-            'post_url' => "https://facebook.com/{$account->account_id}/videos/{$videoId}",
+            'post_url' => "https://facebook.com/{$pageId}/videos/{$videoId}",
             'status' => 'published',
             'raw' => $result,
         ];
+    }
+
+    /**
+     * Automatically discover Facebook Page ID and Page Access Token
+     */
+    public function resolveFacebookPage(SocialAccount $account, string $token): array
+    {
+        $currentId = trim((string) $account->account_id);
+
+        // 1. Check if currentId is already a Facebook Page and retrieve its Page Access Token
+        if (ctype_digit($currentId)) {
+            try {
+                $directResp = Http::withToken($token)
+                    ->timeout(10)
+                    ->get("https://graph.facebook.com/v19.0/{$currentId}", [
+                        'fields' => 'id,name,username,access_token,category',
+                    ]);
+
+                if ($directResp->successful() && ($directResp->json('category') || $directResp->json('access_token'))) {
+                    return [
+                        'page_id' => $currentId,
+                        'page_token' => $directResp->json('access_token') ?: $token,
+                    ];
+                }
+            } catch (\Throwable) {
+                // Proceed to discovery
+            }
+        }
+
+        // 2. Check /me/accounts for managed Pages
+        try {
+            $pagesResp = Http::withToken($token)
+                ->timeout(15)
+                ->get('https://graph.facebook.com/v19.0/me/accounts', [
+                    'fields' => 'id,name,username,access_token,category',
+                ]);
+
+            if ($pagesResp->successful()) {
+                $pages = $pagesResp->json('data', []);
+                if (! empty($pages[0]['id'])) {
+                    $page = $pages[0];
+                    $this->persistDiscoveredPage($account, (string) $page['id'], $page['name'] ?? null, $page['username'] ?? null);
+                    return [
+                        'page_id' => (string) $page['id'],
+                        'page_token' => $page['access_token'] ?: $token,
+                    ];
+                }
+            }
+        } catch (\Throwable) {
+            // Continue discovery
+        }
+
+        // 3. Check /debug_token granular_scopes for Page target_ids
+        try {
+            $debugResp = Http::timeout(15)->get('https://graph.facebook.com/v19.0/debug_token', [
+                'input_token' => $token,
+                'access_token' => $token,
+            ]);
+
+            if ($debugResp->successful()) {
+                foreach ($debugResp->json('data.granular_scopes', []) as $gs) {
+                    $scopeName = $gs['scope'] ?? '';
+                    $targetIds = $gs['target_ids'] ?? [];
+                    if (in_array($scopeName, ['pages_manage_posts', 'pages_show_list', 'pages_read_engagement'], true) && ! empty($targetIds)) {
+                        $candidatePageId = (string) $targetIds[0];
+                        $pageInfo = Http::withToken($token)
+                            ->timeout(10)
+                            ->get("https://graph.facebook.com/v19.0/{$candidatePageId}", [
+                                'fields' => 'id,name,username,access_token',
+                            ]);
+
+                        if ($pageInfo->successful() && $pageInfo->json('id')) {
+                            $this->persistDiscoveredPage($account, $candidatePageId, $pageInfo->json('name'), $pageInfo->json('username'));
+                            return [
+                                'page_id' => $candidatePageId,
+                                'page_token' => $pageInfo->json('access_token') ?: $token,
+                            ];
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // Continue
+        }
+
+        // 4. Check if /me itself is a Page Access Token
+        try {
+            $meResp = Http::withToken($token)
+                ->timeout(10)
+                ->get('https://graph.facebook.com/v19.0/me', [
+                    'fields' => 'id,name,username,category',
+                ]);
+
+            if ($meResp->successful() && $meResp->json('category') && $meResp->json('id')) {
+                $realPageId = (string) $meResp->json('id');
+                $this->persistDiscoveredPage($account, $realPageId, $meResp->json('name'), $meResp->json('username'));
+                return [
+                    'page_id' => $realPageId,
+                    'page_token' => $token,
+                ];
+            }
+        } catch (\Throwable) {
+            // Continue
+        }
+
+        return [
+            'page_id' => $currentId,
+            'page_token' => $token,
+        ];
+    }
+
+    protected function persistDiscoveredPage(SocialAccount $account, string $pageId, ?string $name = null, ?string $username = null): void
+    {
+        if (empty($pageId)) {
+            return;
+        }
+
+        $updates = [];
+        if ($account->account_id !== $pageId) {
+            $updates['account_id'] = $pageId;
+        }
+        if ($name && (empty($account->name) || str_contains($account->name, 'Hesabım') || str_contains($account->name, 'Resmi'))) {
+            $updates['name'] = $name;
+        }
+        if ($username && (empty($account->username) || str_contains($account->username, '_official'))) {
+            $updates['username'] = ltrim($username, '@');
+        }
+
+        if (! empty($updates)) {
+            $account->update($updates);
+        }
+    }
+
+    protected function buildFriendlyFacebookError(mixed $rawError, string $attemptedId): string
+    {
+        $errorArr = is_array($rawError) ? ($rawError['error'] ?? $rawError) : [];
+        $code = (int) ($errorArr['code'] ?? 0);
+        $subcode = (int) ($errorArr['error_subcode'] ?? 0);
+        $message = (string) ($errorArr['message'] ?? (is_string($rawError) ? $rawError : json_encode($rawError)));
+
+        if ($code === 100 && $subcode === 33) {
+            return "Facebook Sayfa ID Hatası: Girdiğiniz ID ({$attemptedId}) bir Facebook Sayfası (Page ID) değil, Uygulama veya Kişisel Kullanıcı ID'sidir ve Token içinde yönetilen bir Facebook Sayfası bulunamadı. Lütfen Meta Graph API Explorer'da 'User or Page' menüsünden 'Get Page Access Token' seçip 'pages_manage_posts', 'pages_read_engagement', 'pages_show_list' ve 'business_management' izinleriyle yeni token alın.";
+        }
+
+        if ($code === 200) {
+            return "Facebook Yayın Yetkisi Eksik: Token'ınızda 'pages_manage_posts' (Sayfa Gönderisi Yönetme) izni bulunmuyor veya Kişisel Token yerine Sayfa Erişim Anahtarı (Page Access Token) kullanmanız gerekiyor.";
+        }
+
+        return "Facebook Graph API Hatası: {$message}";
     }
 
     public function refreshToken(SocialAccount $account): bool
@@ -101,8 +275,9 @@ class FacebookPublisher extends AbstractSocialPublisher
             return true;
         }
 
-        $response = Http::withToken($token)
-            ->get("https://graph.facebook.com/v19.0/{$account->account_id}", [
+        $resolved = $this->resolveFacebookPage($account, $token);
+        $response = Http::withToken($resolved['page_token'])
+            ->get("https://graph.facebook.com/v19.0/{$resolved['page_id']}", [
                 'fields' => 'id,name',
             ]);
 
