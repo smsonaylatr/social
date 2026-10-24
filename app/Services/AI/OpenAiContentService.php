@@ -240,7 +240,7 @@ class OpenAiContentService implements AiContentProviderInterface
                 platformCode: 'instagram',
                 title: null,
                 hookSentence: $igHook,
-                caption: "{$igHook}\n\n{$igBody}\n\n{$bullets}\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n🌐 patenliayakkabilar.com\n📸 @patenliayakkabilar\n\n#PatenliAyakkabı #PatenliAyakkabılar #ÇocukPatenliAyakkabı #TekerlekliAyakkabı #RollerShoes",
+                caption: "{$igHook}\n\n{$igBody}\n\n{$bullets}\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n🌐 patenliayakkabilar.com\n📸 @patenliayakkabilar",
                 hashtags: ['PatenliAyakkabı', 'PatenliAyakkabılar', 'ÇocukPatenliAyakkabı', 'TekerlekliAyakkabı', 'RollerShoes'],
                 seoKeywords: $seoKeywords,
                 callToAction: 'Profildeki linkten hemen sipariş verin! 🛍️',
@@ -251,7 +251,7 @@ class OpenAiContentService implements AiContentProviderInterface
                 platformCode: 'facebook',
                 title: $fbTitle,
                 hookSentence: $fbHook,
-                caption: "{$fbHook}\n\n{$fbBody}\n\n{$bullets}\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n👉 Detaylı bilgi ve sipariş için: {$productUrl}\n📸 @patenliayakkabilar\n\n#PatenliAyakkabı #PatenliAyakkabılar #ÇocukPatenliAyakkabı #TekerlekliAyakkabı #RollerShoes",
+                caption: "{$fbHook}\n\n{$fbBody}\n\n{$bullets}\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n👉 Detaylı bilgi ve sipariş için: {$productUrl}\n📸 @patenliayakkabilar",
                 hashtags: ['PatenliAyakkabı', 'PatenliAyakkabılar', 'ÇocukPatenliAyakkabı', 'TekerlekliAyakkabı', 'RollerShoes'],
                 seoKeywords: $seoKeywords,
                 callToAction: "Detaylı bilgi ve sipariş için: {$productUrl}",
@@ -262,7 +262,7 @@ class OpenAiContentService implements AiContentProviderInterface
                 platformCode: 'youtube',
                 title: $ytTitle,
                 hookSentence: $ytHook,
-                caption: "{$ytHook}\n\n{$ytBody}\n\n{$bullets}\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n🌐 Resmi Web Sitesi: {$productUrl}\n📸 @patenliayakkabilar\n\n#Shorts #PatenliAyakkabı #PatenliAyakkabılar #TekerlekliAyakkabı #RollerShoes",
+                caption: "{$ytHook}\n\n{$ytBody}\n\n{$bullets}\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n🌐 Resmi Web Sitesi: {$productUrl}\n📸 @patenliayakkabilar",
                 hashtags: ['Shorts', 'PatenliAyakkabı', 'PatenliAyakkabılar', 'TekerlekliAyakkabı', 'RollerShoes'],
                 seoKeywords: $seoKeywords,
                 callToAction: 'Kanalımıza abone olun ve yeni modelleri ilk siz keşfedin!',
@@ -273,7 +273,7 @@ class OpenAiContentService implements AiContentProviderInterface
                 platformCode: 'x',
                 title: null,
                 hookSentence: $xHook,
-                caption: "{$xHook}\n\nTek hareketle patene dönüşen spor ayakkabılarla sokaklar artık bir pist! 👟✨\n\nÇocukların yeni favorisini şimdi keşfet 🛍️\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #TekerlekliAyakkabı",
+                caption: "{$xHook}\n\nTek hareketle patene dönüşen spor ayakkabılarla sokaklar artık bir pist! 👟✨\n\nÇocukların yeni favorisini şimdi keşfet 🛍️\n🌐 patenliayakkabilar.com",
                 hashtags: ['PatenliAyakkabı', 'TekerlekliAyakkabı'],
                 seoKeywords: array_slice($seoKeywords, 0, 2),
                 callToAction: "Hemen tıkla: {$productUrl}",
@@ -284,7 +284,7 @@ class OpenAiContentService implements AiContentProviderInterface
                 platformCode: 'pinterest',
                 title: "✨ Çocuk Patenli Ayakkabı Modelleri & Tekerlekli Spor Ayakkabı",
                 hookSentence: 'Çocuklar ve gençler için en havalı patenli spor ayakkabı modelleri!',
-                caption: "{$igHook}\n\n{$igBody}\n\n{$bullets}\n\nÇocuk patenli ayakkabı modellerini şimdi keşfet! 🛍️\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #PatenliAyakkabılar #ÇocukHediyesi #TekerlekliAyakkabı",
+                caption: "{$igHook}\n\n{$igBody}\n\n{$bullets}\n\nÇocuk patenli ayakkabı modellerini şimdi keşfet! 🛍️\n🌐 patenliayakkabilar.com",
                 hashtags: ['PatenliAyakkabı', 'PatenliAyakkabılar', 'ÇocukHediyesi', 'TekerlekliAyakkabı'],
                 seoKeywords: $seoKeywords,
                 callToAction: 'Ürünü İncele ve Satın Al',
@@ -295,7 +295,7 @@ class OpenAiContentService implements AiContentProviderInterface
                 platformCode: 'tiktok',
                 title: null,
                 hookSentence: $tkHook,
-                caption: "{$tkHook}\n\n{$tkBody}\n\n{$bullets}\n\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #PatenliAyakkabılar #TekerlekliAyakkabı #RollerShoes #fyp #kesfet",
+                caption: "{$tkHook}\n\n{$tkBody}\n\n{$bullets}\n\n🌐 patenliayakkabilar.com",
                 hashtags: ['PatenliAyakkabı', 'PatenliAyakkabılar', 'TekerlekliAyakkabı', 'RollerShoes', 'fyp', 'kesfet'],
                 seoKeywords: $seoKeywords,
                 callToAction: 'Takip etmeyi ve videoyu kaydetmeyi unutma!',
@@ -306,7 +306,7 @@ class OpenAiContentService implements AiContentProviderInterface
                 platformCode: 'linkedin',
                 title: null,
                 hookSentence: 'Fiziksel aktiviteyi eğlenceli bir deneyime dönüştüren yeni nesil tekerlekli ayakkabı tasarımlarımız. ⚡',
-                caption: "Fiziksel aktiviteyi eğlenceli bir deneyime dönüştüren yeni nesil tekerlekli ayakkabı tasarımlarımız. ⚡\n\n{$brandName} olarak genç neslin hareket kabiliyetini ve spor sevgisini artıran inovatif ayakkabı çözümleri sunuyoruz. Ergonomik taban yapısı ve gizlenebilir mekanizması ile sokak modası ve eğlence bir arada.\n\n{$bullets}\n\nÜrünlerimizi ve detayları web sitemizden inceleyebilirsiniz:\n🌐 patenliayakkabilar.com\n\n#PatenliAyakkabı #İnovasyon #Eticaret #Perakende #Girişimcilik",
+                caption: "Fiziksel aktiviteyi eğlenceli bir deneyime dönüştüren yeni nesil tekerlekli ayakkabı tasarımlarımız. ⚡\n\n{$brandName} olarak genç neslin hareket kabiliyetini ve spor sevgisini artıran inovatif ayakkabı çözümleri sunuyoruz. Ergonomik taban yapısı ve gizlenebilir mekanizması ile sokak modası ve eğlence bir arada.\n\n{$bullets}\n\nÜrünlerimizi ve detayları web sitemizden inceleyebilirsiniz:\n🌐 patenliayakkabilar.com",
                 hashtags: ['PatenliAyakkabı', 'İnovasyon', 'Eticaret', 'Perakende', 'Girişimcilik'],
                 seoKeywords: ['e-ticaret', 'ürün inovasyonu', 'patenli ayakkabı'],
                 callToAction: 'Ürün geliştirme ve kurumsal çözümlerimiz için web sitemizi ziyaret edin.',
@@ -397,8 +397,8 @@ KRİTİK EMOJİ VE MASAÜSTÜ UYUMLULUK KURALLARI (HAYATİ ÖNEM TAŞIR!):
    Çocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️
    🌐 patenliayakkabilar.com
    📸 @patenliayakkabilar
-5) En Etkili 5 SEO Hashtag:
-   #PatenliAyakkabı #PatenliAyakkabılar #ÇocukPatenliAyakkabı #TekerlekliAyakkabı #RollerShoes
+5) En Etkili 5 SEO Hashtag (DİKKAT: Hashtag'leri caption metninin sonuna YAZMA, yalnızca "hashtags" dizisinde döndür; yayınlanırken sistem otomatik birleştirir):
+   ["PatenliAyakkabı", "PatenliAyakkabılar", "ÇocukPatenliAyakkabı", "TekerlekliAyakkabı", "RollerShoes"]
 
 * X (Twitter) için bu metni 280 karakter limitine sığacak şekilde özetle (ana kanca + ayakkabı deneyimi + site linki + 2 ana hashtag).
 * YouTube başlığı: Max 100 karakter, dikkat çekici, başında/sonunda masaüstü uyumlu emoji (örn: ✨ Onun Yeni Favori Ayakkabısı Olmaya Hazır! 🎁 #patenliayakkabı).

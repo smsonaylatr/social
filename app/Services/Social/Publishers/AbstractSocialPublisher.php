@@ -115,18 +115,43 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
     }
 
     /**
-     * Format captions with hashtags and optional product link
+     * Format captions with hashtags and optional product link (with automatic deduplication)
      */
     protected function buildFullCaption(ScheduledPostTarget $target): string
     {
-        $caption = $target->caption ?: '';
-        if (! empty($target->hashtags) && is_array($target->hashtags)) {
-            $tagsString = implode(' ', array_map(fn ($t) => '#' . ltrim($t, '#'), $target->hashtags));
-            $caption .= "\n\n" . $tagsString;
+        $caption = trim((string) ($target->caption ?: ''));
+
+        // 1. Only append product_url if neither the full URL nor its bare domain is already in the caption
+        if (! empty($target->product_url)) {
+            $productUrl = trim((string) $target->product_url);
+            $host = parse_url($productUrl, PHP_URL_HOST) ?: $productUrl;
+            $bareDomain = preg_replace('/^www\./i', '', (string) $host);
+
+            $urlAlreadyInCaption = ($productUrl !== '' && mb_stripos($caption, $productUrl) !== false)
+                || ($bareDomain !== '' && mb_stripos($caption, $bareDomain) !== false);
+
+            if (! $urlAlreadyInCaption) {
+                $caption .= "\n\n🌐 " . $productUrl;
+            }
         }
 
-        if (! empty($target->product_url)) {
-            $caption .= "\n" . $target->product_url;
+        // 2. Only append hashtags that are not already written inside the caption
+        if (! empty($target->hashtags) && is_array($target->hashtags)) {
+            $missingTags = [];
+            foreach ($target->hashtags as $rawTag) {
+                $cleanTag = ltrim(trim((string) $rawTag), '#');
+                if ($cleanTag === '') {
+                    continue;
+                }
+                $formattedTag = '#' . $cleanTag;
+                if (mb_stripos($caption, $formattedTag) === false) {
+                    $missingTags[] = $formattedTag;
+                }
+            }
+
+            if (! empty($missingTags)) {
+                $caption .= "\n\n" . implode(' ', $missingTags);
+            }
         }
 
         return trim($caption);

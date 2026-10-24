@@ -219,11 +219,21 @@ class AiStudio extends Page implements HasForms
             $gen = $generations->firstWhere('platform_code', $code);
 
             if ($gen) {
+                // Clean trailing hashtag line from caption if hashtags are already stored in the hashtags array
+                $cleanCaption = trim((string) $gen->caption);
+                if (! empty($gen->hashtags) && is_array($gen->hashtags)) {
+                    $cleaned = preg_replace('/\n+(?:#[^\s#]+\s*)+$/u', '', $cleanCaption);
+                    if ($cleaned !== null && $cleaned !== $cleanCaption) {
+                        $cleanCaption = trim($cleaned);
+                        $gen->update(['caption' => $cleanCaption]);
+                    }
+                }
+
                 $this->platformContents[$code] = [
                     'id' => $gen->id,
                     'title' => $gen->title,
                     'hook_sentence' => $gen->hook_sentence,
-                    'caption' => $gen->caption,
+                    'caption' => $cleanCaption,
                     'hashtags' => is_array($gen->hashtags) ? implode(' ', array_map(fn ($t) => '#' . ltrim($t, '#'), $gen->hashtags)) : '',
                     'call_to_action' => $gen->call_to_action,
                     'suggested_product_url' => $gen->suggested_product_url,
