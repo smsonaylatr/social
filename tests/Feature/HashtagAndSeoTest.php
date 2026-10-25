@@ -148,7 +148,7 @@ class HashtagAndSeoTest extends TestCase
         $this->assertTrue($found, 'Post caption must include keywords from the SEO Keyword Library memory.');
     }
 
-    public function test_platform_hashtags_between_5_and_10_with_keywords_and_explore(): void
+    public function test_platform_hashtags_consist_of_5_brand_and_5_trend_tags(): void
     {
         $platforms = ['instagram', 'tiktok', 'youtube', 'facebook', 'x', 'pinterest'];
 
@@ -156,9 +156,13 @@ class HashtagAndSeoTest extends TestCase
             $tags = $this->service->getOptimizedHashtags($this->video, $platform, null, false);
             $count = count($tags);
 
-            $this->assertGreaterThanOrEqual(5, $count, "{$platform} must have at least 5 hashtags");
-            $this->assertLessThanOrEqual(10, $count, "{$platform} must not exceed 10 hashtags");
-            $this->assertEquals(10, $count, "{$platform} should default to 10 hashtags (5 keyword + 5 explore)");
+            $this->assertEquals(10, $count, "{$platform} must have exactly 10 hashtags (5 brand + 5 trend)");
+
+            $brandTags = array_slice($tags, 0, 5);
+            $trendTags = array_slice($tags, 5, 5);
+
+            $this->assertCount(5, $brandTags);
+            $this->assertCount(5, $trendTags);
         }
     }
 }
