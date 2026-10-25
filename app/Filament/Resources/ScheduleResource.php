@@ -23,6 +23,7 @@ use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\TextColumn\TextColumnSize;
 use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\HtmlString;
 
@@ -338,13 +339,11 @@ class ScheduleResource extends Resource
         return $table
             ->modifyQueryUsing(fn ($query) => $query->with(['playlist']))
             ->columns([
-                TextColumn::make('name')
+                ViewColumn::make('name')
                     ->label('Platform')
+                    ->view('filament.columns.platform-badge')
                     ->searchable()
-                    ->sortable()
-                    ->html()
-                    ->size(TextColumnSize::Small)
-                    ->formatStateUsing(fn (string $state): HtmlString => static::renderPlatformBadge($state)),
+                    ->sortable(),
 
                 TextColumn::make('playlist.name')
                     ->label('Kaynak')
