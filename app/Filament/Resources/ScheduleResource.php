@@ -315,7 +315,10 @@ class ScheduleResource extends Resource
                                 ->send();
                         }
                     }),
-                Tables\Actions\EditAction::make()->iconButton()->tooltip('Düzenle'),
+                Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Düzenle')
+                    ->modalWidth(\Filament\Support\Enums\MaxWidth::ThreeExtraLarge),
                 Tables\Actions\DeleteAction::make()->iconButton()->tooltip('Sil'),
             ])
             ->bulkActions([

@@ -105,7 +105,10 @@ class VideoCategoryResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
-                Tables\Actions\EditAction::make()->iconButton()->tooltip('Düzenle'),
+                Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Düzenle')
+                    ->modalWidth(\Filament\Support\Enums\MaxWidth::Large),
                 Tables\Actions\DeleteAction::make()->iconButton()->tooltip('Sil'),
             ])
             ->bulkActions([

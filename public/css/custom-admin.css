@@ -2581,6 +2581,93 @@ html, body {
     }
 }
 
+/* ==========================================================================
+   Desktop Modal Perfection & Balanced Proportions (Masaüstü Pop-up Ergonomisi)
+   ========================================================================== */
+@media (min-width: 769px) {
+    /* Masaüstünde modalların ekranı kaplamasını önleme, derli toplu merkezleme */
+    .fi-modal-window {
+        max-width: 46rem !important; /* ~736px ideal odaklı genişlik */
+        width: 100% !important;
+        margin: 2.5rem auto !important;
+        border-radius: 1.25rem !important;
+        box-shadow: 0 25px 65px -12px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.09) !important;
+        overflow: hidden !important;
+    }
+
+    /* Farklı MaxWidth boyut sınıfları */
+    .fi-modal-window.fi-modal-window-has-max-width-sm { max-width: 24rem !important; }
+    .fi-modal-window.fi-modal-window-has-max-width-md { max-width: 28rem !important; }
+    .fi-modal-window.fi-modal-window-has-max-width-lg { max-width: 34rem !important; }
+    .fi-modal-window.fi-modal-window-has-max-width-xl { max-width: 40rem !important; }
+    .fi-modal-window.fi-modal-window-has-max-width-2xl { max-width: 44rem !important; }
+    .fi-modal-window.fi-modal-window-has-max-width-3xl { max-width: 48rem !important; }
+    .fi-modal-window.fi-modal-window-has-max-width-4xl { max-width: 54rem !important; }
+    .fi-modal-window.fi-modal-window-has-max-width-5xl { max-width: 60rem !important; }
+
+    /* Modal içeriğinin dikeyde ekrandan taşmasını önleyip şık kaydırma çubuğu */
+    .fi-modal-content {
+        max-height: calc(85vh - 7.5rem) !important;
+        overflow-y: auto !important;
+        padding: 1.25rem 1.5rem !important;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(156, 163, 175, 0.25) transparent;
+    }
+
+    .fi-modal-content::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .fi-modal-content::-webkit-scrollbar-thumb {
+        background-color: rgba(156, 163, 175, 0.3);
+        border-radius: 9999px;
+    }
+
+    .fi-modal-content::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(156, 163, 175, 0.5);
+    }
+
+    .fi-modal-header {
+        padding: 1.15rem 1.5rem !important;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.15) !important;
+    }
+
+    .fi-modal-header .fi-modal-heading {
+        font-size: 1.125rem !important;
+        font-weight: 700 !important;
+    }
+
+    .fi-modal-footer {
+        padding: 0.95rem 1.5rem !important;
+        border-top: 1px solid rgba(128, 128, 128, 0.15) !important;
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    .dark .fi-modal-footer {
+        background-color: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Modal içi Section'ların aşırı devasa padding almasını engelleme */
+    .fi-modal-content .fi-section {
+        border-radius: 0.85rem !important;
+        margin-bottom: 0.85rem !important;
+    }
+
+    .fi-modal-content .fi-section-header {
+        padding: 0.75rem 1.15rem !important;
+    }
+
+    .fi-modal-content .fi-section-content {
+        padding: 1rem 1.15rem !important;
+    }
+
+    /* Form grid ve eleman boşluklarının sıkılaştırılması */
+    .fi-modal-content .fi-fo-field-wrp {
+        margin-bottom: 0.65rem !important;
+    }
+}
+
+
 
 
 

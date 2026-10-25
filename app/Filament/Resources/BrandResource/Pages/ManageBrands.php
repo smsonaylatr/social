@@ -15,6 +15,7 @@ class ManageBrands extends ManageRecords
         return [
             Actions\CreateAction::make()
                 ->label('Yeni Marka Ekle')
+                ->modalWidth(\Filament\Support\Enums\MaxWidth::TwoExtraLarge)
                 ->mutateFormDataUsing(function (array $data) {
                     $data['workspace_id'] = 1;
                     return $data;

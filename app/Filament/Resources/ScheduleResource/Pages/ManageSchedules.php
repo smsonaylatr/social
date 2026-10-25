@@ -47,6 +47,7 @@ class ManageSchedules extends ManageRecords
 
             Actions\CreateAction::make()
                 ->label('Yeni Otomasyon Kuralı Oluştur')
+                ->modalWidth(\Filament\Support\Enums\MaxWidth::ThreeExtraLarge)
                 ->mutateFormDataUsing(function (array $data) {
                     $data['workspace_id'] = 1;
                     return $data;

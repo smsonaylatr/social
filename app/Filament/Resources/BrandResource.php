@@ -147,7 +147,10 @@ class BrandResource extends Resource
                     ->label('Aktif'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make()->iconButton()->tooltip('Düzenle'),
+                Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Düzenle')
+                    ->modalWidth(\Filament\Support\Enums\MaxWidth::TwoExtraLarge),
             ]);
     }
 
