@@ -128,13 +128,20 @@ class OpenAiContentService implements AiContentProviderInterface
         foreach ($platformCodes as $code) {
             $pData = $content[$code] ?? [];
             $hasTitle = in_array($code, ['youtube', 'pinterest', 'facebook'], true);
-            $platformTitle = $hasTitle ? ($pData['title'] ?? $video->title) : null;
+            $rawTitle = $hasTitle ? ($pData['title'] ?? '') : null;
+            $rawCaption = $pData['caption'] ?? ($video->custom_caption ?: 'Patenli Ayakkabı Modelleri');
+            $rawHook = $pData['hook_sentence'] ?? '';
+
+            // Sistem içi "4. Video", "1. Video" gibi terimleri kesinlikle temizle
+            $platformTitle = $rawTitle ? self::cleanSystemLabels($rawTitle) : null;
+            $platformCaption = self::cleanSystemLabels($rawCaption);
+            $platformHook = self::cleanSystemLabels($rawHook);
 
             $platforms[$code] = new GeneratedPlatformContentDTO(
                 platformCode: $code,
                 title: $platformTitle,
-                hookSentence: $pData['hook_sentence'] ?? '',
-                caption: $pData['caption'] ?? $video->title,
+                hookSentence: $platformHook,
+                caption: $platformCaption,
                 hashtags: $pData['hashtags'] ?? [],
                 seoKeywords: $pData['seo_keywords'] ?? [],
                 callToAction: $pData['call_to_action'] ?? ($brand?->default_cta ?? ''),
@@ -385,6 +392,13 @@ Marka Bilgileri:
 - Kesinlikle Yasaklı Kelimeler: {$forbidden}
 
 ══════════════════════════════════════════════════════════════════════════════════
+KRİTİK İSİMLENDİRME VE METİN KURALLARI (HAYATİ ÖNEM TAŞIR!):
+══════════════════════════════════════════════════════════════════════════════════
+- Tanıtılan ürün kesinlikle "Patenli Ayakkabı" / "Tekerlekli Spor Ayakkabı"dır (tek tıkla patene dönüşen ayakkabılar).
+- KESİNLİKLE "1. Video", "2. Video", "4. Video", "video", "klip", dosya adı veya numara gibi iç sistem etiketlerini metne, kancaya veya açıklamalara YAZMA!
+- Cümlelerinde doğrudan üründen ve özelliklerinden bahset (Örn: "Patenli Ayakkabılar ile yürümek artık çok daha eğlenceli!", "Işıklı tekerlekli spor ayakkabı modelleri").
+
+══════════════════════════════════════════════════════════════════════════════════
 KRİTİK EMOJİ VE MASAÜSTÜ UYUMLULUK KURALLARI (HAYATİ ÖNEM TAŞIR!):
 ══════════════════════════════════════════════════════════════════════════════════
 - Windows masaüstü Chrome/Edge/Firefox tarayıcılarında görünmeyen veya içi boş kare [ ] (tofu box) şeklinde bozuk çıkan paten ("\\u{1F6FC}"), buz pateni ("\\u{26F8}"), kaykay ("\\u{1F6F9}") emojilerini KESİNLİKLE KULLANMA!
@@ -427,14 +441,42 @@ PROMPT;
 
     protected function buildUserPrompt(Video $video, ?Brand $brand): string
     {
+        $productCategory = 'Patenli Ayakkabı & Tekerlekli Spor Ayakkabı';
+        $titleForAi = $video->title;
+
+        // "4. Video", "1. Video" gibi iç sistem başlıklarını OpenAI'ya ürün adı gibi gönderme!
+        if (empty($titleForAi) || preg_match('/^\d+[\.\s\-]+video/i', $titleForAi) || preg_match('/^video[\.\s\-]*\d*$/i', $titleForAi)) {
+            $titleForAi = $productCategory;
+        }
+
         return json_encode([
-            'video_title' => $video->title,
+            'product_name' => $titleForAi,
+            'product_category' => $productCategory,
             'original_filename' => $video->original_filename,
             'duration_seconds' => $video->duration_seconds,
             'aspect_ratio' => $video->aspect_ratio,
             'custom_caption' => $video->custom_caption,
-            'product_url' => $video->product_url ?: $brand?->website,
+            'product_url' => $video->product_url ?: ($brand?->website ?? 'https://patenliayakkabilar.com'),
             'seo_keywords' => $brand?->seo_keywords,
         ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Metin içindeki istenmeyen "4. Video", "1. Video ile" gibi iç sistem kalıntılarını temizler
+     */
+    public static function cleanSystemLabels(?string $text): string
+    {
+        if (empty($text)) {
+            return '';
+        }
+
+        // "4. Video ile", "1. Video ile" -> "Patenli Ayakkabılar ile"
+        $cleaned = preg_replace('/\b\d+[\.\s\-]+(?:video|klip|bölüm)\s+ile\b/iu', 'Patenli Ayakkabılar ile', $text);
+        // "4. Video", "1. Video" -> "Patenli Ayakkabı"
+        $cleaned = preg_replace('/\b\d+[\.\s\-]+(?:video|klip|bölüm)\b/iu', 'Patenli Ayakkabı', $cleaned);
+        // "Video 4", "Klip 1" -> "Patenli Ayakkabı"
+        $cleaned = preg_replace('/\b(?:video|klip)\s+\d+\b/iu', 'Patenli Ayakkabı', $cleaned);
+
+        return trim($cleaned);
     }
 }

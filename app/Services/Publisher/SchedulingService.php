@@ -69,6 +69,9 @@ class SchedulingService
                     $productUrl = $aiContent->suggested_product_url ?? $video->product_url;
                 }
 
+                $caption = \App\Services\AI\OpenAiContentService::cleanSystemLabels($caption);
+                $title = \App\Services\AI\OpenAiContentService::cleanSystemLabels($title);
+
                 $correlationId = 'corr_' . Str::uuid()->toString();
                 $idempotencyKey = hash('sha256', "post_{$scheduledPost->id}_acc_{$account->id}_ts_{$scheduledAt->timestamp}");
 
