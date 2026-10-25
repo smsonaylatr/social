@@ -186,7 +186,7 @@ class ScheduleResource extends Resource
                             ->columnSpanFull(),
                     ])->columns(2),
 
-                Section::make('Hedef Sosyal Medya Hesapları ve Limitler')
+                Section::make('Hedef Sosyal Medya Hesapları ve Kural Durumu')
                     ->schema([
                         CheckboxList::make('target_social_account_ids')
                             ->label('Yayın Yapılacak Hesaplar')
@@ -194,18 +194,11 @@ class ScheduleResource extends Resource
                             ->columns(2)
                             ->columnSpanFull(),
 
-                        TextInput::make('max_posts_per_day')
-                            ->label('Günlük Maksimum Paylaşım Limiti')
-                            ->helperText('Bir gün içinde bu kural ile en fazla kaç video paylaşılsın (Örn: 24 veya 50 adet). Sık paylaşımda limiti yüksek tutmayı unutmayın.')
-                            ->numeric()
-                            ->default(50)
-                            ->required(),
-
                         Toggle::make('is_active')
                             ->label('Otomasyonu Etkinleştir')
                             ->helperText('Etkinleştirildiğinde zamanı gelen paylaşımlar otomatik olarak kuyruğa aktarılır.')
                             ->default(true),
-                    ])->columns(2),
+                    ]),
             ]);
     }
 
@@ -250,11 +243,6 @@ class ScheduleResource extends Resource
                         }
                         return ($times[0] ?? '12:00') . ' (Günde 1 kez)';
                     }),
-
-                TextColumn::make('max_posts_per_day')
-                    ->label('Günlük Limit')
-                    ->suffix(' adet')
-                    ->sortable(),
 
                 TextColumn::make('last_run_at')
                     ->label('Son Çalışma')

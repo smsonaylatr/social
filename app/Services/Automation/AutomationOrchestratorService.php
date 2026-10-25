@@ -30,14 +30,16 @@ class AutomationOrchestratorService
             return null;
         }
 
-        // Daily limit check
-        $todayPostsCount = ScheduledPost::where('schedule_id', $schedule->id)
-            ->whereDate('scheduled_at', Carbon::today())
-            ->count();
+        // Daily limit check (only if max_posts_per_day is set and greater than 0)
+        if ($schedule->max_posts_per_day && $schedule->max_posts_per_day > 0) {
+            $todayPostsCount = ScheduledPost::where('schedule_id', $schedule->id)
+                ->whereDate('scheduled_at', Carbon::today())
+                ->count();
 
-        if ($todayPostsCount >= $schedule->max_posts_per_day) {
-            Log::info("Schedule #{$schedule->id} reached daily limit of {$schedule->max_posts_per_day} posts.");
-            return null;
+            if ($todayPostsCount >= $schedule->max_posts_per_day) {
+                Log::info("Schedule #{$schedule->id} reached daily limit of {$schedule->max_posts_per_day} posts.");
+                return null;
+            }
         }
 
         $targetAccountIds = $schedule->target_social_account_ids ?: [];
@@ -188,14 +190,16 @@ class AutomationOrchestratorService
                 continue;
             }
 
-            // Check daily limit
-            $todayPostsCount = ScheduledPost::where('schedule_id', $schedule->id)
-                ->whereDate('scheduled_at', Carbon::today())
-                ->count();
+            // Check daily limit (only if max_posts_per_day is set and greater than 0)
+            if ($schedule->max_posts_per_day && $schedule->max_posts_per_day > 0) {
+                $todayPostsCount = ScheduledPost::where('schedule_id', $schedule->id)
+                    ->whereDate('scheduled_at', Carbon::today())
+                    ->count();
 
-            if ($todayPostsCount >= $schedule->max_posts_per_day) {
-                Log::info("Schedule #{$schedule->id} reached daily limit of {$schedule->max_posts_per_day} posts.");
-                continue;
+                if ($todayPostsCount >= $schedule->max_posts_per_day) {
+                    Log::info("Schedule #{$schedule->id} reached daily limit of {$schedule->max_posts_per_day} posts.");
+                    continue;
+                }
             }
 
             $post = $this->runSchedule($schedule);
