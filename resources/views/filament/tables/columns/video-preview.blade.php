@@ -14,7 +14,7 @@
 
 <div class="py-0.5">
     <div 
-        class="relative group cursor-pointer inline-flex items-center justify-center overflow-hidden rounded-md border border-slate-700/80 bg-slate-950 shadow-sm hover:border-primary-500 hover:shadow-primary-500/20 hover:shadow-md transition-all duration-200 {{ $isLandscape ? 'w-16 h-10' : 'w-10 h-14' }}"
+        class="relative group cursor-pointer inline-flex items-center justify-center overflow-hidden rounded-xl border border-slate-700/80 bg-slate-950 shadow-md hover:border-primary-500 hover:shadow-primary-500/20 transition-all duration-200 {{ $isLandscape ? 'w-24 h-16' : 'w-16 h-24' }}"
         title="Videoyu izlemek için tıklayın"
     >
         @if($hasRealThumbnail)

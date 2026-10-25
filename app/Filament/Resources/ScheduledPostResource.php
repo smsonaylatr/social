@@ -16,6 +16,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Support\Enums\MaxWidth;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\BadgeColumn;
@@ -71,10 +72,21 @@ class ScheduledPostResource extends Resource
             ->defaultSort('scheduled_at', 'asc')
             ->columns([
                 ImageColumn::make('video.thumbnail_path')
-                    ->label('Thumbnail')
+                    ->label('Önizleme')
                     ->disk('public')
-                    ->square()
-                    ->defaultImageUrl(url('/images/video-placeholder.png')),
+                    ->width(85)
+                    ->height(125)
+                    ->extraImgAttributes([
+                        'class' => 'rounded-xl object-cover shadow-md border border-slate-700/60 transition-transform duration-200 hover:scale-105 cursor-pointer',
+                        'style' => 'width: 85px !important; height: 125px !important; min-width: 85px; min-height: 125px; object-fit: cover; border-radius: 12px;',
+                    ])
+                    ->defaultImageUrl(url('/images/video-placeholder.png'))
+                    ->action(
+                        Action::make('preview_video_modal')
+                            ->modalHeading(fn (ScheduledPost $record) => $record->video?->title ?? 'Video Önizleme')
+                            ->modalWidth(\Filament\Support\Enums\MaxWidth::Small)
+                            ->modalContent(fn (ScheduledPost $record) => view('filament.modals.video-player-modal', ['video' => $record->video]))
+                    ),
 
                 TextColumn::make('video.title')
                     ->label('Video')
