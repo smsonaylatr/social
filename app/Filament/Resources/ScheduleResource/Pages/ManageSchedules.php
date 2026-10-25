@@ -94,7 +94,7 @@ class ManageSchedules extends ManageRecords
                 ->label('Yeni Kural')
                 ->icon('heroicon-o-plus')
                 ->size('sm')
-                ->modalWidth(\Filament\Support\Enums\MaxWidth::ThreeExtraLarge)
+                ->modalWidth(\Filament\Support\Enums\MaxWidth::FiveExtraLarge)
                 ->mutateFormDataUsing(function (array $data) {
                     $data['workspace_id'] = 1;
                     return $data;

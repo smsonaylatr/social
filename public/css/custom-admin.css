@@ -3206,22 +3206,69 @@ td.fi-ta-cell:first-child:has(input[type="checkbox"]) {
 /* 6. Form Fields & Modals Compactness */
 .fi-modal-window {
     border-radius: 0.875rem !important;
+    max-height: 90vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+}
+
+.fi-modal-window > div {
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: 90vh !important;
+    overflow: hidden !important;
 }
 
 .fi-modal-header {
-    padding: 1rem 1.25rem !important;
+    padding: 0.875rem 1.25rem !important;
+    flex-shrink: 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 .fi-modal-heading {
-    font-size: 1.15rem !important;
+    font-size: 1.05rem !important;
     font-weight: 700 !important;
 }
 
 .fi-modal-content {
     padding: 1rem 1.25rem !important;
+    overflow-y: auto !important;
+    flex: 1 1 auto !important;
 }
 
 .fi-modal-footer {
     padding: 0.75rem 1.25rem !important;
+    flex-shrink: 0 !important;
+    position: sticky !important;
+    bottom: 0 !important;
+    z-index: 20 !important;
+    background-color: inherit !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
+
+.dark .fi-modal-footer {
+    background-color: #18181b !important;
+}
+
+/* Modal Helper Text & Typography Scaling */
+.fi-modal-content .fi-fo-field-wrp-helper-text,
+.fi-modal-content .fi-fo-field-wrp-label span {
+    font-size: 0.75rem !important;
+    line-height: 1.15rem !important;
+}
+
+.fi-modal-content .fi-section-header-heading {
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+}
+
+.fi-modal-content .fi-section-header-description {
+    font-size: 0.72rem !important;
+}
+
+.fi-modal-content .fi-fo-tags-input .fi-badge {
+    font-size: 0.75rem !important;
+    padding: 0.15rem 0.45rem !important;
+}
+
 

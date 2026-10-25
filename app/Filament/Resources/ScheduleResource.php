@@ -38,6 +38,28 @@ class ScheduleResource extends Resource
     protected static ?string $pluralModelLabel = 'Otomatik Yayın Kuralları';
     protected static ?int $navigationSort = 2;
 
+    public static function normalizeAndSortTimes(mixed $state): array
+    {
+        if (!is_array($state)) {
+            return [];
+        }
+        $times = [];
+        foreach ($state as $time) {
+            $t = trim((string)$time);
+            if ($t === '') {
+                continue;
+            }
+            if (preg_match('/^(\d{1,2}):(\d{2})$/', $t, $m)) {
+                $times[] = sprintf('%02d:%02d', (int)$m[1], (int)$m[2]);
+            } else {
+                $times[] = $t;
+            }
+        }
+        $times = array_values(array_unique($times));
+        sort($times, SORT_STRING);
+        return $times;
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -80,27 +102,37 @@ class ScheduleResource extends Resource
                                     ->required(fn (Get $get): bool => $get('schedule_type') === 'algorithmic_growth'),
 
                                 TagsInput::make('posting_times')
-                                    ->label('Algoritmik Paylaşım Saatleri (Seçili Gelir - Dilediğiniz Saati Ekleyip Çıkarabilirsiniz)')
-                                    ->placeholder('Yeni saat eklemek için yazıp Enter tuşuna basın (Örn: 14:00, 21:30)')
-                                    ->helperText('Platform algoritmasının en yüksek izlenme getiren zirve saatleri otomatik seçili gelir. İstediğiniz saati çarpıdan silebilir veya kendi belirleyeceğiniz ek saatler ekleyebilirsiniz.')
+                                    ->label('Algoritmik Paylaşım Saatleri (Otomatik Sıralı)')
+                                    ->placeholder('Saat eklemek için yazıp Enter tuşuna basın (Örn: 02:00, 14:00)')
+                                    ->helperText('Saatler kronolojik olarak otomatik sıralanır. İstediğiniz saati silebilir veya ekleyebilirsiniz.')
                                     ->suggestions([
-                                        '08:30', '09:00', '09:15', '09:30', '09:45', '10:00', '10:15', '10:30', '11:00', '12:00',
+                                        '02:00', '08:30', '09:00', '09:15', '09:30', '09:45', '10:00', '10:15', '10:30', '11:00', '12:00',
                                         '12:15', '12:30', '12:45', '13:00', '13:15', '14:00', '15:30', '15:45', '16:00', '16:15',
-                                        '16:30', '16:45', '17:00', '18:00', '18:45', '19:00', '19:15', '19:30', '19:45', '20:30',
+                                        '16:30', '16:45', '17:00', '18:00', '18:30', '18:45', '19:00', '19:15', '19:30', '19:45', '20:30',
                                         '21:30', '21:45', '22:00', '22:15', '22:30', '23:00',
                                     ])
+                                    ->live()
                                     ->afterStateHydrated(function (TagsInput $component, ?Schedule $record, $state) {
                                         if (!empty($state)) {
+                                            $component->state(static::normalizeAndSortTimes($state));
                                             return;
                                         }
                                         if ($record) {
                                             $times = $record->getDailyRunTimes();
                                             if (!empty($times)) {
-                                                $component->state($times);
+                                                $component->state(static::normalizeAndSortTimes($times));
                                                 return;
                                             }
                                         }
                                         $component->state(['09:30', '12:45', '16:15', '19:15', '22:00']);
+                                    })
+                                    ->afterStateUpdated(function ($state, \Filament\Forms\Set $set) {
+                                        if (is_array($state)) {
+                                            $set('posting_times', static::normalizeAndSortTimes($state));
+                                        }
+                                    })
+                                    ->mutateDehydratedStateUsing(function ($state) {
+                                        return static::normalizeAndSortTimes($state);
                                     })
                                     ->dehydrated(fn (Get $get): bool => $get('schedule_type') === 'algorithmic_growth')
                                     ->columnSpanFull(),
@@ -108,37 +140,42 @@ class ScheduleResource extends Resource
                                 Grid::make(3)
                                     ->schema([
                                         Toggle::make('anti_spam_shield')
-                                            ->label('🛡️ Algoritmik Soğuma (Cooldown)')
-                                            ->helperText('Platformun spam sınırından önce peş peşe post atılmasını engeller.')
+                                            ->label('🛡️ Algoritmik Soğuma')
+                                            ->helperText('Spam koruması')
                                             ->default(true),
 
                                         Toggle::make('enable_smart_jitter')
-                                            ->label('🎲 Akıllı Organik Sapma (Jitter)')
-                                            ->helperText('Tam saat yerine ±3-12 dk rastgele insan davranışı ekler.')
+                                            ->label('🎲 Organik Sapma')
+                                            ->helperText('±3-8 dk insan davranışı')
                                             ->default(true),
 
                                         Toggle::make('enable_staggered_dispatch')
-                                            ->label('⏳ Kademeli Çapraz Dağıtım')
-                                            ->helperText('Tüm mecralara aynı anda değil, 6-12 dk arayla yükler.')
+                                            ->label('⏳ Kademeli Dağıtım')
+                                            ->helperText('6-12 dk çapraz aralık')
                                             ->default(true),
                                     ]),
 
-                                Placeholder::make('algo_guide')
-                                    ->label('Platform Algoritma Kılavuzu & Zirve Keşfet Saatleri')
-                                    ->content(new HtmlString(
-                                        '<div class="mb-3 p-3 rounded-lg border border-emerald-500/40 bg-emerald-950/20 text-emerald-300 text-xs leading-relaxed">' .
-                                        '<strong>💡 Maksimum Güç & Akıllı Hak Dağıtımı:</strong> Her platformun günlük tüm hakları (Instagram 5, TikTok 5, YouTube 5, Facebook 5, X 5, LinkedIn 4, Pinterest 4) spam cezasına takılmadan sonuna kadar kullanılır. Kademeli yükleme (stagger) ve anti-spam jitter ile hesaplar koruma altındadır.' .
-                                        '</div>' .
-                                        '<div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs mt-2">' .
-                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-pink-400">📸 Instagram Reels (Günde 5 Video):</strong> 09:30 • 12:45 • 16:15 • 19:15 • 22:00<br><span class="text-gray-400">İlk 45 dk tamamlama testi. Kademeli dağıtımla shadowban riski sıfır.</span></div>' .
-                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-cyan-400">🎵 TikTok FYP (Günde 5 Video):</strong> 09:30 • 12:45 • 16:15 • 19:15 • 22:00<br><span class="text-gray-400">FYP batch testi. Günde 5 video ile maksimum viral şansı.</span></div>' .
-                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-red-400">▶️ YouTube Shorts (Günde 5 Video):</strong> 09:30 • 12:45 • 16:15 • 19:15 • 22:00<br><span class="text-gray-400">Shorts rafına 2-4 saatte girer. Günde 5 video güvenli aralıklarla dağıtılır.</span></div>' .
-                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-blue-400">👥 Facebook Reels (Günde 5 Video):</strong> 09:30 • 12:45 • 16:15 • 19:15 • 22:00<br><span class="text-gray-400">Facebook Reels ve sayfa akışı için 5 zirve dalgası.</span></div>' .
-                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-gray-300">🐦 X (Twitter) (Günde 5 Tweet):</strong> 09:30 • 12:45 • 16:15 • 19:15 • 22:00<br><span class="text-gray-400">Gündem ve etkileşim zirveleri.</span></div>' .
-                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-red-500">📌 Pinterest (Günde 4 Pin):</strong> 12:45 • 16:15 • 19:15 • 22:00<br><span class="text-gray-400">Görsel arama ve pin kaydetme zirveleri.</span></div>' .
-                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60 col-span-full"><strong class="text-blue-500">💼 LinkedIn (Günde 4 Post):</strong> 09:00 • 12:30 • 16:45 • 19:30<br><span class="text-gray-400">Hafta içi ve hafta sonu tam aktif. Mesai başı, öğle molası, paydos ve akşam ağ saatleri.</span></div>' .
-                                        '</div>'
-                                    ))
+                                Section::make('💡 Platform Algoritma & Zirve Saat Rehberi')
+                                    ->description('Her platformun günlük kapasite ve en yüksek izlenme getiren prime saatleri.')
+                                    ->collapsible()
+                                    ->collapsed()
+                                    ->compact()
+                                    ->schema([
+                                        Placeholder::make('algo_guide')
+                                            ->hiddenLabel()
+                                            ->content(new HtmlString(
+                                                '<div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] leading-tight">' .
+                                                '<div class="p-2 rounded border border-gray-700 bg-gray-900/50"><strong class="text-pink-400 block mb-0.5">📸 Instagram (5x)</strong>09:30 • 12:45 • 16:15 • 19:15 • 22:00</div>' .
+                                                '<div class="p-2 rounded border border-gray-700 bg-gray-900/50"><strong class="text-cyan-400 block mb-0.5">🎵 TikTok (5x)</strong>09:30 • 12:45 • 16:15 • 19:15 • 22:00</div>' .
+                                                '<div class="p-2 rounded border border-gray-700 bg-gray-900/50"><strong class="text-red-400 block mb-0.5">▶️ YouTube (5x)</strong>09:30 • 12:45 • 16:15 • 19:15 • 22:00</div>' .
+                                                '<div class="p-2 rounded border border-gray-700 bg-gray-900/50"><strong class="text-blue-400 block mb-0.5">👥 Facebook (5x)</strong>09:30 • 12:45 • 16:15 • 19:15 • 22:00</div>' .
+                                                '<div class="p-2 rounded border border-gray-700 bg-gray-900/50"><strong class="text-gray-300 block mb-0.5">🐦 X / Twitter (5x)</strong>09:30 • 12:45 • 16:15 • 19:15 • 22:00</div>' .
+                                                '<div class="p-2 rounded border border-gray-700 bg-gray-900/50"><strong class="text-red-500 block mb-0.5">📌 Pinterest (4x)</strong>12:45 • 16:15 • 19:15 • 22:00</div>' .
+                                                '<div class="p-2 rounded border border-gray-700 bg-gray-900/50 col-span-2"><strong class="text-blue-500 block mb-0.5">💼 LinkedIn (4x)</strong>09:00 • 12:30 • 16:45 • 19:30 <span class="text-gray-400">(Mesai, Öğle, Çıkış, Akşam)</span></div>' .
+                                                '</div>'
+                                            ))
+                                            ->columnSpanFull(),
+                                    ])
                                     ->columnSpanFull(),
                             ])
                             ->visible(fn (Get $get): bool => $get('schedule_type') === 'algorithmic_growth')
@@ -206,7 +243,7 @@ class ScheduleResource extends Resource
 
                         // 4. Özel saatler modu
                         TagsInput::make('posting_times')
-                            ->label('Gün İçi Paylaşım Saatleri')
+                            ->label('Gün İçi Paylaşım Saatleri (Otomatik Sıralı)')
                             ->placeholder('Saat yazıp Enter tuşuna basın (Örn: 10:00, 14:00, 18:00, 22:00)')
                             ->suggestions([
                                 '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00',
@@ -214,7 +251,21 @@ class ScheduleResource extends Resource
                                 '22:00', '23:00',
                             ])
                             ->default(['10:00', '14:00', '18:00', '22:00'])
-                            ->helperText('Gün içinde paylaşım yapılmasını istediğiniz saatleri ekleyin. Aşağıdaki önerilen saatlere tıklayabilir veya özel saat yazıp Enter tuşuna basabilirsiniz.')
+                            ->live()
+                            ->afterStateHydrated(function (TagsInput $component, $state) {
+                                if (!empty($state)) {
+                                    $component->state(static::normalizeAndSortTimes($state));
+                                }
+                            })
+                            ->afterStateUpdated(function ($state, \Filament\Forms\Set $set) {
+                                if (is_array($state)) {
+                                    $set('posting_times', static::normalizeAndSortTimes($state));
+                                }
+                            })
+                            ->mutateDehydratedStateUsing(function ($state) {
+                                return static::normalizeAndSortTimes($state);
+                            })
+                            ->helperText('Saatler kronolojik olarak otomatik sıralanır.')
                             ->visible(fn (Get $get): bool => $get('schedule_type') === 'custom_times')
                             ->dehydrated(fn (Get $get): bool => $get('schedule_type') === 'custom_times')
                             ->required(fn (Get $get): bool => $get('schedule_type') === 'custom_times'),
@@ -252,16 +303,16 @@ class ScheduleResource extends Resource
                         CheckboxList::make('days_of_week')
                             ->label('Yayın Günleri')
                             ->options([
-                                1 => 'Pazartesi',
-                                2 => 'Salı',
-                                3 => 'Çarşamba',
-                                4 => 'Perşembe',
-                                5 => 'Cuma',
-                                6 => 'Cumartesi',
-                                7 => 'Pazar',
+                                1 => 'Pzt',
+                                2 => 'Sal',
+                                3 => 'Çar',
+                                4 => 'Per',
+                                5 => 'Cum',
+                                6 => 'Cmt',
+                                7 => 'Paz',
                             ])
                             ->default([1, 2, 3, 4, 5, 6, 7])
-                            ->columns(4)
+                            ->columns(7)
                             ->columnSpanFull(),
                     ])->columns(2),
 
@@ -467,7 +518,7 @@ class ScheduleResource extends Resource
                     ->iconButton()
                     ->size('sm')
                     ->tooltip('Düzenle')
-                    ->modalWidth(\Filament\Support\Enums\MaxWidth::ThreeExtraLarge),
+                    ->modalWidth(\Filament\Support\Enums\MaxWidth::FiveExtraLarge),
                 Tables\Actions\DeleteAction::make()
                     ->iconButton()
                     ->size('sm')
