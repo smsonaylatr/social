@@ -2667,6 +2667,45 @@ html, body {
     }
 }
 
+/* ==========================================================================
+   Video Preview Thumbnail Fixed Dimensions (Desktop & Mobile)
+   Prevents raw <video> tag from expanding table cells to full container width
+   ========================================================================== */
+.video-preview-box {
+    width: 60px !important;
+    height: 90px !important;
+    min-width: 60px !important;
+    min-height: 90px !important;
+    max-width: 60px !important;
+    max-height: 90px !important;
+    overflow: hidden !important;
+    display: inline-flex !important;
+    position: relative !important;
+    flex-shrink: 0 !important;
+}
+
+.video-preview-box.is-landscape {
+    width: 96px !important;
+    height: 60px !important;
+    min-width: 96px !important;
+    min-height: 60px !important;
+    max-width: 96px !important;
+    max-height: 60px !important;
+}
+
+.video-preview-box img,
+.video-preview-box video {
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 100% !important;
+    min-height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: cover !important;
+    display: block !important;
+}
+
+
 
 
 
