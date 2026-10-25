@@ -313,12 +313,12 @@ class OpenAiContentService implements AiContentProviderInterface
             ),
             'linkedin' => new GeneratedPlatformContentDTO(
                 platformCode: 'linkedin',
-                title: null,
-                hookSentence: 'Fiziksel aktiviteyi eğlenceli bir deneyime dönüştüren yeni nesil tekerlekli ayakkabı tasarımlarımız. ⚡',
-                caption: "Fiziksel aktiviteyi eğlenceli bir deneyime dönüştüren yeni nesil tekerlekli ayakkabı tasarımlarımız. ⚡\n\n{$brandName} olarak genç neslin hareket kabiliyetini ve spor sevgisini artıran inovatif ayakkabı çözümleri sunuyoruz. Ergonomik taban yapısı ve gizlenebilir mekanizması ile sokak modası ve eğlence bir arada.\n\n{$bullets}\n\nÜrünlerimizi ve detayları web sitemizden inceleyebilirsiniz:\n🌐 patenliayakkabilar.com",
-                hashtags: ['PatenliAyakkabı', 'İnovasyon', 'Eticaret', 'Perakende', 'Girişimcilik'],
-                seoKeywords: ['e-ticaret', 'ürün inovasyonu', 'patenli ayakkabı'],
-                callToAction: 'Ürün geliştirme ve kurumsal çözümlerimiz için web sitemizi ziyaret edin.',
+                title: 'Patenli Ayakkabı ve Tekerlekli Spor Ayakkabı Modelleri | Patenli Ayakkabılar',
+                hookSentence: 'Çocuk patenli ayakkabı ve tekerlekli ayakkabı modellerimizle hareketi eğlenceye dönüştürüyoruz! ⚡',
+                caption: "Çocuk patenli ayakkabı ve tekerlekli ayakkabı modellerimizle hareketi eğlenceye dönüştürüyoruz! ⚡\n\n{$brandName} olarak çocukların ve gençlerin severek giydiği patenli ayakkabı, ışıklı patenli ayakkabı ve gizli tekerlekli spor ayakkabı modelleri sunuyoruz. Hem günlük kullanıma uygun konforlu spor ayakkabı, hem de tek hareketle kaymaya hazır paten deneyimi bir arada!\n\n{$bullets}\n\nTüm patenli ayakkabı modelleri ve fiyatları için resmi web sitemizi ziyaret edin:\n🌐 {$productUrl}",
+                hashtags: ['PatenliAyakkabı', 'TekerlekliAyakkabı', 'ÇocukPatenliAyakkabı', 'IşıklıPatenliAyakkabı', 'PatenliAyakkabılar'],
+                seoKeywords: $seoKeywords,
+                callToAction: "Patenli ayakkabı modellerini inceleyin: {$productUrl}",
                 suggestedProductUrl: $productUrl,
                 isTestMode: true
             ),

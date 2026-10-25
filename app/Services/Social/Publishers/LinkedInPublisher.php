@@ -33,17 +33,26 @@ class LinkedInPublisher extends AbstractSocialPublisher
 
         // Auto-resolve authentic LinkedIn author URN (urn:li:person:xxx) via OpenID /v2/userinfo
         $authorUrn = $this->resolveAuthorUrn($account, $token);
-        $commentary = mb_substr($this->buildFullCaption($target), 0, 3000);
+        $fullText = $this->buildFullCaption($target);
+
+        // Ensure full https:// link in commentary for clickable SEO backlink on LinkedIn
+        if (! str_contains($fullText, 'https://') && ! str_contains($fullText, 'http://')) {
+            $fullText = preg_replace('/\b(patenliayakkabilar\.com)\b/i', 'https://$1', $fullText);
+        }
+
+        $commentary = mb_substr($fullText, 0, 3000);
+        $productUrl = $target->product_url ?: ($video->product_url ?: 'https://patenliayakkabilar.com');
+        $seoTitle = mb_substr($target->title ?: ($video->title ?: 'Patenli Ayakkabı ve Tekerlekli Spor Ayakkabı Modelleri | Patenli Ayakkabılar'), 0, 200);
 
         $headers = [
             'X-Restli-Protocol-Version' => '2.0.0',
         ];
 
-        // 1. Try uploading video asset via LinkedIn v2 Assets API
+        // 1. Upload video binary via LinkedIn v2 Assets API
         $assetUrn = null;
         if ($video->storage_path) {
             $videoFilePath = Storage::disk($video->disk ?: 'public')->path($video->storage_path);
-            if (file_exists($videoFilePath)) {
+            if (file_exists($videoFilePath) && filesize($videoFilePath) > 0) {
                 try {
                     $registerResp = Http::withToken($token)
                         ->withHeaders($headers)
@@ -66,17 +75,18 @@ class LinkedInPublisher extends AbstractSocialPublisher
                         $uploadUrl = $registerResp->json('value.uploadMechanism.com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest.uploadUrl');
 
                         if ($candidateAsset && $uploadUrl) {
-                            $stream = fopen($videoFilePath, 'rb');
+                            $binaryContent = file_get_contents($videoFilePath);
                             $uploadResp = Http::withToken($token)
+                                ->withHeaders([
+                                    'Content-Type' => $video->mime_type ?: 'video/mp4',
+                                ])
                                 ->timeout(180)
-                                ->withBody($stream, 'application/octet-stream')
+                                ->withBody($binaryContent, $video->mime_type ?: 'video/mp4')
                                 ->put($uploadUrl);
-                            if (is_resource($stream)) {
-                                fclose($stream);
-                            }
 
-                            if ($uploadResp->successful()) {
+                            if ($uploadResp->successful() || $uploadResp->status() === 201) {
                                 $assetUrn = $candidateAsset;
+                                sleep(3); // Brief pause for LinkedIn asset registration
                             }
                         }
                     }
@@ -86,21 +96,39 @@ class LinkedInPublisher extends AbstractSocialPublisher
             }
         }
 
-        // 2. Publish via LinkedIn v2 ugcPosts API
-        $shareContent = [
-            'shareCommentary' => [
-                'text' => $commentary,
-            ],
-            'shareMediaCategory' => $assetUrn ? 'VIDEO' : 'NONE',
-        ];
-
+        // 2. Publish via LinkedIn v2 ugcPosts API (VIDEO first, fallback to SEO ARTICLE Card)
         if ($assetUrn) {
-            $shareContent['media'] = [
-                [
-                    'status' => 'READY',
-                    'media' => $assetUrn,
-                    'title' => [
-                        'text' => mb_substr($target->title ?: $video->title, 0, 200),
+            $shareContent = [
+                'shareCommentary' => [
+                    'text' => $commentary,
+                ],
+                'shareMediaCategory' => 'VIDEO',
+                'media' => [
+                    [
+                        'status' => 'READY',
+                        'media' => $assetUrn,
+                        'title' => [
+                            'text' => $seoTitle,
+                        ],
+                    ],
+                ],
+            ];
+        } else {
+            $shareContent = [
+                'shareCommentary' => [
+                    'text' => $commentary,
+                ],
+                'shareMediaCategory' => 'ARTICLE',
+                'media' => [
+                    [
+                        'status' => 'READY',
+                        'originalUrl' => $productUrl,
+                        'title' => [
+                            'text' => $seoTitle,
+                        ],
+                        'description' => [
+                            'text' => 'Patenli ayakkabı, tekerlekli ayakkabı ve çocuk ışıklı patenli spor ayakkabı modelleri — patenliayakkabilar.com',
+                        ],
                     ],
                 ],
             ];
@@ -122,11 +150,21 @@ class LinkedInPublisher extends AbstractSocialPublisher
             ->timeout(30)
             ->post('https://api.linkedin.com/v2/ugcPosts', $ugcPayload);
 
-        // Fallback: If VIDEO share fails (e.g. asset still processing), publish text share immediately
+        // Fallback: If VIDEO share fails, publish as SEO ARTICLE Card with clickable link
         if (! $response->successful() && $assetUrn) {
             $ugcPayload['specificContent']['com.linkedin.ugc.ShareContent'] = [
                 'shareCommentary' => ['text' => $commentary],
-                'shareMediaCategory' => 'NONE',
+                'shareMediaCategory' => 'ARTICLE',
+                'media' => [
+                    [
+                        'status' => 'READY',
+                        'originalUrl' => $productUrl,
+                        'title' => ['text' => $seoTitle],
+                        'description' => [
+                            'text' => 'Patenli ayakkabı, tekerlekli ayakkabı ve çocuk ışıklı patenli spor ayakkabı modelleri — patenliayakkabilar.com',
+                        ],
+                    ],
+                ],
             ];
             $response = Http::withToken($token)
                 ->withHeaders($headers)

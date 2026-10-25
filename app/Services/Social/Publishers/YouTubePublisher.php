@@ -87,14 +87,14 @@ class YouTubePublisher extends AbstractSocialPublisher
             throw new \RuntimeException('Video dosyası yerel diskte bulunamadı: ' . $videoFilePath);
         }
 
-        $stream = fopen($videoFilePath, 'r');
+        $binaryContent = file_get_contents($videoFilePath);
         $uploadResponse = Http::withToken($token)
             ->withHeaders([
                 'Content-Type' => $video->mime_type ?: 'video/mp4',
-                'Content-Length' => filesize($videoFilePath),
+                'Content-Length' => strlen($binaryContent),
             ])
             ->timeout(300)
-            ->withBody($stream, $video->mime_type ?: 'video/mp4')
+            ->withBody($binaryContent, $video->mime_type ?: 'video/mp4')
             ->put($uploadUrl);
 
         if (! $uploadResponse->successful()) {
