@@ -73,17 +73,29 @@ class LinkedInPublisher extends AbstractSocialPublisher
                     $uploadUrl = $registerResp->json('value.uploadMechanism.com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest.uploadUrl');
 
                     if ($candidateAsset && $uploadUrl) {
-                        $uploadResp = Http::withToken($token)
-                            ->withHeaders([
-                                'Content-Type' => 'application/octet-stream',
-                            ])
+                        $extraHeaders = $registerResp->json('value.uploadMechanism.com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest.headers') ?? [];
+                        $uploadHeaders = array_merge(
+                            is_array($extraHeaders) ? $extraHeaders : [],
+                            ['Content-Type' => 'application/octet-stream']
+                        );
+
+                        // Pre-signed LinkedIn upload URLs first without Bearer token, fallback with Bearer token
+                        $uploadResp = Http::withHeaders($uploadHeaders)
                             ->timeout(180)
                             ->withBody($binaryContent, 'application/octet-stream')
                             ->put($uploadUrl);
 
+                        if (! $uploadResp->successful() && $uploadResp->status() !== 201) {
+                            $uploadResp = Http::withToken($token)
+                                ->withHeaders($uploadHeaders)
+                                ->timeout(180)
+                                ->withBody($binaryContent, 'application/octet-stream')
+                                ->put($uploadUrl);
+                        }
+
                         if ($uploadResp->successful() || $uploadResp->status() === 201) {
                             $assetUrn = $candidateAsset;
-                            sleep(4);
+                            $this->waitForVideoAssetReady($assetUrn, $token, $headers);
                         }
                     }
                 }
@@ -102,6 +114,9 @@ class LinkedInPublisher extends AbstractSocialPublisher
                 'media' => [
                     [
                         'status' => 'READY',
+                        'description' => [
+                            'text' => 'Patenli ayakkabı, tekerlekli ayakkabı ve çocuk ışıklı patenli spor ayakkabı modelleri — patenliayakkabilar.com',
+                        ],
                         'media' => $assetUrn,
                         'title' => [
                             'text' => $seoTitle,
@@ -146,7 +161,16 @@ class LinkedInPublisher extends AbstractSocialPublisher
             ->timeout(30)
             ->post('https://api.linkedin.com/v2/ugcPosts', $ugcPayload);
 
-        // Fallback: If VIDEO share fails, publish as SEO ARTICLE Card with clickable link
+        // If VIDEO share failed because LinkedIn was still transcoding, wait 5s and retry VIDEO once more
+        if (! $response->successful() && $assetUrn) {
+            sleep(5);
+            $response = Http::withToken($token)
+                ->withHeaders($headers)
+                ->timeout(30)
+                ->post('https://api.linkedin.com/v2/ugcPosts', $ugcPayload);
+        }
+
+        // Fallback: If VIDEO share still fails, publish as SEO ARTICLE Card with clickable link
         if (! $response->successful() && $assetUrn) {
             $ugcPayload['specificContent']['com.linkedin.ugc.ShareContent'] = [
                 'shareCommentary' => ['text' => $commentary],
@@ -181,19 +205,65 @@ class LinkedInPublisher extends AbstractSocialPublisher
         ];
     }
 
+    /**
+     * Poll LinkedIn Assets API until video recipe status is AVAILABLE (ready to attach to ugcPosts).
+     */
+    protected function waitForVideoAssetReady(string $assetUrn, string $token, array $headers): void
+    {
+        $assetId = str_replace('urn:li:digitalmediaAsset:', '', $assetUrn);
+
+        for ($i = 0; $i < 12; $i++) {
+            sleep(3);
+
+            try {
+                $checkResp = Http::withToken($token)
+                    ->withHeaders($headers)
+                    ->timeout(10)
+                    ->get("https://api.linkedin.com/v2/assets/{$assetId}");
+
+                if (! $checkResp->successful()) {
+                    return;
+                }
+
+                $recipeStatus = $checkResp->json('recipes.0.status') ?? $checkResp->json('status');
+                if ($recipeStatus === 'AVAILABLE' || $recipeStatus === 'READY') {
+                    return;
+                }
+
+                if (in_array($recipeStatus, ['PROCESSING_FAILED', 'CLIENT_ERROR', 'FAILED'], true)) {
+                    return;
+                }
+            } catch (\Throwable) {
+                return;
+            }
+        }
+    }
+
     protected function loadVideoBinary(Video $video): ?string
     {
         if (! $video->storage_path) {
             return null;
         }
 
+        $cleanPath = ltrim($video->storage_path, '/');
+        $candidates = [];
+
         try {
-            $videoFilePath = Storage::disk($video->disk ?: 'public')->path($video->storage_path);
-            if (file_exists($videoFilePath) && filesize($videoFilePath) > 0) {
-                return file_get_contents($videoFilePath) ?: null;
-            }
+            $candidates[] = Storage::disk($video->disk ?: 'public')->path($cleanPath);
         } catch (\Throwable) {
-            // Fallback below
+            // Ignore
+        }
+
+        $candidates[] = storage_path('app/public/' . $cleanPath);
+        $candidates[] = public_path('storage/' . $cleanPath);
+
+        foreach ($candidates as $path) {
+            if ($path && file_exists($path) && filesize($path) > 0) {
+                $content = @file_get_contents($path);
+                if ($content !== false && strlen($content) > 0) {
+                    return $content;
+                }
+            }
         }
 
         if ($video->url) {
