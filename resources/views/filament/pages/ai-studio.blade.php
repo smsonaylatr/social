@@ -95,7 +95,7 @@
 
             {{-- Sağ: AI Üretim, Toplu Yayınlama ve API Ayarları --}}
             <div class="ais-hero-right">
-                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.6rem;">
+                <div class="ais-hero-actions-row" style="display:flex; flex-wrap:wrap; align-items:center; gap:0.6rem;">
                     <button 
                         type="button"
                         wire:click="generateAiContent"
@@ -474,7 +474,7 @@
                                 </select>
                             </div>
 
-                            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.55rem;">
+                            <div class="ais-editor-footer-actions" style="display:flex; flex-wrap:wrap; align-items:center; gap:0.55rem;">
                                 <button 
                                     type="button"
                                     wire:click="savePlatformContent('{{ $activeTab }}')"

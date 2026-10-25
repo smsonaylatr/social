@@ -73,6 +73,7 @@ class VideoResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['brand', 'category']))
             ->defaultSort('id', 'asc')
             ->recordAction('play')
             ->recordUrl(null)
@@ -80,6 +81,7 @@ class VideoResource extends Resource
                 ViewColumn::make('preview')
                     ->label('Önizleme')
                     ->view('filament.tables.columns.video-preview')
+                    ->grow(false)
                     ->action(
                         Action::make('preview_play')
                             ->label('İzle')
@@ -96,14 +98,34 @@ class VideoResource extends Resource
                     ->label('Video Başlığı')
                     ->weight('bold')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->wrap()
+                    ->description(function (Video $record): ?string {
+                        $parts = [];
+                        if ($record->aspect_ratio) {
+                            $parts[] = $record->aspect_ratio;
+                        }
+                        if ($record->formatted_duration) {
+                            $parts[] = $record->formatted_duration;
+                        }
+                        if ($record->formatted_file_size) {
+                            $parts[] = $record->formatted_file_size;
+                        }
+                        if ($record->usage_count > 0) {
+                            $parts[] = "{$record->usage_count} kez yayınlandı";
+                        }
+
+                        return count($parts) > 0 ? implode(' • ', $parts) : null;
+                    }),
 
                 TextColumn::make('duration_seconds')
                     ->label('Süre')
                     ->formatStateUsing(fn (Video $record): string => $record->formatted_duration)
                     ->badge()
                     ->color('info')
-                    ->sortable(),
+                    ->sortable()
+                    ->visibleFrom('sm')
+                    ->toggleable(),
 
                 TextColumn::make('aspect_ratio')
                     ->label('Format')
@@ -113,30 +135,40 @@ class VideoResource extends Resource
                         '16:9' => 'primary',
                         default => 'gray',
                     })
-                    ->sortable(),
+                    ->sortable()
+                    ->visibleFrom('md')
+                    ->toggleable(),
 
                 TextColumn::make('file_size')
                     ->label('Dosya Boyutu')
                     ->formatStateUsing(fn (Video $record): string => $record->formatted_file_size)
-                    ->sortable(),
+                    ->sortable()
+                    ->visibleFrom('lg')
+                    ->toggleable(),
 
                 TextColumn::make('usage_count')
                     ->label('Yayın Sayısı')
                     ->badge()
                     ->color(fn (int $state): string => $state > 0 ? 'success' : 'gray')
                     ->suffix(' kez')
-                    ->sortable(),
+                    ->sortable()
+                    ->visibleFrom('lg')
+                    ->toggleable(),
 
                 TextColumn::make('status')
                     ->label('Durum')
                     ->badge()
                     ->color('success')
-                    ->formatStateUsing(fn (): string => 'Yayına Hazır'),
+                    ->formatStateUsing(fn (): string => 'Yayına Hazır')
+                    ->visibleFrom('xl')
+                    ->toggleable(),
 
                 TextColumn::make('created_at')
                     ->label('Yüklenme Tarihi')
                     ->dateTime('d.m.Y H:i')
-                    ->sortable(),
+                    ->sortable()
+                    ->visibleFrom('xl')
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('aspect_ratio')
@@ -151,6 +183,8 @@ class VideoResource extends Resource
                 Action::make('play')
                     ->label('İzle')
                     ->icon('heroicon-o-play')
+                    ->iconButton()
+                    ->tooltip('Videoyu İzle')
                     ->color('primary')
                     ->modalWidth(MaxWidth::Small)
                     ->modalHeading(fn (Video $record): string => $record->title)
@@ -161,11 +195,13 @@ class VideoResource extends Resource
                     ->modalFooterActions([]),
 
                 Tables\Actions\DeleteAction::make()
-                    ->label('Sil'),
+                    ->label('Sil')
+                    ->iconButton()
+                    ->tooltip('Videoyu Sil'),
             ])
             ->headerActions([
                 Action::make('reanalyze_all')
-                    ->label('Tüm Videoları Yeniden Analiz Et & Onar')
+                    ->label('Yeniden Analiz Et')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
                     ->requiresConfirmation()

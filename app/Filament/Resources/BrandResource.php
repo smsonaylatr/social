@@ -117,31 +117,37 @@ class BrandResource extends Resource
                     ->label('Marka Adı')
                     ->searchable()
                     ->sortable()
-                    ->weight('bold'),
+                    ->wrap()
+                    ->weight('bold')
+                    ->description(fn (Brand $record): ?string => $record->website ? parse_url($record->website, PHP_URL_HOST) : null),
 
                 TextColumn::make('website')
                     ->label('Web Sitesi')
+                    ->visibleFrom('sm')
                     ->url(fn ($record) => $record->website, shouldOpenInNewTab: true),
 
                 TextColumn::make('slogan')
                     ->label('Slogan')
+                    ->visibleFrom('md')
                     ->extraAttributes(['class' => 'italic']),
 
                 TextColumn::make('brand_tone')
                     ->label('Ton')
                     ->badge()
+                    ->visibleFrom('lg')
                     ->color('primary'),
 
                 TextColumn::make('videos_count')
                     ->counts('videos')
                     ->label('Video')
+                    ->visibleFrom('sm')
                     ->badge(),
 
                 ToggleColumn::make('is_active')
                     ->label('Aktif'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()->iconButton()->tooltip('Düzenle'),
             ]);
     }
 

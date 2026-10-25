@@ -1,7 +1,7 @@
 <x-filament-widgets::widget>
     <x-filament::section>
         <x-slot name="heading">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                 <div class="flex items-center gap-2">
                     <x-heroicon-m-signal class="w-5 h-5 text-primary-500" />
                     <span class="font-medium text-gray-900 dark:text-gray-100">Sosyal Medya Platformları ve API Sağlık Durumu</span>

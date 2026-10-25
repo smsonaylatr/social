@@ -36,7 +36,7 @@ class ListScheduledPosts extends ListRecords
                 ->modalDescription('Video havuzundaki videolarınızı tek tek seçmek yerine belirlediğiniz sırayla ve zaman aralığıyla otomatik olarak paylaşım kuyruğuna dizer.')
                 ->modalSubmitActionLabel('Sıralı Kuyruğu Başlat')
                 ->form([
-                    Grid::make(2)
+                    Grid::make(['default' => 1, 'sm' => 2])
                         ->schema([
                             Select::make('order_mode')
                                 ->label('Sıralama ve Kaynak Modu')

@@ -27,15 +27,15 @@
                     </span>
                 </div>
 
-                <div class="grid grid-cols-2 gap-2 text-gray-600 dark:text-gray-400 mb-2 font-mono text-[11px]">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-600 dark:text-gray-400 mb-2 font-mono text-[11px]">
                     <div>Deneme Sayısı: <strong>{{ $target->attempt_count }}</strong></div>
                     <div>Yayın Zamanı: {{ $target->published_at ? $target->published_at->format('d.m.Y H:i') : '-' }}</div>
-                    <div class="col-span-2 truncate">İzleme Kimliği: {{ $target->correlation_id }}</div>
+                    <div class="col-span-1 sm:col-span-2 break-all">İzleme Kimliği: {{ $target->correlation_id }}</div>
                 </div>
 
                 @if($target->external_post_url)
                     <div class="mt-2">
-                        <a href="{{ $target->external_post_url }}" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1 font-semibold">
+                        <a href="{{ $target->external_post_url }}" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1 font-semibold break-all">
                             <span>Canlı Gönderiyi Aç</span>
                             <x-heroicon-m-arrow-top-right-on-square class="w-3.5 h-3.5" />
                         </a>
@@ -43,7 +43,7 @@
                 @endif
 
                 @if($target->error_message)
-                    <div class="mt-2 p-2 rounded bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300">
+                    <div class="mt-2 p-2 rounded bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 break-words">
                         <strong>Hata:</strong> {{ $target->error_message }}
                     </div>
                 @endif

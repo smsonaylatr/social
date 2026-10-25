@@ -205,23 +205,28 @@ class ScheduleResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['playlist']))
             ->columns([
                 TextColumn::make('name')
                     ->label('Kural Adı')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->wrap()
+                    ->weight('bold'),
 
                 TextColumn::make('playlist.name')
                     ->label('Video Kaynağı')
                     ->default('Tüm Video Havuzu (Sıralı)')
                     ->badge()
                     ->color('primary')
+                    ->visibleFrom('sm')
                     ->sortable(),
 
                 TextColumn::make('schedule_type')
                     ->label('Gün İçi Paylaşım Saatleri & Sıklık')
                     ->badge()
                     ->color('info')
+                    ->wrap()
                     ->formatStateUsing(function (Schedule $record): string {
                         $times = $record->getDailyRunTimes();
                         $count = count($times);
@@ -247,6 +252,7 @@ class ScheduleResource extends Resource
                 TextColumn::make('last_run_at')
                     ->label('Son Çalışma')
                     ->dateTime('d.m.Y H:i')
+                    ->visibleFrom('md')
                     ->sortable()
                     ->placeholder('Henüz çalışmadı'),
 
@@ -257,6 +263,8 @@ class ScheduleResource extends Resource
                 Tables\Actions\Action::make('run_now')
                     ->label('Sıradakini Şimdi Paylaş')
                     ->icon('heroicon-o-play')
+                    ->iconButton()
+                    ->tooltip('Sıradakini Şimdi Paylaş')
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Sıradaki Videoyu Şimdi Paylaş')
@@ -307,8 +315,8 @@ class ScheduleResource extends Resource
                                 ->send();
                         }
                     }),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()->iconButton()->tooltip('Düzenle'),
+                Tables\Actions\DeleteAction::make()->iconButton()->tooltip('Sil'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

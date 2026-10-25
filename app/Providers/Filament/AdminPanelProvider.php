@@ -34,7 +34,7 @@ class AdminPanelProvider extends PanelProvider
             ->darkMode(true)
             ->sidebarCollapsibleOnDesktop()
             ->databaseNotifications()
-            ->databaseNotificationsPolling('30s')
+            ->databaseNotificationsPolling('120s')
             ->colors([
                 'primary' => Color::Indigo,
                 'gray' => Color::Zinc,
@@ -45,7 +45,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => '<link rel="stylesheet" href="' . asset('css/custom-admin.css') . '?v=' . (file_exists(public_path('css/custom-admin.css')) ? filemtime(public_path('css/custom-admin.css')) : time()) . '">'
+                fn (): string => '<link rel="stylesheet" href="' . asset('css/custom-admin.css') . '?v=2.5">'
             )
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
@@ -53,7 +53,7 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn (): string => '<script>(function(){function pingCron(){fetch("/cron/process",{method:"POST",headers:{"X-Requested-With":"XMLHttpRequest"}}).catch(function(){});}setTimeout(pingCron,3000);setInterval(pingCron,60000);})();</script>'
+                fn (): string => '<script>(function(){try{var k="sf_last_cron_ts";var last=parseInt(localStorage.getItem(k)||"0",10);var now=Date.now();if(now-last>180000){localStorage.setItem(k,now);setTimeout(function(){fetch("/cron/process",{method:"POST",headers:{"X-Requested-With":"XMLHttpRequest"}}).catch(function(){});},4000);}}catch(e){}})();</script>'
             )
             ->navigationGroups([
                 NavigationGroup::make()

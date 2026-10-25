@@ -104,36 +104,43 @@ class HashtagResource extends Resource
                     ->formatStateUsing(fn (string $state): string => '#' . ltrim($state, '#'))
                     ->searchable()
                     ->sortable()
+                    ->wrap()
                     ->weight('bold'),
 
                 TextColumn::make('category')
                     ->label('Kategori')
                     ->badge()
                     ->color('primary')
+                    ->visibleFrom('sm')
                     ->sortable(),
 
                 TextColumn::make('platform_filter')
                     ->label('Platform')
                     ->badge()
                     ->color('info')
+                    ->visibleFrom('md')
                     ->default('Tümü'),
 
                 TextColumn::make('priority')
                     ->label('Öncelik')
+                    ->visibleFrom('lg')
                     ->sortable(),
 
                 TextColumn::make('usage_count')
                     ->label('Kullanım')
                     ->badge()
+                    ->visibleFrom('lg')
                     ->sortable(),
 
                 TextColumn::make('last_used_at')
                     ->label('Son Kullanım')
                     ->dateTime('d.m.Y H:i')
+                    ->visibleFrom('xl')
                     ->sortable(),
 
                 ToggleColumn::make('is_blacklisted')
-                    ->label('Kara Liste'),
+                    ->label('Kara Liste')
+                    ->visibleFrom('md'),
 
                 ToggleColumn::make('is_active')
                     ->label('Aktif'),
@@ -205,8 +212,8 @@ class HashtagResource extends Resource
                     }),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()->iconButton()->tooltip('Düzenle'),
+                Tables\Actions\DeleteAction::make()->iconButton()->tooltip('Sil'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

@@ -69,20 +69,23 @@ class ItemsRelationManager extends RelationManager
                 TextColumn::make('video.title')
                     ->label('Video Başlığı')
                     ->searchable()
-                    ->limit(40),
+                    ->wrap()
+                    ->weight('bold'),
 
                 TextColumn::make('video.aspect_ratio')
                     ->label('En-Boy')
                     ->badge()
+                    ->visibleFrom('sm')
                     ->color('primary'),
 
                 TextColumn::make('video.usage_count')
                     ->label('Yayın Sayısı')
+                    ->visibleFrom('md')
                     ->badge(),
 
-                TextInput::make('priority_score')
+                TextColumn::make('priority_score')
                     ->label('Öncelik')
-                    ->numeric(),
+                    ->visibleFrom('lg'),
 
                 ToggleColumn::make('is_active')
                     ->label('Aktif'),
@@ -92,8 +95,8 @@ class ItemsRelationManager extends RelationManager
                     ->label('Listeye Video Ekle'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()->iconButton()->tooltip('Düzenle'),
+                Tables\Actions\DeleteAction::make()->iconButton()->tooltip('Sil'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

@@ -179,6 +179,7 @@ class SocialAccountResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['platform']))
             ->columns([
                 TextColumn::make('platform.name')
                     ->label('Platform')
@@ -197,11 +198,14 @@ class SocialAccountResource extends Resource
                 TextColumn::make('name')
                     ->label('Hesap Adı')
                     ->searchable()
+                    ->wrap()
+                    ->weight('bold')
                     ->description(fn (SocialAccount $record): string => '@' . ($record->username ?: $record->account_id)),
 
                 TextColumn::make('account_type')
                     ->label('Tür')
                     ->badge()
+                    ->visibleFrom('md')
                     ->color('gray'),
 
                 TextColumn::make('status')
@@ -224,18 +228,19 @@ class SocialAccountResource extends Resource
                 TextColumn::make('last_posted_at')
                     ->label('Son Gönderi')
                     ->dateTime('d.m.Y H:i')
+                    ->visibleFrom('lg')
                     ->sortable()
                     ->placeholder('Henüz paylaşılmadı'),
             ])
             ->headerActions([
                 Action::make('channels_view')
-                    ->label('Platform Kanalları (Manychat Görünümü)')
+                    ->label('Platform Kanalları')
                     ->icon('heroicon-o-squares-2x2')
                     ->color('primary')
                     ->url(fn (): string => url('/admin/social-channels')),
 
                 Action::make('developer_guide')
-                    ->label('API Kurulum Sihirbazı & Erişim Kodu Kılavuzu')
+                    ->label('API Kılavuzu')
                     ->icon('heroicon-o-book-open')
                     ->color('info')
                     ->modalWidth('5xl')
@@ -246,6 +251,8 @@ class SocialAccountResource extends Resource
                 Action::make('get_token_link')
                     ->label('Erişim Kodu Al')
                     ->icon('heroicon-o-key')
+                    ->iconButton()
+                    ->tooltip('Resmi Erişim Kodu Al')
                     ->color('info')
                     ->url(function (SocialAccount $record): string {
                         $code = $record->platform?->code instanceof \BackedEnum
@@ -258,6 +265,8 @@ class SocialAccountResource extends Resource
                 Action::make('test_connection')
                     ->label('Bağlantıyı Doğrula')
                     ->icon('heroicon-o-check-circle')
+                    ->iconButton()
+                    ->tooltip('Bağlantıyı Doğrula')
                     ->color('success')
                     ->action(function (SocialAccount $record) {
                         $manager = app(SocialPublisherManager::class);

@@ -25,18 +25,21 @@
                         </div>
                     </div>
 
-                    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                    <div class="guide-actions-bar" style="display:flex; flex-wrap:wrap; gap:8px;">
                         <a href="{{ $g['token_generator_url'] }}" target="_blank" rel="noopener noreferrer"
-                           style="display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:8px; background:linear-gradient(135deg,#2563eb,#1d4ed8); color:#ffffff; font-size:12px; font-weight:700; text-decoration:none;">
+                           class="guide-btn guide-btn-primary"
+                           style="display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:8px 12px; border-radius:8px; background:linear-gradient(135deg,#2563eb,#1d4ed8); color:#ffffff; font-size:12px; font-weight:700; text-decoration:none;">
                             <span>🔑 {{ $g['token_generator_label'] }}</span>
                             <span>↗</span>
                         </a>
                         <a href="{{ $g['oauth_url'] }}"
-                           style="display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:8px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.35); color:#34d399; font-size:12px; font-weight:700; text-decoration:none;">
+                           class="guide-btn guide-btn-success"
+                           style="display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:8px 12px; border-radius:8px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.35); color:#34d399; font-size:12px; font-weight:700; text-decoration:none;">
                             <span>⚡ OAuth 2.0 İznine Git</span>
                         </a>
                         <a href="{{ $g['developer_portal_url'] }}" target="_blank" rel="noopener noreferrer"
-                           style="display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:8px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14); color:#e4e4e7; font-size:12px; font-weight:600; text-decoration:none;">
+                           class="guide-btn guide-btn-neutral"
+                           style="display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:8px 12px; border-radius:8px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14); color:#e4e4e7; font-size:12px; font-weight:600; text-decoration:none;">
                             <span>🛠️ {{ $g['developer_portal_label'] }}</span>
                             <span>↗</span>
                         </a>
@@ -44,20 +47,20 @@
                 </div>
 
                 {{-- URIs & Scopes --}}
-                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:10px; margin-bottom:12px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);">
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-bottom:12px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);">
                     <div>
                         <div style="font-size:10.5px; font-weight:700; color:#9ca3af; text-transform:uppercase; margin-bottom:4px;">OAuth Redirect URI</div>
-                        <code style="display:block; padding:5px 8px; border-radius:6px; background:#090a0f; color:#38bdf8; font-size:11.5px; font-family:monospace; user-select:all;">{{ $g['redirect_uri'] }}</code>
+                        <code style="display:block; padding:5px 8px; border-radius:6px; background:#090a0f; color:#38bdf8; font-size:11.5px; font-family:monospace; user-select:all; word-break:break-all; overflow-wrap:anywhere;">{{ $g['redirect_uri'] }}</code>
                     </div>
                     <div>
                         <div style="font-size:10.5px; font-weight:700; color:#9ca3af; text-transform:uppercase; margin-bottom:4px;">Webhook Callback URL</div>
-                        <code style="display:block; padding:5px 8px; border-radius:6px; background:#090a0f; color:#34d399; font-size:11.5px; font-family:monospace; user-select:all;">{{ $g['webhook_uri'] }}</code>
+                        <code style="display:block; padding:5px 8px; border-radius:6px; background:#090a0f; color:#34d399; font-size:11.5px; font-family:monospace; user-select:all; word-break:break-all; overflow-wrap:anywhere;">{{ $g['webhook_uri'] }}</code>
                     </div>
                     <div>
                         <div style="font-size:10.5px; font-weight:700; color:#9ca3af; text-transform:uppercase; margin-bottom:4px;">Gerekli İzinler (Scopes)</div>
                         <div style="display:flex; flex-wrap:wrap; gap:4px;">
                             @foreach($g['scopes'] as $scope)
-                                <code style="padding:2px 6px; border-radius:5px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3); color:#93c5fd; font-size:11px; font-family:monospace;">{{ $scope }}</code>
+                                <code style="padding:2px 6px; border-radius:5px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3); color:#93c5fd; font-size:11px; font-family:monospace; word-break:break-all;">{{ $scope }}</code>
                             @endforeach
                         </div>
                     </div>

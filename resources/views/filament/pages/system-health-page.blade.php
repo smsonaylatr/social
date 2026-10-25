@@ -1,12 +1,12 @@
 <x-filament-panels::page>
     <div class="space-y-6">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <p class="text-xs text-gray-500">Sunucu, arka plan servisleri ve harici API entegrasyonlarının canlı sağlık durumları.</p>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 w-full sm:w-auto">
                 <button 
                     type="button" 
                     wire:click="refreshHealth"
-                    class="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition flex items-center gap-1.5"
+                    class="flex-1 sm:flex-none justify-center px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition flex items-center gap-1.5"
                 >
                     <x-heroicon-m-arrow-path class="w-4 h-4" />
                     <span>Yenile</span>
@@ -14,7 +14,7 @@
                 <button 
                     type="button" 
                     wire:click="clearSystemCache"
-                    class="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition flex items-center gap-1.5"
+                    class="flex-1 sm:flex-none justify-center px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-600 hover:bg-primary-700 text-white transition flex items-center gap-1.5"
                 >
                     <x-heroicon-m-trash class="w-4 h-4" />
                     <span>Önbelleği Temizle</span>
@@ -23,7 +23,7 @@
         </div>
 
         {{-- Temel Sistem Servisleri Kartları --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {{-- Veritabanı --}}
             <div class="system-health-card p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-xs">
                 <div class="flex items-center justify-between mb-3">

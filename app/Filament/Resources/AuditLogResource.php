@@ -28,6 +28,8 @@ class AuditLogResource extends Resource
                 TextColumn::make('user.name')
                     ->label('Kullanıcı')
                     ->default('Sistem / Otomasyon')
+                    ->wrap()
+                    ->weight('bold')
                     ->sortable(),
 
                 TextColumn::make('action')
@@ -38,16 +40,19 @@ class AuditLogResource extends Resource
 
                 TextColumn::make('auditable_type')
                     ->label('Kaynak')
+                    ->visibleFrom('sm')
                     ->formatStateUsing(fn (?string $state) => class_basename($state ?? 'Genel')),
 
                 TextColumn::make('ip_address')
                     ->label('IP Adresi')
                     ->fontFamily('mono')
+                    ->visibleFrom('lg')
                     ->default('127.0.0.1'),
 
                 TextColumn::make('created_at')
                     ->label('İşlem Tarihi')
                     ->dateTime('d.m.Y H:i:s')
+                    ->visibleFrom('md')
                     ->sortable(),
             ]);
     }

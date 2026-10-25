@@ -41,8 +41,9 @@ class ApiUsageLogResource extends Resource
                     ->sortable(),
 
                 TextColumn::make('endpoint')
-                    ->label('Uç Nokta (Endpoint)')
+                    ->label('Uç Nokta')
                     ->fontFamily('mono')
+                    ->wrap()
                     ->limit(35),
 
                 TextColumn::make('status_code')
@@ -53,31 +54,37 @@ class ApiUsageLogResource extends Resource
                 TextColumn::make('response_time_ms')
                     ->label('Süre')
                     ->suffix(' ms')
+                    ->visibleFrom('sm')
                     ->sortable(),
 
                 TextColumn::make('prompt_tokens')
                     ->label('Girdi Token')
                     ->numeric()
+                    ->visibleFrom('lg')
                     ->toggleable(),
 
                 TextColumn::make('completion_tokens')
                     ->label('Çıktı Token')
                     ->numeric()
+                    ->visibleFrom('lg')
                     ->toggleable(),
 
                 TextColumn::make('estimated_cost_usd')
                     ->label('Maliyet')
                     ->formatStateUsing(fn ($state) => '$' . number_format($state, 5))
                     ->weight('bold')
+                    ->visibleFrom('sm')
                     ->sortable(),
 
                 IconColumn::make('is_error')
                     ->label('Hata')
+                    ->visibleFrom('md')
                     ->boolean(),
 
                 TextColumn::make('created_at')
                     ->label('Zaman')
                     ->dateTime('d.m.Y H:i:s')
+                    ->visibleFrom('md')
                     ->sortable(),
             ])
             ->filters([

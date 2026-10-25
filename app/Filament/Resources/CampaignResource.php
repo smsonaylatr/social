@@ -102,27 +102,33 @@ class CampaignResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['brand', 'playlist']))
             ->columns([
                 TextColumn::make('name')
                     ->label('Kampanya')
                     ->searchable()
                     ->sortable()
+                    ->wrap()
+                    ->weight('bold')
                     ->description(fn (Campaign $record): string => $record->brand?->name ?? 'Varsayılan'),
 
                 TextColumn::make('playlist.name')
                     ->label('Video Listesi')
                     ->badge()
                     ->color('primary')
+                    ->visibleFrom('sm')
                     ->default('Liste Seçilmedi'),
 
                 TextColumn::make('start_date')
                     ->label('Başlangıç')
                     ->dateTime('d.m.Y')
+                    ->visibleFrom('md')
                     ->sortable(),
 
                 TextColumn::make('end_date')
                     ->label('Bitiş')
                     ->dateTime('d.m.Y')
+                    ->visibleFrom('md')
                     ->sortable(),
 
                 TextColumn::make('status')
@@ -150,8 +156,8 @@ class CampaignResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()->iconButton()->tooltip('Düzenle'),
+                Tables\Actions\DeleteAction::make()->iconButton()->tooltip('Sil'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

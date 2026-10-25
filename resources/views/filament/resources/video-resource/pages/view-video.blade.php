@@ -14,7 +14,7 @@
                     </div>
                 </x-slot>
 
-                <div class="rounded-2xl overflow-hidden bg-black flex items-center justify-center relative shadow-2xl mx-auto border border-slate-800 {{ $isVertical ? 'w-full max-w-[300px] aspect-[9/16] max-h-[62vh]' : 'w-full max-w-xl aspect-video max-h-[50vh]' }}">
+                <div class="rounded-2xl overflow-hidden bg-black flex items-center justify-center relative shadow-2xl mx-auto border border-slate-800 {{ $isVertical ? 'w-full max-w-[270px] sm:max-w-[320px] aspect-[9/16] max-h-[58vh]' : 'w-full max-w-xl aspect-video max-h-[48vh]' }}">
                     @if($record->url)
                         <video 
                             controls 
@@ -34,7 +34,7 @@
                     @endif
                 </div>
 
-                <div class="mt-4 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
                     <span>En-Boy: <strong class="text-gray-800 dark:text-gray-200">{{ $record->aspect_ratio }}</strong></span>
                     <span>Süre: <strong class="text-gray-800 dark:text-gray-200">{{ $record->formatted_duration }}</strong></span>
                     <span>Boyut: <strong class="text-gray-800 dark:text-gray-200">{{ $record->formatted_file_size }}</strong></span>

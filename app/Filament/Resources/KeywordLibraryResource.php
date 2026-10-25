@@ -90,11 +90,13 @@ class KeywordLibraryResource extends Resource
                     ->label('Anahtar Kelime')
                     ->searchable()
                     ->sortable()
+                    ->wrap()
                     ->weight('bold'),
 
                 TextColumn::make('search_intent')
                     ->label('Arama Niyeti')
                     ->badge()
+                    ->visibleFrom('sm')
                     ->color(fn (string $state): string => match ($state) {
                         'transactional' => 'success',
                         'commercial' => 'primary',
@@ -104,16 +106,19 @@ class KeywordLibraryResource extends Resource
 
                 TextColumn::make('priority')
                     ->label('Öncelik')
+                    ->visibleFrom('md')
                     ->sortable(),
 
                 TextColumn::make('usage_count')
                     ->label('Kullanım')
                     ->badge()
+                    ->visibleFrom('lg')
                     ->sortable(),
 
                 TextColumn::make('target_url')
                     ->label('Hedef URL')
                     ->limit(30)
+                    ->visibleFrom('lg')
                     ->url(fn ($record) => $record->target_url, shouldOpenInNewTab: true),
 
                 ToggleColumn::make('is_active')
@@ -128,8 +133,8 @@ class KeywordLibraryResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()->iconButton()->tooltip('Düzenle'),
+                Tables\Actions\DeleteAction::make()->iconButton()->tooltip('Sil'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

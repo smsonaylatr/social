@@ -79,11 +79,14 @@ class VideoCategoryResource extends Resource
                 TextColumn::make('name')
                     ->label('Kategori Adı')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->wrap()
+                    ->weight('bold'),
 
                 TextColumn::make('brand.name')
                     ->label('Marka')
                     ->sortable()
+                    ->visibleFrom('sm')
                     ->default('Genel'),
 
                 TextColumn::make('videos_count')
@@ -91,17 +94,19 @@ class VideoCategoryResource extends Resource
                     ->label('Video Sayısı')
                     ->badge()
                     ->color('primary')
+                    ->visibleFrom('sm')
                     ->sortable(),
 
                 TextColumn::make('created_at')
                     ->label('Oluşturulma')
                     ->dateTime('d.m.Y H:i')
                     ->sortable()
+                    ->visibleFrom('md')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()->iconButton()->tooltip('Düzenle'),
+                Tables\Actions\DeleteAction::make()->iconButton()->tooltip('Sil'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

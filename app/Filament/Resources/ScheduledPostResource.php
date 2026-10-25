@@ -67,6 +67,7 @@ class ScheduledPostResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['video', 'playlist', 'targets']))
             ->emptyStateHeading('Henüz Planlanmış veya Sıralı Kuyruk Yok')
             ->emptyStateDescription('Sağ üstteki yeşil "Otomatik Sırayla Kuyruk Oluştur" butonuna tıklayarak Video Havuzundaki tüm videolarınızı seçtiğiniz saat aralıklarıyla otomatik olarak sıraya dizebilirsiniz.')
             ->defaultSort('scheduled_at', 'asc')
@@ -74,11 +75,11 @@ class ScheduledPostResource extends Resource
                 ImageColumn::make('video.thumbnail_path')
                     ->label('Önizleme')
                     ->disk('public')
-                    ->width(85)
-                    ->height(125)
+                    ->width(70)
+                    ->height(105)
                     ->extraImgAttributes([
-                        'class' => 'rounded-xl object-cover shadow-md border border-slate-700/60 transition-transform duration-200 hover:scale-105 cursor-pointer',
-                        'style' => 'width: 85px !important; height: 125px !important; min-width: 85px; min-height: 125px; object-fit: cover; border-radius: 12px;',
+                        'class' => 'rounded-xl object-cover shadow-md border border-slate-700/60 transition-transform duration-200 hover:scale-105 cursor-pointer shrink-0',
+                        'style' => 'width: 70px !important; height: 105px !important; min-width: 70px; min-height: 105px; object-fit: cover; border-radius: 12px;',
                     ])
                     ->defaultImageUrl(url('/images/video-placeholder.png'))
                     ->action(
@@ -91,18 +92,20 @@ class ScheduledPostResource extends Resource
                 TextColumn::make('video.title')
                     ->label('Video')
                     ->searchable()
-                    ->limit(35)
-                    ->description(fn (ScheduledPost $record): string => $record->playlist?->name ?? 'Tek Seferlik Planlama'),
+                    ->wrap()
+                    ->weight('bold')
+                    ->description(fn (ScheduledPost $record): string => ($record->playlist?->name ? $record->playlist->name . ' • ' : '') . $record->scheduled_at->diffForHumans()),
 
                 TextColumn::make('scheduled_at')
                     ->label('Planlanan Zaman')
                     ->dateTime('d.m.Y H:i')
-                    ->description(fn (ScheduledPost $record): string => $record->scheduled_at->diffForHumans())
+                    ->visibleFrom('md')
                     ->sortable(),
 
                 TextColumn::make('targets.platform_code')
-                    ->label('Platformlar & Durum')
+                    ->label('Platformlar')
                     ->badge()
+                    ->visibleFrom('sm')
                     ->color(fn (string $state): string => match ($state) {
                         'instagram' => 'warning',
                         'youtube' => 'danger',
@@ -114,7 +117,7 @@ class ScheduledPostResource extends Resource
                     }),
 
                 TextColumn::make('status')
-                    ->label('Genel Durum')
+                    ->label('Durum')
                     ->badge()
                     ->color(fn (PublishStatus $state): string => $state->color())
                     ->formatStateUsing(fn (PublishStatus $state): string => $state->label()),
@@ -127,6 +130,8 @@ class ScheduledPostResource extends Resource
                 Action::make('publish_now')
                     ->label('Şimdi Gönder')
                     ->icon('heroicon-o-paper-airplane')
+                    ->iconButton()
+                    ->tooltip('Şimdi Gönder')
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Gönderiyi Anında Kuyruğa Al')
@@ -178,6 +183,8 @@ class ScheduledPostResource extends Resource
                 Action::make('view_details')
                     ->label('Detaylar')
                     ->icon('heroicon-o-eye')
+                    ->iconButton()
+                    ->tooltip('Detayları Gör')
                     ->modalHeading('Yayın Hedefleri ve Detayları')
                     ->modalContent(fn (ScheduledPost $record) => view('filament.modals.scheduled-post-details', ['post' => $record])),
 

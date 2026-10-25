@@ -7,7 +7,7 @@
             </div>
         </x-slot>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mt-2">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-2">
             @foreach($services as $svc)
                 <div class="system-health-card p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-xs">
                     <div class="flex items-center justify-between mb-2">

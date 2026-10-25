@@ -15,7 +15,7 @@ class ListVideos extends ListRecords
     {
         return [
             Actions\Action::make('reanalyze_all')
-                ->label('Tüm Videoları Yeniden Analiz Et & Onar')
+                ->label('Yeniden Analiz Et & Onar')
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')
                 ->requiresConfirmation()
@@ -57,7 +57,7 @@ class ListVideos extends ListRecords
                 }),
 
             Actions\CreateAction::make()
-                ->label('Toplu Video Yükle')
+                ->label('Video Yükle')
                 ->icon('heroicon-o-arrow-up-tray'),
         ];
     }

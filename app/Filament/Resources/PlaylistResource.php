@@ -121,11 +121,14 @@ class PlaylistResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['brand', 'cursor.currentVideo']))
             ->columns([
                 TextColumn::make('name')
                     ->label('Liste Adı')
                     ->searchable()
                     ->sortable()
+                    ->wrap()
+                    ->weight('bold')
                     ->description(fn (Playlist $record): string => $record->brand?->name ?? 'Varsayılan Marka'),
 
                 TextColumn::make('items_count')
@@ -133,16 +136,19 @@ class PlaylistResource extends Resource
                     ->label('Video Sayısı')
                     ->badge()
                     ->color('primary')
+                    ->visibleFrom('sm')
                     ->sortable(),
 
                 TextColumn::make('loop_mode')
                     ->label('Döngü Modu')
                     ->badge()
                     ->color('info')
+                    ->visibleFrom('md')
                     ->formatStateUsing(fn (PlaylistLoopMode $state): string => $state->label()),
 
                 TextColumn::make('cursor.current_index')
                     ->label('İmleç Sırası')
+                    ->visibleFrom('lg')
                     ->formatStateUsing(function (Playlist $record) {
                         $idx = $record->cursor?->current_index ?? 0;
                         $cycles = $record->cursor?->cycle_count ?? 0;
@@ -152,6 +158,7 @@ class PlaylistResource extends Resource
                 TextColumn::make('cursor.currentVideo.title')
                     ->label('Son Yayınlanan')
                     ->limit(25)
+                    ->visibleFrom('xl')
                     ->default('Henüz Yayınlanmadı'),
 
                 TextColumn::make('status')
@@ -182,7 +189,8 @@ class PlaylistResource extends Resource
                 Action::make('test_next_video')
                     ->label('Sıradaki Videoyu Seç')
                     ->icon('heroicon-o-play')
-                    ->color('success')
+                    ->iconButton()
+                    ->tooltip('Sıradaki Videoyu Seç')
                     ->action(function (Playlist $record) {
                         $engine = app(CircularPlaylistEngine::class);
                         $nextVideo = $engine->getNextVideo($record);
@@ -203,8 +211,8 @@ class PlaylistResource extends Resource
                                 ->send();
                         }
                     }),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()->iconButton()->tooltip('Düzenle'),
+                Tables\Actions\DeleteAction::make()->iconButton()->tooltip('Sil'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

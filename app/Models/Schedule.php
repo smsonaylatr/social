@@ -44,11 +44,17 @@ class Schedule extends Model
         'next_run_at' => 'datetime',
     ];
 
+    protected ?array $memoizedRunTimes = null;
+
     /**
      * Gün içinde bu kuralın tetikleneceği tüm saatleri 'HH:mm' formatında sıralı dizi olarak döndürür
      */
     public function getDailyRunTimes(): array
     {
+        if ($this->memoizedRunTimes !== null) {
+            return $this->memoizedRunTimes;
+        }
+
         // 1. Her saat başı modu
         if ($this->schedule_type === 'hourly') {
             $times = [];
@@ -68,7 +74,7 @@ class Schedule extends Model
                 $current->addHour();
             }
 
-            return ! empty($times) ? $times : [substr($this->time_of_day ?: '12:00', 0, 5)];
+            return $this->memoizedRunTimes = (! empty($times) ? $times : [substr($this->time_of_day ?: '12:00', 0, 5)]);
         }
 
         // 2. Belirli dakikada bir paylaşım modu (örn: her 15, 30, 45 dakikada bir)
@@ -91,14 +97,14 @@ class Schedule extends Model
                 $current->addMinutes($step);
             }
 
-            return ! empty($times) ? $times : [substr($this->time_of_day ?: '12:00', 0, 5)];
+            return $this->memoizedRunTimes = (! empty($times) ? $times : [substr($this->time_of_day ?: '12:00', 0, 5)]);
         }
 
         // 3. Belirli özel saatler modu
         if ($this->schedule_type === 'custom_times' && ! empty($this->posting_times)) {
             $times = array_values(array_unique(array_filter(array_map('trim', (array) $this->posting_times))));
             sort($times);
-            return ! empty($times) ? $times : [substr($this->time_of_day ?: '12:00', 0, 5)];
+            return $this->memoizedRunTimes = (! empty($times) ? $times : [substr($this->time_of_day ?: '12:00', 0, 5)]);
         }
 
         // 4. Belirli saat aralıkları modu (örn: her 2 saatte bir)
@@ -120,11 +126,11 @@ class Schedule extends Model
                 $current->addHours($this->interval_hours);
             }
 
-            return ! empty($times) ? $times : [substr($this->time_of_day ?: '12:00', 0, 5)];
+            return $this->memoizedRunTimes = (! empty($times) ? $times : [substr($this->time_of_day ?: '12:00', 0, 5)]);
         }
 
         // 5. Tek saat modu (varsayılan)
-        return [substr($this->time_of_day ?: '12:00', 0, 5)];
+        return $this->memoizedRunTimes = [substr($this->time_of_day ?: '12:00', 0, 5)];
     }
 
     public function workspace(): BelongsTo

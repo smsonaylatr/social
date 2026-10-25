@@ -137,21 +137,37 @@ Route::get('/storage/{path}', function (string $path) {
     return response()->file($disk->path($path));
 })->where('path', '.*')->name('storage.file');
 
-// Background automation heartbeat & web-cron endpoint
+// Background automation heartbeat & web-cron endpoint (Optimized & Throttled)
 Route::match(['get', 'post'], '/cron/process', function () {
+    // Throttle: Don't execute more than once every 90 seconds across all tabs/requests
+    $cacheKey = 'cron_process_last_run';
+    if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
+        return response()->json([
+            'status' => 'skipped',
+            'message' => 'Throttled (already executed recently)',
+            'timestamp' => now()->toIso8601String(),
+        ]);
+    }
+
+    \Illuminate\Support\Facades\Cache::put($cacheKey, now()->timestamp, 90);
+
     $orchestrator = app(\App\Services\Automation\AutomationOrchestratorService::class);
     $schedulingService = app(\App\Services\Publisher\SchedulingService::class);
 
     $schedulesCount = $orchestrator->checkAndRunDueSchedules();
     $dispatchedCount = $schedulingService->dispatchDuePosts();
 
-    try {
-        \Illuminate\Support\Facades\Artisan::call('queue:work', [
-            '--stop-when-empty' => true,
-            '--max-jobs' => 20,
-            '--tries' => 3,
-        ]);
-    } catch (\Throwable) {}
+    // Process at most 1 queued job with a strict 2-second timeout to avoid locking the web worker
+    if ($dispatchedCount > 0) {
+        try {
+            \Illuminate\Support\Facades\Artisan::call('queue:work', [
+                '--stop-when-empty' => true,
+                '--max-jobs' => 1,
+                '--max-time' => 2,
+                '--tries' => 1,
+            ]);
+        } catch (\Throwable) {}
+    }
 
     return response()->json([
         'status' => 'ok',
