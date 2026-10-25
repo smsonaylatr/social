@@ -45,20 +45,20 @@ enum SocialPlatformCode: string
     }
 
     /**
-     * Her platformun izin verdiği en yüksek / teknik maksimum hashtag sayısı
+     * Her platformun izin verdiği en yüksek / teknik maksimum hashtag sayısı (5-10 arası)
      */
     public function maxHashtags(): int
     {
         return match ($this) {
-            self::INSTAGRAM => 30, // Resmi Instagram sınırı tam 30
-            self::FACEBOOK => 20,  // Facebook
-            self::PINTEREST => 20, // Pinterest en fazla 20
-            self::TELEGRAM => 20,  // Telegram
-            self::TIKTOK => 15,    // TikTok önerilen ve güvenli üst sınır
-            self::YOUTUBE => 15,   // YouTube kuralı: 15'ten fazlası girilirse tüm hashtagler yok sayılır
-            self::LINKEDIN => 15,  // LinkedIn
-            self::WHATSAPP => 15,  // WhatsApp
-            self::X => 2,          // X (Twitter) 280 karakter sınırı nedeniyle 2 (en fazla 2 önerilir)
+            self::INSTAGRAM => 10, // 5 anahtar kelime + 5 keşfet
+            self::FACEBOOK => 10,
+            self::PINTEREST => 10,
+            self::TELEGRAM => 10,
+            self::TIKTOK => 10,
+            self::YOUTUBE => 10,
+            self::LINKEDIN => 10,
+            self::WHATSAPP => 10,
+            self::X => 10, // 5-10 arası (5 anahtar kelime + 5 keşfet)
         };
     }
 }

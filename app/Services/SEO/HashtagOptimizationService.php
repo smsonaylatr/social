@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
 class HashtagOptimizationService
 {
     /**
-     * Platformun izin verdiği maksimum hashtag sayısı
+     * Platformun izin verdiği maksimum hashtag sayısı (5-10 arası, varsayılan 10)
      */
     public function getPlatformMaxHashtagLimit(string $platformCode): int
     {
@@ -20,86 +20,85 @@ class HashtagOptimizationService
             return $platformEnum->maxHashtags();
         }
 
-        return match (strtolower($platformCode)) {
-            'instagram' => 30,
-            'facebook' => 20,
-            'pinterest' => 20,
-            'telegram' => 20,
-            'tiktok' => 15,
-            'youtube' => 15,
-            'linkedin' => 15,
-            'whatsapp' => 15,
-            'x' => 2,
-            default => 10,
-        };
+        return 10;
     }
 
     /**
      * Pick optimized hashtags for a video tailored for a specific platform.
-     * Platformun izin verdiği en yüksek sayıda hashtag havuzdan dinamik çekilir ve sürekli rotasyonla değişir.
-     * SEO Anahtar Kelime hafızasından gelen anahtar kelimeler de öncelikle hashtag olarak dahil edilir.
+     * Kural: Her platform 5-10 arasında hashtag kullanır:
+     * - 5 Tane SEO Anahtar Kelimelerinden türetilen hashtagler
+     * - 5 Tane Keşfete çıkaracak trend / viral hashtagler
      */
     public function getOptimizedHashtags(Video $video, string $platformCode, ?int $limit = null, bool $markAsUsed = true): array
     {
         $maxLimit = $this->getPlatformMaxHashtagLimit($platformCode);
         $effectiveLimit = ($limit !== null && $limit > 0) ? min($limit, $maxLimit) : $maxLimit;
+        // Limit 5 ile 10 arasında tutulur (varsayılan 10)
+        $effectiveLimit = max(5, min(10, $effectiveLimit));
 
-        $selected = [];
+        $blacklistedTags = Hashtag::where('is_blacklisted', true)->pluck('tag')->map(fn ($t) => mb_strtolower($t, 'UTF-8'))->toArray();
 
-        // 1. Varsa videoya özel tanımlanmış custom hashtag'leri başa ekle
+        // ══════════════════════════════════════════════════════════════════════════
+        // 1. AŞAMA: 5 TANE ANAHTAR KELİMEYE DAYALI HASHTAG (SEO Hafızası)
+        // ══════════════════════════════════════════════════════════════════════════
+        $keywordTarget = (int) ceil($effectiveLimit / 2); // 10 için 5 adet
+        $keywordHashtags = [];
+
+        // 1.a Varsa videoya özel tanımlanmış custom hashtag'leri başa ekle
         if (! empty($video->custom_hashtags) && is_array($video->custom_hashtags)) {
             foreach ($video->custom_hashtags as $tag) {
                 $cleaned = ltrim(trim((string) $tag), '#');
-                if ($cleaned !== '' && ! in_array($cleaned, $selected)) {
-                    $selected[] = $cleaned;
+                $lower = mb_strtolower($cleaned, 'UTF-8');
+                if ($cleaned !== '' && ! in_array($lower, $blacklistedTags) && ! in_array($cleaned, $keywordHashtags)) {
+                    $keywordHashtags[] = $cleaned;
                 }
-                if (count($selected) >= $effectiveLimit) {
-                    if ($markAsUsed) {
-                        $this->recordHashtagUsage($selected, $video->workspace_id);
-                    }
-                    return $selected;
+                if (count($keywordHashtags) >= $keywordTarget) {
+                    break;
                 }
             }
         }
 
-        // 2. SEO Anahtar Kelime hafızasından (KeywordLibrary) gelen terimleri de hashtag olarak öncelikli ekle
-        $blacklistedTags = Hashtag::where('is_blacklisted', true)->pluck('tag')->map(fn ($t) => mb_strtolower($t, 'UTF-8'))->toArray();
-        $seoKeywords = $this->getRelevantKeywords($video, $platformCode, limit: 3, markAsUsed: false);
-        foreach ($seoKeywords as $keyword) {
-            $formattedTag = preg_replace('/[^\p{L}\p{N}]/u', '', mb_convert_case($keyword, MB_CASE_TITLE, 'UTF-8'));
-            if ($formattedTag !== '' && ! in_array($formattedTag, $selected) && ! in_array(mb_strtolower($formattedTag, 'UTF-8'), $blacklistedTags)) {
-                $selected[] = $formattedTag;
-            }
-            if (count($selected) >= $effectiveLimit) {
-                if ($markAsUsed) {
-                    $this->recordHashtagUsage($selected, $video->workspace_id);
+        // 1.b SEO Anahtar Kelime Kütüphanesinden aktif kelimeleri çek ve PascalCase hashtag yap
+        $neededKeywords = $keywordTarget - count($keywordHashtags);
+        if ($neededKeywords > 0) {
+            $seoKeywords = $this->getRelevantKeywords($video, $platformCode, limit: $neededKeywords + 5, markAsUsed: false);
+            foreach ($seoKeywords as $keyword) {
+                // "çocuk patenli ayakkabı" -> "ÇocukPatenliAyakkabı"
+                $formattedTag = preg_replace('/[^\p{L}\p{N}]/u', '', mb_convert_case($keyword, MB_CASE_TITLE, 'UTF-8'));
+                $lower = mb_strtolower($formattedTag, 'UTF-8');
+                if ($formattedTag !== '' && ! in_array($lower, $blacklistedTags) && ! in_array($formattedTag, $keywordHashtags)) {
+                    $keywordHashtags[] = $formattedTag;
                 }
-                return $selected;
+                if (count($keywordHashtags) >= $keywordTarget) {
+                    break;
+                }
             }
         }
 
-        $neededCount = $effectiveLimit - count($selected);
-        if ($neededCount <= 0) {
-            return $selected;
-        }
+        // ══════════════════════════════════════════════════════════════════════════
+        // 2. AŞAMA: 5 TANE KEŞFETE ÇIKARACAK HASHTAG (Trending / Viral / Keşfet)
+        // ══════════════════════════════════════════════════════════════════════════
+        $exploreTarget = $effectiveLimit - count($keywordHashtags); // 10 için 5 adet
+        $exploreHashtags = [];
+        $existingLower = array_map(fn ($t) => mb_strtolower($t, 'UTF-8'), $keywordHashtags);
 
-        // 3. Hashtag havuzundan aktif ve kara listede olmayanları çek
-        // Sürekli değişmesi için: En az kullanılanlar ve en uzun süredir kullanılmayanlar öncelikli alınır.
-        $candidateLimit = max($neededCount * 3, 50);
-
-        $pool = Hashtag::active()
-            ->notBlacklisted()
-            ->forPlatform($platformCode)
+        // Hashtag havuzundan aktif, kara listede olmayan ve öncelikle trending kategorisindeki etiketleri çek
+        $pool = Hashtag::where('is_active', true)
+            ->where('is_blacklisted', false)
+            ->where(function ($q) use ($platformCode) {
+                $q->whereNull('platform_filter')
+                  ->orWhere('platform_filter', $platformCode);
+            })
             ->when($video->workspace_id, fn ($q) => $q->where('workspace_id', $video->workspace_id))
-            ->orderBy('usage_count', 'asc') // 1. En az kullanılanlar öne gelir
-            ->orderByRaw('last_used_at IS NULL DESC, last_used_at ASC') // 2. En eski / hiç kullanılmayanlar öne gelir
-            ->orderBy('priority', 'desc') // 3. Eşit kullanım diliminde önceliğe göre sıralanır
-            ->limit($candidateLimit)
+            ->orderByRaw("CASE WHEN category = 'trending' THEN 0 ELSE 1 END ASC")
+            ->orderBy('usage_count', 'asc') // En az kullanılanlar
+            ->orderByRaw('last_used_at IS NULL DESC, last_used_at ASC') // En eski / hiç kullanılmayanlar
+            ->orderBy('priority', 'desc')
+            ->limit(max($exploreTarget * 5, 50))
             ->get();
 
-        // Eğer adayın kullanım sayıları eşit olan grupları varsa, çeşitlilik ve sürekli değişim için rastgele karıştır (shuffle)
-        // Böylece her çağrıda aynı öncelik/kullanım grubundaki farklı etiketler döner
-        $grouped = $pool->groupBy(fn ($item) => "{$item->usage_count}_{$item->priority}");
+        // Çeşitlilik ve sürekli rotasyon için grupları rastgele harmanla (shuffle)
+        $grouped = $pool->groupBy(fn ($item) => "{$item->category}_{$item->usage_count}_{$item->priority}");
         $shuffledPool = collect();
         foreach ($grouped as $group) {
             $shuffledPool = $shuffledPool->concat($group->shuffle());
@@ -107,16 +106,37 @@ class HashtagOptimizationService
 
         foreach ($shuffledPool as $hashtag) {
             $cleaned = ltrim(trim((string) $hashtag->tag), '#');
-            if ($cleaned !== '' && ! in_array($cleaned, $selected)) {
-                $selected[] = $cleaned;
+            $lower = mb_strtolower($cleaned, 'UTF-8');
+            if ($cleaned !== '' && ! in_array($lower, $existingLower) && ! in_array($lower, $blacklistedTags) && ! in_array($cleaned, $exploreHashtags)) {
+                $exploreHashtags[] = $cleaned;
+                $existingLower[] = $lower;
             }
-
-            if (count($selected) >= $effectiveLimit) {
+            if (count($exploreHashtags) >= $exploreTarget) {
                 break;
             }
         }
 
-        // 4. Kullanılan hashtag'lerin kullanım istatistiklerini güncelle (sürekli değişimin motoru)
+        // Keşfet havuzunda eksik kalırsa yüksek etkileşimli evrensel keşfet etiketleri ile tamamla
+        $fallbackExplore = ['kesfet', 'fyp', 'viral', 'trend', 'kesfetteyiz', 'reels', 'shorts', 'onecikar', 'kesfetbeni', 'tiktoktrend'];
+        if (count($exploreHashtags) < $exploreTarget) {
+            foreach ($fallbackExplore as $tag) {
+                $lower = mb_strtolower($tag, 'UTF-8');
+                if (! in_array($lower, $existingLower) && ! in_array($lower, $blacklistedTags) && ! in_array($tag, $exploreHashtags)) {
+                    $exploreHashtags[] = $tag;
+                    $existingLower[] = $lower;
+                }
+                if (count($exploreHashtags) >= $exploreTarget) {
+                    break;
+                }
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // 3. AŞAMA: 5 ANAHTAR KELİME + 5 KEŞFET ETİKETİNİ BİRLEŞTİR
+        // ══════════════════════════════════════════════════════════════════════════
+        $selected = array_merge($keywordHashtags, $exploreHashtags);
+
+        // Kullanılan hashtag'lerin kullanım istatistiklerini güncelle (rotasyon motoru)
         if ($markAsUsed && ! empty($selected)) {
             $this->recordHashtagUsage($selected, $video->workspace_id);
         }

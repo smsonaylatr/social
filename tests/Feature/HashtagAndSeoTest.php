@@ -55,14 +55,15 @@ class HashtagAndSeoTest extends TestCase
             'is_blacklisted' => true,
         ]);
 
-        // For X (Twitter): maximum 2 hashtags
+        // Her platform için 5-10 arasında hashtag (standart 10: 5 anahtar kelime + 5 keşfet)
         $tagsForX = $this->service->getOptimizedHashtags($this->video, 'x', 10);
-        $this->assertLessThanOrEqual(2, count($tagsForX));
+        $this->assertGreaterThanOrEqual(5, count($tagsForX));
+        $this->assertLessThanOrEqual(10, count($tagsForX));
         $this->assertNotContains('yasaklihashtag', $tagsForX);
 
-        // For Instagram: can take up to 8
+        // For Instagram: 8 istendiğinde 8 döner
         $tagsForIg = $this->service->getOptimizedHashtags($this->video, 'instagram', 8);
-        $this->assertNotEmpty($tagsForIg);
+        $this->assertCount(8, $tagsForIg);
         $this->assertNotContains('yasaklihashtag', $tagsForIg);
     }
 
@@ -145,5 +146,19 @@ class HashtagAndSeoTest extends TestCase
         }
 
         $this->assertTrue($found, 'Post caption must include keywords from the SEO Keyword Library memory.');
+    }
+
+    public function test_platform_hashtags_between_5_and_10_with_keywords_and_explore(): void
+    {
+        $platforms = ['instagram', 'tiktok', 'youtube', 'facebook', 'x', 'pinterest'];
+
+        foreach ($platforms as $platform) {
+            $tags = $this->service->getOptimizedHashtags($this->video, $platform, null, false);
+            $count = count($tags);
+
+            $this->assertGreaterThanOrEqual(5, $count, "{$platform} must have at least 5 hashtags");
+            $this->assertLessThanOrEqual(10, $count, "{$platform} must not exceed 10 hashtags");
+            $this->assertEquals(10, $count, "{$platform} should default to 10 hashtags (5 keyword + 5 explore)");
+        }
     }
 }
