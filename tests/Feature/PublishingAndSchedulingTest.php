@@ -173,4 +173,35 @@ class PublishingAndSchedulingTest extends TestCase
         $responseAccounts->assertStatus(200);
         $responseAccounts->assertSee('Hesaplar & Yetkilendirme');
     }
+
+    public function test_requeue_failed_targets_updates_post_status(): void
+    {
+        $service = app(SchedulingService::class);
+        $post = $service->createScheduledPost(
+            video: $this->video,
+            scheduledAt: now(),
+            socialAccountIds: [$this->fbAccount->id, $this->ytAccount->id]
+        );
+
+        // FB yayınlandı, YouTube ise limitExceeded ile başarısız oldu
+        $fbTarget = $post->targets()->where('platform_code', 'facebook')->first();
+        $ytTarget = $post->targets()->where('platform_code', 'youtube')->first();
+
+        $fbTarget->update(['status' => PublishStatus::PUBLISHED]);
+        $ytTarget->update([
+            'status' => PublishStatus::FAILED,
+            'error_message' => 'uploadLimitExceeded: quota exceeded'
+        ]);
+
+        $post->updateStatusBasedOnTargets();
+        $this->assertEquals(PublishStatus::PARTIALLY_PUBLISHED, $post->fresh()->status);
+
+        // Şimdi başarısız hedefleri yeniden kuyruğa alalım
+        $requeuedCount = $service->requeueFailedTargets($post->id);
+
+        $this->assertEquals(1, $requeuedCount);
+        $this->assertEquals(PublishStatus::QUEUED, $ytTarget->fresh()->status);
+        $this->assertEquals(0, $ytTarget->fresh()->attempt_count);
+        $this->assertEquals(PublishStatus::QUEUED, $post->fresh()->status);
+    }
 }
