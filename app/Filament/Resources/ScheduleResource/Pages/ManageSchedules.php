@@ -15,15 +15,12 @@ class ManageSchedules extends ManageRecords
         parent::mount();
 
         try {
-            \App\Models\Schedule::where('name', 'like', '%Kuralı%')
-                ->orWhere('name', 'like', '%Dalga%')
-                ->get()
-                ->each(function (\App\Models\Schedule $s) {
-                    $clean = ScheduleResource::formatPlatformName($s->name);
-                    if ($clean !== $s->name) {
-                        $s->update(['name' => $clean]);
-                    }
-                });
+            \App\Models\Schedule::all()->each(function (\App\Models\Schedule $s) {
+                $clean = ScheduleResource::formatPlatformName($s->name);
+                if ($clean !== $s->name) {
+                    $s->update(['name' => $clean]);
+                }
+            });
         } catch (\Throwable) {}
     }
 

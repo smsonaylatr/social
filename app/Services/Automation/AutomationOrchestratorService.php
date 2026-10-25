@@ -292,37 +292,37 @@ class AutomationOrchestratorService
 
         $platformConfigs = [
             'instagram' => [
-                'name' => '📸 Instagram Reels',
+                'name' => 'Instagram Reels',
                 'times' => ['09:30', '12:45', '16:15', '19:15', '22:00'],
                 'max_posts' => 5,
             ],
             'tiktok' => [
-                'name' => '🎵 TikTok',
+                'name' => 'TikTok',
                 'times' => ['10:00', '13:00', '16:30', '19:45', '22:15'],
                 'max_posts' => 5,
             ],
             'youtube' => [
-                'name' => '▶️ YouTube Shorts',
+                'name' => 'YouTube Shorts',
                 'times' => ['09:45', '12:30', '16:00', '19:00', '21:45'],
                 'max_posts' => 5,
             ],
             'facebook' => [
-                'name' => '👥 Facebook',
+                'name' => 'Facebook',
                 'times' => ['10:15', '13:15', '16:45', '19:30', '22:00'],
                 'max_posts' => 5,
             ],
             'x' => [
-                'name' => '🪶 X (Twitter)',
+                'name' => 'X (Twitter)',
                 'times' => ['09:15', '12:15', '15:45', '18:45', '21:30'],
                 'max_posts' => 5,
             ],
             'linkedin' => [
-                'name' => '💼 LinkedIn',
+                'name' => 'LinkedIn',
                 'times' => ['09:00', '12:30', '16:45', '19:30'],
                 'max_posts' => 4,
             ],
             'pinterest' => [
-                'name' => '📌 Pinterest',
+                'name' => 'Pinterest',
                 'times' => ['13:00', '16:30', '19:30', '22:00'],
                 'max_posts' => 4,
             ],
