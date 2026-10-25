@@ -49,5 +49,9 @@ class AppServiceProvider extends ServiceProvider
         } catch (\Throwable) {
             // Sessizce geç
         }
+
+        \Filament\Tables\Table::configureUsing(function (\Filament\Tables\Table $table): void {
+            $table->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContentCollapsible);
+        });
     }
 }

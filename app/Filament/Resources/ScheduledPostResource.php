@@ -124,8 +124,9 @@ class ScheduledPostResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('status')
+                    ->label('Yayın Durumu')
                     ->options(collect(PublishStatus::cases())->mapWithKeys(fn ($c) => [$c->value => $c->label()])),
-            ])
+            ], layout: Tables\Enums\FiltersLayout::AboveContentCollapsible)
             ->actions([
                 Action::make('publish_now')
                     ->label('Şimdi Gönder')

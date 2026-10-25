@@ -2074,15 +2074,15 @@ html, body {
         margin-top: 0.2rem !important;
     }
 
-    .fi-ta-actions {
+    .fi-ta-cell .fi-ta-actions {
         display: flex !important;
         align-items: center !important;
         gap: 0.25rem !important;
         flex-wrap: nowrap !important;
     }
 
-    .fi-ta-actions button,
-    .fi-ta-actions a {
+    .fi-ta-cell .fi-ta-actions button,
+    .fi-ta-cell .fi-ta-actions a {
         min-width: 2rem !important;
         min-height: 2rem !important;
         padding: 0.35rem !important;
@@ -2136,7 +2136,7 @@ html, body {
     }
 
     /* 4. Modals Mobile Optimization */
-    .fi-modal-window {
+    .fi-modal-window:not(.fi-modal-slide-over-window) {
         margin: 0.5rem !important;
         max-width: calc(100vw - 1rem) !important;
         border-radius: 1rem !important;
@@ -2388,16 +2388,16 @@ html, body {
     }
 
     /* Tablo İçi Aksiyon Butonları (İzle, Düzenle, Sil vb.) */
-    .fi-ta-actions {
+    .fi-ta-cell .fi-ta-actions {
         display: flex !important;
         align-items: center !important;
         justify-content: flex-end !important;
         gap: 0.35rem !important;
     }
 
-    .fi-ta-actions .fi-icon-btn,
-    .fi-ta-actions button,
-    .fi-ta-actions a {
+    .fi-ta-cell .fi-ta-actions .fi-icon-btn,
+    .fi-ta-cell .fi-ta-actions button,
+    .fi-ta-cell .fi-ta-actions a {
         min-width: 38px !important;
         min-height: 38px !important;
         padding: 0.4rem !important;
@@ -2407,22 +2407,35 @@ html, body {
         justify-content: center !important;
     }
 
-    .fi-ta-actions .fi-icon-btn svg,
-    .fi-ta-actions button svg,
-    .fi-ta-actions a svg {
+    .fi-ta-cell .fi-ta-actions .fi-icon-btn svg,
+    .fi-ta-cell .fi-ta-actions button svg,
+    .fi-ta-cell .fi-ta-actions a svg {
         width: 1.15rem !important;
         height: 1.15rem !important;
     }
 
     /* Tablo Toplu İşlem Butonları (Bulk Actions) */
     .fi-ta-bulk-actions {
-        width: 100% !important;
+        width: auto !important;
     }
 
     .fi-ta-bulk-action,
     .fi-ta-bulk-actions button {
-        min-height: 40px !important;
+        min-height: 38px !important;
         font-size: 0.8rem !important;
+    }
+
+    /* Alpine Gizli Durum Koruması (Display: None ezilmesini engelle) */
+    [x-cloak],
+    .fi-ta-actions[style*="display: none"],
+    .fi-ta-header-toolbar div[style*="display: none"],
+    .fi-ta-header-toolbar span[style*="display: none"],
+    .fi-modal:not(.fi-modal-open) .fi-modal-slide-over-window,
+    .fi-modal:not(.fi-modal-open) [role="dialog"],
+    [role="dialog"][style*="display: none"] {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
     }
 
     /* Tablo Filtre & Sütun Gizleme Menü Butonları */
@@ -2585,8 +2598,58 @@ html, body {
    Desktop Modal Perfection & Balanced Proportions (Masaüstü Pop-up Ergonomisi)
    ========================================================================== */
 @media (min-width: 769px) {
+    /* Masaüstünde sayfa başlığı ve header aksiyon butonları */
+    .fi-page-header {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 1rem !important;
+    }
+
+    .fi-page-header .fi-ac,
+    .fi-header-actions {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        gap: 0.5rem !important;
+        width: auto !important;
+    }
+
+    .fi-page-header .fi-ac > *,
+    .fi-header-actions > * {
+        flex: 0 0 auto !important;
+        min-height: 38px !important;
+        font-size: 0.84rem !important;
+    }
+
+    /* Tablo Toolbar Masaüstü Esnek Düzeni */
+    .fi-ta-header-toolbar {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 0.75rem !important;
+        min-height: 3.25rem !important;
+    }
+
+    .fi-ta-header-toolbar > div {
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.5rem !important;
+        flex-wrap: wrap !important;
+    }
+
+    .fi-ta-header-toolbar .fi-ta-search-field {
+        min-width: 220px !important;
+        max-width: 320px !important;
+    }
+
     /* Masaüstünde modalların ekranı kaplamasını önleme, derli toplu merkezleme */
-    .fi-modal-window {
+    .fi-modal-window:not(.fi-modal-slide-over-window) {
         max-width: 46rem !important; /* ~736px ideal odaklı genişlik */
         width: 100% !important;
         margin: 2.5rem auto !important;
@@ -2595,15 +2658,42 @@ html, body {
         overflow: hidden !important;
     }
 
-    /* Farklı MaxWidth boyut sınıfları */
-    .fi-modal-window.fi-modal-window-has-max-width-sm { max-width: 24rem !important; }
-    .fi-modal-window.fi-modal-window-has-max-width-md { max-width: 28rem !important; }
-    .fi-modal-window.fi-modal-window-has-max-width-lg { max-width: 34rem !important; }
-    .fi-modal-window.fi-modal-window-has-max-width-xl { max-width: 40rem !important; }
-    .fi-modal-window.fi-modal-window-has-max-width-2xl { max-width: 44rem !important; }
-    .fi-modal-window.fi-modal-window-has-max-width-3xl { max-width: 48rem !important; }
-    .fi-modal-window.fi-modal-window-has-max-width-4xl { max-width: 54rem !important; }
-    .fi-modal-window.fi-modal-window-has-max-width-5xl { max-width: 60rem !important; }
+    /* Farklı MaxWidth boyut sınıfları (Slideover hariç) */
+    .fi-modal-window:not(.fi-modal-slide-over-window).fi-modal-window-has-max-width-sm { max-width: 24rem !important; }
+    .fi-modal-window:not(.fi-modal-slide-over-window).fi-modal-window-has-max-width-md { max-width: 28rem !important; }
+    .fi-modal-window:not(.fi-modal-slide-over-window).fi-modal-window-has-max-width-lg { max-width: 34rem !important; }
+    .fi-modal-window:not(.fi-modal-slide-over-window).fi-modal-window-has-max-width-xl { max-width: 40rem !important; }
+    .fi-modal-window:not(.fi-modal-slide-over-window).fi-modal-window-has-max-width-2xl { max-width: 44rem !important; }
+    .fi-modal-window:not(.fi-modal-slide-over-window).fi-modal-window-has-max-width-3xl { max-width: 48rem !important; }
+    .fi-modal-window:not(.fi-modal-slide-over-window).fi-modal-window-has-max-width-4xl { max-width: 54rem !important; }
+    .fi-modal-window:not(.fi-modal-slide-over-window).fi-modal-window-has-max-width-5xl { max-width: 60rem !important; }
+
+    /* Slideover Drawers (Filters & Yan Paneller) Masaüstü Kusursuz Yerleşim */
+    .fi-modal-slide-over-window {
+        position: fixed !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        right: 0 !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        border-top-left-radius: 1.25rem !important;
+        border-bottom-left-radius: 1.25rem !important;
+        box-shadow: -10px 0 45px rgba(0, 0, 0, 0.7) !important;
+        overflow-y: auto !important;
+        z-index: 60 !important;
+    }
+
+    /* Kapalı durumdayken kesin gizle */
+    .fi-modal:not(.fi-modal-open) .fi-modal-slide-over-window,
+    .fi-modal:not(.fi-modal-open) [role="dialog"],
+    [role="dialog"][style*="display: none"],
+    .fi-ta-header-toolbar .fi-ta-actions[style*="display: none"] {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
 
     /* Modal içeriğinin dikeyde ekrandan taşmasını önleyip şık kaydırma çubuğu */
     .fi-modal-content {

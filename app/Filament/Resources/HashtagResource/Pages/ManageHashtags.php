@@ -20,11 +20,94 @@ class ManageHashtags extends ManageRecords
     protected function getHeaderActions(): array
     {
         return [
-            // 1. Revaçtaki Hashtagleri Toplu Ekle
+            // 1. Tekil Hashtag Ekle
+            Actions\CreateAction::make()
+                ->label('Tekil Ekle')
+                ->icon('heroicon-o-plus')
+                ->color('primary')
+                ->modalWidth(\Filament\Support\Enums\MaxWidth::TwoExtraLarge)
+                ->mutateFormDataUsing(function (array $data) {
+                    $data['workspace_id'] = 1;
+                    return $data;
+                }),
+
+            // 2. Yapay Zeka ile Trend Keşfet
+            Actions\Action::make('ai_trend_scout')
+                ->label('AI Trend Keşfet')
+                ->icon('heroicon-o-sparkles')
+                ->color('info')
+                ->modalWidth(\Filament\Support\Enums\MaxWidth::TwoExtraLarge)
+                ->modalHeading('Yapay Zeka ile Platform Trendlerini Keşfet')
+                ->modalDescription('Seçtiğiniz platformun o anki en güncel algoritmasında viral olan revaçtaki Türkçe ve global hashtagleri AI otomatik üretir ve havuza ekler.')
+                ->form([
+                    Select::make('platform_code')
+                        ->label('Hangi Platform İçin Trend Keşfedilsin?')
+                        ->options([
+                            'instagram' => 'Instagram (Reels ve Keşfet algoritmaları)',
+                            'tiktok' => 'TikTok (FYP ve Viral akımlar)',
+                            'youtube' => 'YouTube Shorts (Öne çıkan trendler)',
+                            'x' => 'X / Twitter (Gündem ve etkileşim)',
+                            'pinterest' => 'Pinterest (İlham ve arama niyetleri)',
+                            'facebook' => 'Facebook (Topluluk ve video etkileşimi)',
+                            'linkedin' => 'LinkedIn (E-ticaret ve sektörel trendler)',
+                        ])
+                        ->default('tiktok')
+                        ->required(),
+
+                    TextInput::make('topic')
+                        ->label('Özel Odak / Konu (İsteğe Bağlı)')
+                        ->placeholder('Örn: Patenli ayakkabı, çocuk eğlencesi, hediye fikirleri, sokak modası')
+                        ->helperText('Boş bırakırsanız marka ve sektörünüze en uygun genel trendler taranır.'),
+
+                    Select::make('count')
+                        ->label('Üretilecek Trend Sayısı')
+                        ->options([
+                            15 => '15 Trend Hashtag',
+                            20 => '20 Trend Hashtag',
+                            25 => '25 Trend Hashtag',
+                            30 => '30 Trend Hashtag',
+                        ])
+                        ->default(25)
+                        ->required(),
+                ])
+                ->action(function (array $data) {
+                    $service = app(TrendingHashtagService::class);
+                    $platform = $data['platform_code'];
+                    $topic = $data['topic'] ?? null;
+                    $count = (int) ($data['count'] ?? 25);
+
+                    $generatedTags = $service->generateTrendingWithAi($platform, $topic, $count);
+
+                    if (empty($generatedTags)) {
+                        Notification::make()
+                            ->title('Trend etiket üretilemedi')
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+
+                    $result = $service->bulkImport(
+                        tagsInput: $generatedTags,
+                        platformCode: $platform,
+                        category: 'trending',
+                        priority: 9,
+                        isTrending: true
+                    );
+
+                    Notification::make()
+                        ->title(strtoupper($platform) . " İçin {$result['total_processed']} Trend Hashtag Havuza Eklendi!")
+                        ->body("Eklenen etiketlerden bazıları: #" . implode(' #', array_slice($result['tags'], 0, 6)) . "...")
+                        ->success()
+                        ->duration(8000)
+                        ->send();
+                }),
+
+            // 3. Revaçtaki Hashtagleri Toplu Ekle
             Actions\Action::make('bulk_add_trending')
-                ->label('Revaçtaki Hashtagleri Toplu Ekle')
+                ->label('Toplu Ekle')
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('warning')
+                ->modalWidth(\Filament\Support\Enums\MaxWidth::TwoExtraLarge)
                 ->modalHeading('Platforma Özel Revaçtaki Hashtagleri Toplu Ekle')
                 ->modalDescription('Virgülle, boşlukla veya alt alta onlarca hashtag yapıştırabilirsiniz. # işaretleri ve mükerrerler otomatik temizlenir.')
                 ->form([
@@ -93,81 +176,12 @@ class ManageHashtags extends ManageRecords
                         ->send();
                 }),
 
-            // 2. Yapay Zeka ile Trend Keşfet
-            Actions\Action::make('ai_trend_scout')
-                ->label('AI ile Trend Keşfet')
-                ->icon('heroicon-o-sparkles')
-                ->color('primary')
-                ->modalHeading('Yapay Zeka ile Platform Trendlerini Keşfet')
-                ->modalDescription('Seçtiğiniz platformun o anki en güncel algoritmasında viral olan revaçtaki Türkçe ve global hashtagleri AI otomatik üretir ve havuza ekler.')
-                ->form([
-                    Select::make('platform_code')
-                        ->label('Hangi Platform İçin Trend Keşfedilsin?')
-                        ->options([
-                            'instagram' => 'Instagram (Reels ve Keşfet algoritmaları)',
-                            'tiktok' => 'TikTok (FYP ve Viral akımlar)',
-                            'youtube' => 'YouTube Shorts (Öne çıkan trendler)',
-                            'x' => 'X / Twitter (Gündem ve etkileşim)',
-                            'pinterest' => 'Pinterest (İlham ve arama niyetleri)',
-                            'facebook' => 'Facebook (Topluluk ve video etkileşimi)',
-                            'linkedin' => 'LinkedIn (E-ticaret ve sektörel trendler)',
-                        ])
-                        ->default('tiktok')
-                        ->required(),
-
-                    TextInput::make('topic')
-                        ->label('Özel Odak / Konu (İsteğe Bağlı)')
-                        ->placeholder('Örn: Patenli ayakkabı, çocuk eğlencesi, hediye fikirleri, sokak modası')
-                        ->helperText('Boş bırakırsanız marka ve sektörünüze en uygun genel trendler taranır.'),
-
-                    Select::make('count')
-                        ->label('Üretilecek Trend Sayısı')
-                        ->options([
-                            15 => '15 Trend Hashtag',
-                            20 => '20 Trend Hashtag',
-                            25 => '25 Trend Hashtag',
-                            30 => '30 Trend Hashtag',
-                        ])
-                        ->default(25)
-                        ->required(),
-                ])
-                ->action(function (array $data) {
-                    $service = app(TrendingHashtagService::class);
-                    $platform = $data['platform_code'];
-                    $topic = $data['topic'] ?? null;
-                    $count = (int) ($data['count'] ?? 25);
-
-                    $generatedTags = $service->generateTrendingWithAi($platform, $topic, $count);
-
-                    if (empty($generatedTags)) {
-                        Notification::make()
-                            ->title('Trend etiket üretilemedi')
-                            ->danger()
-                            ->send();
-                        return;
-                    }
-
-                    $result = $service->bulkImport(
-                        tagsInput: $generatedTags,
-                        platformCode: $platform,
-                        category: 'trending',
-                        priority: 9,
-                        isTrending: true
-                    );
-
-                    Notification::make()
-                        ->title(strtoupper($platform) . " İçin {$result['total_processed']} Trend Hashtag Havuza Eklendi!")
-                        ->body("Eklenen etiketlerden bazıları: #" . implode(' #', array_slice($result['tags'], 0, 6)) . "...")
-                        ->success()
-                        ->duration(8000)
-                        ->send();
-                }),
-
-            // 3. Hazır Trend Paketi Yükle
+            // 4. Hazır Trend Paketi Yükle
             Actions\Action::make('load_preset_packs')
-                ->label('Hazır Trend Paketi Yükle')
+                ->label('Hazır Paket')
                 ->icon('heroicon-o-bolt')
-                ->color('info')
+                ->color('gray')
+                ->modalWidth(\Filament\Support\Enums\MaxWidth::TwoExtraLarge)
                 ->modalHeading('Platforma Özel Hazır Trend Paketini Yükle')
                 ->modalDescription('Sosyal medya algoritmalarına özel olarak test edilmiş hazır revaçtaki etiket paketlerini tek tıkla havuza dahil edin.')
                 ->form([
@@ -192,15 +206,6 @@ class ManageHashtags extends ManageRecords
                         ->body("Toplam {$result['total_processed']} trend etiketi havuza aktarıldı.")
                         ->success()
                         ->send();
-                }),
-
-            // 4. Tekil Hashtag Ekle
-            Actions\CreateAction::make()
-                ->label('Tekil Hashtag Ekle')
-                ->icon('heroicon-o-plus')
-                ->mutateFormDataUsing(function (array $data) {
-                    $data['workspace_id'] = 1;
-                    return $data;
                 }),
         ];
     }
