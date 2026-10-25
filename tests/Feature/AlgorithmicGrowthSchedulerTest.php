@@ -375,4 +375,28 @@ class AlgorithmicGrowthSchedulerTest extends TestCase
         $this->assertNotEquals($ytTimes, $fbTimes, 'YouTube and Facebook should have different peak times');
         $this->assertNotEquals($xTimes, $liTimes, 'X and LinkedIn should have different peak times');
     }
+
+    public function test_custom_added_hours_are_sorted_and_identified(): void
+    {
+        $schedule = new Schedule([
+            'schedule_type' => 'algorithmic_growth',
+            'name' => 'Instagram Reels',
+            'posting_times' => ['10:15', '13:00', '16:30', '19:45', '22:15', '18:30', '21:30', '02:00', '04:00'],
+        ]);
+
+        $times = $schedule->getDailyRunTimes();
+
+        // 02:00 ve 04:00 en başta olmalı, saatler kesinlikle artan sırada sıralanmalı!
+        $this->assertEquals(['02:00', '04:00', '10:15', '13:00', '16:30', '18:30', '19:45', '21:30', '22:15'], $times);
+
+        $defaultSlots = $schedule->getDefaultPeakSlots();
+        $this->assertContains('10:15', $defaultSlots);
+        $this->assertContains('13:00', $defaultSlots);
+
+        // Özel eklenen saatler (02:00, 04:00, 18:30, 21:30) defaultSlots içinde OLMAMALI (yeşil renklendirilecek)
+        $this->assertNotContains('02:00', $defaultSlots);
+        $this->assertNotContains('04:00', $defaultSlots);
+        $this->assertNotContains('18:30', $defaultSlots);
+        $this->assertNotContains('21:30', $defaultSlots);
+    }
 }

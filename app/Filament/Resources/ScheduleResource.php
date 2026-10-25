@@ -441,9 +441,23 @@ class ScheduleResource extends Resource
                         }
                         return '📌 Günde 1 kez';
                     })
-                    ->description(function (Schedule $record): string {
+                    ->description(function (Schedule $record): HtmlString {
                         $times = $record->getDailyRunTimes();
-                        return implode(' • ', $times);
+                        $defaultSlots = $record->getDefaultPeakSlots();
+
+                        $renderedTimes = [];
+                        foreach ($times as $t) {
+                            $isCustom = ! in_array($t, $defaultSlots, true);
+                            if ($isCustom) {
+                                // Keşfet saati dışında eklenen saatler YEŞİL renkte!
+                                $renderedTimes[] = '<span style="color: #10b981; font-weight: 600; text-shadow: 0 0 6px rgba(16,185,129,0.25);" title="Eklenen Özel Saat">' . e($t) . '</span>';
+                            } else {
+                                $renderedTimes[] = '<span style="color: #94a3b8;">' . e($t) . '</span>';
+                            }
+                        }
+
+                        $separator = ' <span style="color: #64748b; opacity: 0.6;">•</span> ';
+                        return new HtmlString(implode($separator, $renderedTimes));
                     }),
 
                 TextColumn::make('last_run_at')

@@ -53,6 +53,66 @@ class Schedule extends Model
 
     protected ?array $memoizedRunTimes = null;
 
+    protected static function booted(): void
+    {
+        static::saving(function (Schedule $schedule) {
+            if (! empty($schedule->posting_times) && is_array($schedule->posting_times)) {
+                $times = [];
+                foreach ($schedule->posting_times as $t) {
+                    $t = trim((string)$t);
+                    if ($t === '') continue;
+                    if (preg_match('/^(\d{1,2}):(\d{2})$/', $t, $m)) {
+                        $times[] = sprintf('%02d:%02d', (int)$m[1], (int)$m[2]);
+                    } else {
+                        $times[] = $t;
+                    }
+                }
+                $times = array_values(array_unique($times));
+                sort($times, SORT_STRING);
+                $schedule->posting_times = $times;
+            }
+        });
+    }
+
+    /**
+     * Platformun resmi / varsayılan algoritmik keşfet zirve saatlerini döndürür.
+     */
+    public function getDefaultPeakSlots(): array
+    {
+        /** @var \App\Services\Scheduling\AlgorithmicGrowthSchedulerService $algoService */
+        $algoService = app(\App\Services\Scheduling\AlgorithmicGrowthSchedulerService::class);
+
+        $platformCode = null;
+        $targetAccountIds = $this->target_social_account_ids ?: [];
+        if (count($targetAccountIds) === 1) {
+            $account = \App\Models\SocialAccount::with('platform')->find($targetAccountIds[0]);
+            if ($account) {
+                $platformCode = strtolower($account->platform?->code?->value ?? (string) $account->platform?->code ?? (string) $account->platform_id);
+            }
+        }
+
+        if (empty($platformCode) && ! empty($this->name)) {
+            $nameLower = mb_strtolower($this->name);
+            $platformCode = match (true) {
+                str_contains($nameLower, 'instagram') => 'instagram',
+                str_contains($nameLower, 'tiktok') => 'tiktok',
+                str_contains($nameLower, 'youtube') => 'youtube',
+                str_contains($nameLower, 'facebook') => 'facebook',
+                str_contains($nameLower, 'linkedin') => 'linkedin',
+                str_contains($nameLower, 'pinterest') => 'pinterest',
+                str_contains($nameLower, 'twitter') || preg_match('/\bx\b/u', $nameLower) => 'x',
+                default => null,
+            };
+        }
+
+        if (! empty($platformCode)) {
+            $profile = $algoService->getProfile($platformCode);
+            return array_values(array_unique(array_merge($profile->peakSlotsWeekday, $profile->peakSlotsWeekend)));
+        }
+
+        return ['09:30', '12:45', '16:15', '19:15', '22:00'];
+    }
+
     /**
      * Gün içinde bu kuralın tetikleneceği tüm saatleri 'HH:mm' formatında sıralı dizi olarak döndürür
      */
@@ -65,11 +125,25 @@ class Schedule extends Model
         // 0. Algoritmik Keşfet & Organik Büyüme Modu (Platform Zirve Saatleri)
         if ($this->schedule_type === 'algorithmic_growth') {
             if (! empty($this->posting_times) && is_array($this->posting_times)) {
-                return $this->memoizedRunTimes = $this->posting_times;
+                $times = [];
+                foreach ($this->posting_times as $t) {
+                    $t = trim((string)$t);
+                    if ($t === '') continue;
+                    if (preg_match('/^(\d{1,2}):(\d{2})$/', $t, $m)) {
+                        $times[] = sprintf('%02d:%02d', (int)$m[1], (int)$m[2]);
+                    } else {
+                        $times[] = $t;
+                    }
+                }
+                $times = array_values(array_unique($times));
+                sort($times, SORT_STRING);
+                return $this->memoizedRunTimes = $times;
             }
 
             if (! empty($this->custom_run_times)) {
-                return $this->memoizedRunTimes = $this->custom_run_times;
+                $times = (array) $this->custom_run_times;
+                sort($times, SORT_STRING);
+                return $this->memoizedRunTimes = $times;
             }
 
             /** @var \App\Services\Scheduling\AlgorithmicGrowthSchedulerService $algoService */
