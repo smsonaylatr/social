@@ -51,6 +51,10 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
                 fn () => view('filament.components.auth-footer')
             )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => '<script>(function(){function pingCron(){fetch("/cron/process",{method:"POST",headers:{"X-Requested-With":"XMLHttpRequest"}}).catch(function(){});}setTimeout(pingCron,3000);setInterval(pingCron,60000);})();</script>'
+            )
             ->navigationGroups([
                 NavigationGroup::make()
                     ->label('Video Yönetimi')

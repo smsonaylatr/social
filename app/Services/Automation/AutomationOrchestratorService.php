@@ -54,10 +54,17 @@ class AutomationOrchestratorService
             $video = $this->playlistEngine->getNextVideo($playlist);
         } else {
             // Pick next eligible video from the global pool sequentially (never used first by ID order, then oldest used)
-            $video = Video::where('status', 'ready')
-                ->where('is_reusable', true)
+            $video = Video::whereIn('status', ['ready', 'active', 'published'])
+                ->where(function ($q) {
+                    $q->where('is_reusable', true)->orWhereNull('is_reusable');
+                })
                 ->orderByRaw('last_used_at IS NULL DESC, last_used_at ASC, id ASC')
                 ->first();
+
+            // Fallback: any video in the pool sequentially
+            if (! $video) {
+                $video = Video::orderByRaw('last_used_at IS NULL DESC, last_used_at ASC, id ASC')->first();
+            }
         }
 
         if (! $video) {

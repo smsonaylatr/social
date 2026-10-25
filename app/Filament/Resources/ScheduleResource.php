@@ -258,19 +258,51 @@ class ScheduleResource extends Resource
                     ->label('Sıradakini Şimdi Paylaş')
                     ->icon('heroicon-o-play')
                     ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Sıradaki Videoyu Şimdi Paylaş')
+                    ->modalDescription('Video havuzundan sıradaki video seçilecek ve seçili tüm sosyal medya kanallarına anında yüklenecektir. Devam edilsin mi?')
                     ->action(function (Schedule $record) {
                         $record->update(['is_active' => true]);
                         $post = app(\App\Services\Automation\AutomationOrchestratorService::class)->runSchedule($record);
                         if ($post) {
-                            \Filament\Notifications\Notification::make()
-                                ->title('Sıradaki Video Kuyruğa Alındı!')
-                                ->body("Seçilen video: {$post->video?->title}")
-                                ->success()
-                                ->send();
+                            try {
+                                \Illuminate\Support\Facades\Artisan::call('queue:work', [
+                                    '--stop-when-empty' => true,
+                                    '--max-jobs' => 20,
+                                    '--tries' => 3,
+                                ]);
+                            } catch (\Throwable) {}
+
+                            $post->refresh();
+                            $publishedCount = $post->targets()->where('status', \App\Enums\PublishStatus::PUBLISHED)->count();
+                            $failedTargets = $post->targets()->where('status', \App\Enums\PublishStatus::FAILED)->get();
+
+                            if ($publishedCount > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Video Başarıyla Paylaşıldı! 🚀')
+                                    ->body("Video: '{$post->video?->title}' ({$publishedCount} kanala yüklendi)")
+                                    ->success()
+                                    ->duration(8000)
+                                    ->send();
+                            } elseif ($failedTargets->isNotEmpty()) {
+                                $firstErr = $failedTargets->first()->error_message ?: 'API hatası';
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Paylaşım Sırasında Hata Oluştu')
+                                    ->body("Kanal Hatası: {$firstErr}")
+                                    ->danger()
+                                    ->duration(10000)
+                                    ->send();
+                            } else {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Sıradaki Video Kuyruğa Alındı')
+                                    ->body("Seçilen video: {$post->video?->title}")
+                                    ->info()
+                                    ->send();
+                            }
                         } else {
                             \Filament\Notifications\Notification::make()
-                                ->title('Paylaşım Yapılamadı')
-                                ->body('Uygun video bulunamadı, hedef hesap seçilmedi veya günlük limit doldu.')
+                                ->title('Paylaşım Başlatılamadı')
+                                ->body('Uygun video bulunamadı veya bu kuralda hedef sosyal medya hesabı seçilmemiş.')
                                 ->warning()
                                 ->send();
                         }

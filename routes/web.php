@@ -136,3 +136,27 @@ Route::get('/storage/{path}', function (string $path) {
     }
     return response()->file($disk->path($path));
 })->where('path', '.*')->name('storage.file');
+
+// Background automation heartbeat & web-cron endpoint
+Route::match(['get', 'post'], '/cron/process', function () {
+    $orchestrator = app(\App\Services\Automation\AutomationOrchestratorService::class);
+    $schedulingService = app(\App\Services\Publisher\SchedulingService::class);
+
+    $schedulesCount = $orchestrator->checkAndRunDueSchedules();
+    $dispatchedCount = $schedulingService->dispatchDuePosts();
+
+    try {
+        \Illuminate\Support\Facades\Artisan::call('queue:work', [
+            '--stop-when-empty' => true,
+            '--max-jobs' => 20,
+            '--tries' => 3,
+        ]);
+    } catch (\Throwable) {}
+
+    return response()->json([
+        'status' => 'ok',
+        'schedules_executed' => $schedulesCount,
+        'posts_dispatched' => $dispatchedCount,
+        'timestamp' => now()->toIso8601String(),
+    ]);
+})->withoutMiddleware([VerifyCsrfToken::class, ValidateCsrfToken::class])->name('cron.process');

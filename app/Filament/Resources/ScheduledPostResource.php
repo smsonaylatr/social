@@ -127,11 +127,40 @@ class ScheduledPostResource extends Resource
                             DispatchPlatformPostJob::dispatch($target->id);
                         }
 
-                        Notification::make()
-                            ->title('Yayın görevi başlatıldı')
-                            ->body('Tüm platform hedefleri kuyruğa alındı ve işleniyor.')
-                            ->success()
-                            ->send();
+                        try {
+                            \Illuminate\Support\Facades\Artisan::call('queue:work', [
+                                '--stop-when-empty' => true,
+                                '--max-jobs' => 20,
+                                '--tries' => 3,
+                            ]);
+                        } catch (\Throwable) {}
+
+                        $record->refresh();
+                        $publishedCount = $record->targets()->where('status', PublishStatus::PUBLISHED)->count();
+                        $failedTargets = $record->targets()->where('status', PublishStatus::FAILED)->get();
+
+                        if ($publishedCount > 0) {
+                            Notification::make()
+                                ->title('Gönderi Paylaşıldı! 🚀')
+                                ->body("{$publishedCount} kanala başarıyla yüklendi.")
+                                ->success()
+                                ->duration(8000)
+                                ->send();
+                        } elseif ($failedTargets->isNotEmpty()) {
+                            $err = $failedTargets->first()->error_message ?: 'Platform API hatası';
+                            Notification::make()
+                                ->title('Paylaşım Sırasında Hata Oluştu')
+                                ->body("Hata: {$err}")
+                                ->danger()
+                                ->duration(10000)
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('Yayın görevi yürütülüyor')
+                                ->body('Hedefler kuyruğa alındı ve işleniyor.')
+                                ->info()
+                                ->send();
+                        }
                     }),
 
                 Action::make('view_details')

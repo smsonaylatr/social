@@ -123,6 +123,19 @@ class SchedulingService
                 }
             }
 
+            // Arka planda beklemesin, kuyruğu hemen işle ve sosyal medyaya yükle
+            if ($dispatchedCount > 0) {
+                try {
+                    \Illuminate\Support\Facades\Artisan::call('queue:work', [
+                        '--stop-when-empty' => true,
+                        '--max-jobs' => 20,
+                        '--tries' => 3,
+                    ]);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning("Immediate queue work error: " . $e->getMessage());
+                }
+            }
+
             return $dispatchedCount;
         } finally {
             $lock->release();
