@@ -2911,6 +2911,68 @@ html, body {
     display: none !important;
 }
 
+/* ==========================================================================
+   Unify Table Header & Toolbar into One Single Row (Button + Search + Filter + Grid Toggle)
+   ========================================================================== */
+.fi-ta-header-ctn {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 0.75rem !important;
+    padding: 0.75rem 1.25rem !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.fi-ta-header-ctn::before,
+.fi-ta-header-ctn::after {
+    display: none !important;
+}
+
+/* Remove default divide borders and paddings from inner stacked header and toolbar */
+.fi-ta-header-ctn .fi-ta-header {
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex: 0 0 auto !important;
+}
+
+.fi-ta-header-ctn .fi-ta-header-toolbar {
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex: 1 1 auto !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 0.65rem !important;
+}
+
+/* Ensure inner toolbar items are neatly aligned on the same row with exact order */
+.fi-ta-header-toolbar > div {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    margin: 0 !important;
+}
+
+.fi-ta-header-toolbar .fi-ta-search-field {
+    order: 1 !important;
+    margin: 0 !important;
+}
+
+.fi-ta-header-toolbar div:has(> .fi-ta-filters-trigger),
+.fi-ta-header-toolbar .fi-ta-filters-trigger {
+    order: 2 !important;
+    margin: 0 !important;
+}
+
+.fi-ta-header-toolbar div:has(> button[wire\:click*="changeLayoutView"]) {
+    order: 3 !important;
+    margin: 0 !important;
+}
+
 /* Toolbar layout toggle button style */
 .fi-ta-header-toolbar button:has(svg.heroicon-o-squares-2x2),
 .fi-ta-header-toolbar button:has(svg.heroicon-o-bars-3-bottom-left) {

@@ -45,7 +45,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => '<link rel="stylesheet" href="' . asset('css/custom-admin.css') . '?v=3.2">'
+                fn (): string => '<link rel="stylesheet" href="' . asset('css/custom-admin.css') . '?v=3.3">'
             )
             ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_AFTER,
