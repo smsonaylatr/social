@@ -27,7 +27,7 @@ class SocialOAuthController extends Controller
             'https://www.googleapis.com/auth/youtube.readonly',
             'https://www.googleapis.com/auth/youtube',
         ],
-        'x' => ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
+        'x' => ['tweet.read', 'tweet.write', 'users.read', 'media.write', 'offline.access'],
         'pinterest' => ['pins:write', 'pins:read', 'boards:read'],
         'linkedin' => ['openid', 'profile', 'w_member_social', 'email'],
         'whatsapp' => ['whatsapp_business_messaging', 'whatsapp_business_management'],

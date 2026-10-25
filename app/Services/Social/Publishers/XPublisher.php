@@ -116,32 +116,99 @@ class XPublisher extends AbstractSocialPublisher
     }
 
     /**
-     * Attempt chunked video upload via X API v2 or v1.1 (returns null gracefully if token only permits tweet.write)
+     * Attempt chunked video upload via X API v2 (/2/media/upload/initialize -> append -> finalize -> status)
+     * with fallback to v1.1 (upload.twitter.com/1.1/media/upload.json).
      */
     protected function tryUploadVideoMedia(Video $video, string $token): ?string
     {
+        $videoFilePath = $this->resolveLocalVideoPath($video);
+        if (! $videoFilePath) {
+            return null;
+        }
+
+        $fileSize = filesize($videoFilePath);
+        if (! $fileSize || $fileSize <= 0) {
+            return null;
+        }
+
+        $mimeType = $video->mime_type ?: 'video/mp4';
+
+        // 1. Primary: X API v2 Chunked Media Upload (supports OAuth 2.0 PKCE User Token with media.write scope)
         try {
-            if (! $video->storage_path) {
-                return null;
-            }
+            $v2Init = $this->httpClient($token, 20)
+                ->post('https://api.x.com/2/media/upload/initialize', [
+                    'total_bytes' => $fileSize,
+                    'media_type' => $mimeType,
+                    'media_category' => 'tweet_video',
+                ]);
 
-            $videoFilePath = Storage::disk($video->disk ?: 'public')->path($video->storage_path);
-            if (! file_exists($videoFilePath)) {
-                return null;
-            }
+            $v2MediaId = $v2Init->json('data.id') ?? $v2Init->json('media_id_string');
+            if ($v2Init->successful() && $v2MediaId) {
+                $mediaId = (string) $v2MediaId;
+                $fileHandle = fopen($videoFilePath, 'rb');
+                $segmentIndex = 0;
+                $appendOk = true;
 
-            $fileSize = filesize($videoFilePath);
-            if (! $fileSize || $fileSize <= 0) {
-                return null;
-            }
+                while (! feof($fileHandle)) {
+                    $chunk = fread($fileHandle, 4 * 1024 * 1024);
+                    $appendResp = $this->httpClient($token, 60)
+                        ->attach('media', $chunk, 'video.mp4')
+                        ->post("https://api.x.com/2/media/upload/{$mediaId}/append", [
+                            'segment_index' => $segmentIndex,
+                        ]);
 
-            // Try X v1.1 chunked upload with IPv4 forced
+                    if (! $appendResp->successful()) {
+                        $appendOk = false;
+                        break;
+                    }
+                    $segmentIndex++;
+                }
+                fclose($fileHandle);
+
+                if ($appendOk) {
+                    $finalizeResp = $this->httpClient($token, 25)
+                        ->post("https://api.x.com/2/media/upload/{$mediaId}/finalize");
+
+                    if ($finalizeResp->successful()) {
+                        $processingInfo = $finalizeResp->json('data.processing_info') ?? $finalizeResp->json('processing_info') ?? [];
+                        $processingState = $processingInfo['state'] ?? null;
+                        $retries = 0;
+
+                        while (in_array($processingState, ['pending', 'in_progress'], true) && $retries < 15) {
+                            $waitSecs = min(5, max(2, (int) ($processingInfo['check_after_secs'] ?? 3)));
+                            sleep($waitSecs);
+
+                            $statusResp = $this->httpClient($token, 15)
+                                ->get('https://api.x.com/2/media/upload', [
+                                    'command' => 'STATUS',
+                                    'media_id' => $mediaId,
+                                ]);
+
+                            $processingInfo = $statusResp->json('data.processing_info') ?? $statusResp->json('processing_info') ?? [];
+                            $processingState = $processingInfo['state'] ?? 'succeeded';
+
+                            if ($processingState === 'failed') {
+                                return null;
+                            }
+                            $retries++;
+                        }
+
+                        return $mediaId;
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // Fallback to v1.1 below
+        }
+
+        // 2. Fallback: X API v1.1 Chunked Media Upload
+        try {
             $initResponse = $this->httpClient($token, 15)
                 ->asForm()
                 ->post('https://upload.twitter.com/1.1/media/upload.json', [
                     'command' => 'INIT',
                     'total_bytes' => $fileSize,
-                    'media_type' => $video->mime_type ?: 'video/mp4',
+                    'media_type' => $mimeType,
                     'media_category' => 'tweet_video',
                 ]);
 
@@ -203,6 +270,33 @@ class XPublisher extends AbstractSocialPublisher
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    protected function resolveLocalVideoPath(Video $video): ?string
+    {
+        if (! $video->storage_path) {
+            return null;
+        }
+
+        $cleanPath = ltrim($video->storage_path, '/');
+        $candidates = [];
+
+        try {
+            $candidates[] = Storage::disk($video->disk ?: 'public')->path($cleanPath);
+        } catch (\Throwable) {
+            // Ignore
+        }
+
+        $candidates[] = storage_path('app/public/' . $cleanPath);
+        $candidates[] = public_path('storage/' . $cleanPath);
+
+        foreach ($candidates as $path) {
+            if ($path && file_exists($path) && filesize($path) > 0) {
+                return $path;
+            }
+        }
+
+        return null;
     }
 
     protected function buildFriendlyXError(int $status, mixed $rawError): string
