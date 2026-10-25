@@ -315,10 +315,10 @@ class OpenAiContentService implements AiContentProviderInterface
                 platformCode: 'linkedin',
                 title: 'Patenli Ayakkabı ve Tekerlekli Spor Ayakkabı Modelleri | Patenli Ayakkabılar',
                 hookSentence: 'Çocuk patenli ayakkabı ve tekerlekli ayakkabı modellerimizle hareketi eğlenceye dönüştürüyoruz! ⚡',
-                caption: "Çocuk patenli ayakkabı ve tekerlekli ayakkabı modellerimizle hareketi eğlenceye dönüştürüyoruz! ⚡\n\n{$brandName} olarak çocukların ve gençlerin severek giydiği patenli ayakkabı, ışıklı patenli ayakkabı ve gizli tekerlekli spor ayakkabı modelleri sunuyoruz. Hem günlük kullanıma uygun konforlu spor ayakkabı, hem de tek hareketle kaymaya hazır paten deneyimi bir arada!\n\n{$bullets}\n\nTüm patenli ayakkabı modelleri ve fiyatları için resmi web sitemizi ziyaret edin:\n🌐 {$productUrl}",
+                caption: "Çocuk patenli ayakkabı ve tekerlekli ayakkabı modellerimizle hareketi eğlenceye dönüştürüyoruz! ⚡\n\n{$brandName} olarak çocukların ve gençlerin severek giydiği patenli ayakkabı, ışıklı patenli ayakkabı ve gizli tekerlekli spor ayakkabı modelleri sunuyoruz. Hem günlük kullanıma uygun konforlu spor ayakkabı, hem de tek hareketle kaymaya hazır paten deneyimi bir arada!\n\n{$bullets}\n\nTüm patenli ayakkabı modelleri ve fiyatları için resmi web sitemizi ziyaret edin:\n🌐 patenliayakkabilar.com",
                 hashtags: ['PatenliAyakkabı', 'TekerlekliAyakkabı', 'ÇocukPatenliAyakkabı', 'IşıklıPatenliAyakkabı', 'PatenliAyakkabılar'],
                 seoKeywords: $seoKeywords,
-                callToAction: "Patenli ayakkabı modellerini inceleyin: {$productUrl}",
+                callToAction: 'Patenli ayakkabı modellerini inceleyin: patenliayakkabilar.com',
                 suggestedProductUrl: $productUrl,
                 isTestMode: true
             ),

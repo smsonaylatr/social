@@ -35,10 +35,8 @@ class LinkedInPublisher extends AbstractSocialPublisher
         $authorUrn = $this->resolveAuthorUrn($account, $token);
         $fullText = $this->buildFullCaption($target);
 
-        // Ensure full https:// link in commentary for clickable SEO backlink on LinkedIn
-        if (! str_contains($fullText, 'https://') && ! str_contains($fullText, 'http://')) {
-            $fullText = preg_replace('/\b(patenliayakkabilar\.com)\b/i', 'https://$1', $fullText);
-        }
+        // Strip https:// from patenliayakkabilar.com in commentary so LinkedIn displays "patenliayakkabilar.com" instead of shortening to "lnkd.in/..."
+        $fullText = preg_replace('/https?:\/\/(www\.)?patenliayakkabilar\.com\/?/i', 'patenliayakkabilar.com', $fullText);
 
         $commentary = mb_substr($fullText, 0, 3000);
         $productUrl = $target->product_url ?: ($video->product_url ?: 'https://patenliayakkabilar.com');
@@ -50,49 +48,47 @@ class LinkedInPublisher extends AbstractSocialPublisher
 
         // 1. Upload video binary via LinkedIn v2 Assets API
         $assetUrn = null;
-        if ($video->storage_path) {
-            $videoFilePath = Storage::disk($video->disk ?: 'public')->path($video->storage_path);
-            if (file_exists($videoFilePath) && filesize($videoFilePath) > 0) {
-                try {
-                    $registerResp = Http::withToken($token)
-                        ->withHeaders($headers)
-                        ->timeout(30)
-                        ->post('https://api.linkedin.com/v2/assets?action=registerUpload', [
-                            'registerUploadRequest' => [
-                                'recipes' => ['urn:li:digitalmediaRecipe:feedshare-video'],
-                                'owner' => $authorUrn,
-                                'serviceRelationships' => [
-                                    [
-                                        'relationshipType' => 'OWNER',
-                                        'identifier' => 'urn:li:userGeneratedContent',
-                                    ],
+        $binaryContent = $this->loadVideoBinary($video);
+
+        if ($binaryContent !== null && strlen($binaryContent) > 0) {
+            try {
+                $registerResp = Http::withToken($token)
+                    ->withHeaders($headers)
+                    ->timeout(30)
+                    ->post('https://api.linkedin.com/v2/assets?action=registerUpload', [
+                        'registerUploadRequest' => [
+                            'recipes' => ['urn:li:digitalmediaRecipe:feedshare-video'],
+                            'owner' => $authorUrn,
+                            'serviceRelationships' => [
+                                [
+                                    'relationshipType' => 'OWNER',
+                                    'identifier' => 'urn:li:userGeneratedContent',
                                 ],
                             ],
-                        ]);
+                        ],
+                    ]);
 
-                    if ($registerResp->successful()) {
-                        $candidateAsset = $registerResp->json('value.asset');
-                        $uploadUrl = $registerResp->json('value.uploadMechanism.com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest.uploadUrl');
+                if ($registerResp->successful()) {
+                    $candidateAsset = $registerResp->json('value.asset');
+                    $uploadUrl = $registerResp->json('value.uploadMechanism.com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest.uploadUrl');
 
-                        if ($candidateAsset && $uploadUrl) {
-                            $binaryContent = file_get_contents($videoFilePath);
-                            $uploadResp = Http::withToken($token)
-                                ->withHeaders([
-                                    'Content-Type' => $video->mime_type ?: 'video/mp4',
-                                ])
-                                ->timeout(180)
-                                ->withBody($binaryContent, $video->mime_type ?: 'video/mp4')
-                                ->put($uploadUrl);
+                    if ($candidateAsset && $uploadUrl) {
+                        $uploadResp = Http::withToken($token)
+                            ->withHeaders([
+                                'Content-Type' => 'application/octet-stream',
+                            ])
+                            ->timeout(180)
+                            ->withBody($binaryContent, 'application/octet-stream')
+                            ->put($uploadUrl);
 
-                            if ($uploadResp->successful() || $uploadResp->status() === 201) {
-                                $assetUrn = $candidateAsset;
-                                sleep(3); // Brief pause for LinkedIn asset registration
-                            }
+                        if ($uploadResp->successful() || $uploadResp->status() === 201) {
+                            $assetUrn = $candidateAsset;
+                            sleep(4);
                         }
                     }
-                } catch (\Throwable) {
-                    $assetUrn = null;
                 }
+            } catch (\Throwable) {
+                $assetUrn = null;
             }
         }
 
@@ -183,6 +179,35 @@ class LinkedInPublisher extends AbstractSocialPublisher
             'post_url' => "https://www.linkedin.com/feed/update/{$postUrn}",
             'status' => 'published',
         ];
+    }
+
+    protected function loadVideoBinary(Video $video): ?string
+    {
+        if (! $video->storage_path) {
+            return null;
+        }
+
+        try {
+            $videoFilePath = Storage::disk($video->disk ?: 'public')->path($video->storage_path);
+            if (file_exists($videoFilePath) && filesize($videoFilePath) > 0) {
+                return file_get_contents($videoFilePath) ?: null;
+            }
+        } catch (\Throwable) {
+            // Fallback below
+        }
+
+        if ($video->url) {
+            try {
+                $resp = Http::timeout(30)->get($video->url);
+                if ($resp->successful() && strlen($resp->body()) > 1000) {
+                    return $resp->body();
+                }
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     /**
