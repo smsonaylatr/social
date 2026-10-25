@@ -21,6 +21,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\TextColumn\TextColumnSize;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\HtmlString;
@@ -268,67 +269,69 @@ class ScheduleResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->wrap()
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->size(TextColumnSize::Small),
 
                 TextColumn::make('playlist.name')
-                    ->label('Video Kaynağı')
-                    ->default('Tüm Video Havuzu (Sıralı)')
+                    ->label('Kaynak')
+                    ->default('Tüm Havuz')
                     ->badge()
-                    ->color('primary')
+                    ->color('gray')
+                    ->size(TextColumnSize::ExtraSmall)
                     ->visibleFrom('sm')
                     ->sortable(),
 
                 TextColumn::make('schedule_type')
-                    ->label('Gün İçi Paylaşım Saatleri & Sıklık')
+                    ->label('Yayın Sıklığı & Saatler')
                     ->badge()
                     ->color(fn (Schedule $record): string => $record->schedule_type === 'algorithmic_growth' ? 'success' : 'info')
-                    ->wrap()
+                    ->size(TextColumnSize::ExtraSmall)
                     ->formatStateUsing(function (Schedule $record): string {
-                        $times = $record->getDailyRunTimes();
-                        $count = count($times);
                         if ($record->schedule_type === 'algorithmic_growth') {
                             $strategyLabel = match ($record->growth_strategy) {
                                 'conservative' => 'Hafif (2 Dalga)',
                                 'balanced' => 'Dengeli (3 Dalga)',
-                                default => 'Maksimum Güç (5 Dalga)',
+                                default => 'Keşfet (5 Dalga)',
                             };
-                            return "🚀 Keşfet ({$strategyLabel}) • " . implode(' • ', $times);
+                            return "🚀 {$strategyLabel}";
                         }
                         if ($record->schedule_type === 'hourly') {
-                            $start = $record->start_time ? substr($record->start_time, 0, 5) : '00:00';
-                            $end = $record->end_time ? substr($record->end_time, 0, 5) : '23:00';
-                            return "🕐 Her Saat Başı ({$start}-{$end}) [{$count} kez]";
+                            return '🕐 Saat Başı';
                         }
                         if ($record->schedule_type === 'minute_interval') {
-                            $start = $record->start_time ? substr($record->start_time, 0, 5) : '00:00';
-                            $end = $record->end_time ? substr($record->end_time, 0, 5) : '23:59';
-                            return "⚡ Her {$record->interval_minutes} Dk. Bir ({$start}-{$end}) [{$count} kez]";
+                            return "⚡ Her {$record->interval_minutes} dk";
                         }
                         if ($record->schedule_type === 'interval') {
-                            return "⏳ Her {$record->interval_hours} Saatte Bir [{$count} kez]";
+                            return "⏳ Her {$record->interval_hours} saat";
                         }
                         if ($record->schedule_type === 'custom_times') {
-                            return implode(' • ', $times) . " ({$count} kez)";
+                            return '🎯 Özel Saat';
                         }
-                        return ($times[0] ?? '12:00') . ' (Günde 1 kez)';
+                        return '📌 Günde 1 kez';
+                    })
+                    ->description(function (Schedule $record): string {
+                        $times = $record->getDailyRunTimes();
+                        return implode(' • ', $times);
                     }),
 
                 TextColumn::make('last_run_at')
                     ->label('Son Çalışma')
                     ->dateTime('d.m.Y H:i')
-                    ->visibleFrom('md')
-                    ->sortable()
-                    ->placeholder('Henüz çalışmadı'),
+                    ->size(TextColumnSize::ExtraSmall)
+                    ->placeholder('—')
+                    ->sortable(),
 
                 ToggleColumn::make('is_active')
-                    ->label('Aktif / Pasif'),
+                    ->label('Aktif'),
             ])
+            ->actionsColumnLabel('İşlemler')
             ->actions([
                 Tables\Actions\Action::make('run_now')
-                    ->label('Sıradakini Şimdi Paylaş')
+                    ->label('Şimdi Paylaş')
                     ->icon('heroicon-o-play')
                     ->iconButton()
-                    ->tooltip('Sıradakini Şimdi Paylaş')
+                    ->size('sm')
+                    ->tooltip('Sıradaki Videoyu Şimdi Paylaş')
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Sıradaki Videoyu Şimdi Paylaş')
@@ -381,9 +384,13 @@ class ScheduleResource extends Resource
                     }),
                 Tables\Actions\EditAction::make()
                     ->iconButton()
+                    ->size('sm')
                     ->tooltip('Düzenle')
                     ->modalWidth(\Filament\Support\Enums\MaxWidth::ThreeExtraLarge),
-                Tables\Actions\DeleteAction::make()->iconButton()->tooltip('Sil'),
+                Tables\Actions\DeleteAction::make()
+                    ->iconButton()
+                    ->size('sm')
+                    ->tooltip('Sil'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

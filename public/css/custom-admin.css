@@ -3109,23 +3109,47 @@ header.fi-header,
     overflow: hidden !important;
 }
 
+.fi-ta-content {
+    overflow-x: auto !important;
+}
+
 .fi-ta-table {
-    font-size: 0.8125rem !important;
+    font-size: 0.775rem !important;
+    width: 100% !important;
+}
+
+/* Table selection checkbox column */
+.fi-ta-selection-cell,
+th.fi-ta-header-cell:first-child:has(input[type="checkbox"]),
+td.fi-ta-cell:first-child:has(input[type="checkbox"]) {
+    width: 36px !important;
+    max-width: 36px !important;
+    padding: 0.35rem 0.4rem !important;
 }
 
 /* Table header cells */
 .fi-ta-header-cell {
-    padding: 0.5rem 0.75rem !important;
-    font-size: 0.72rem !important;
+    padding: 0.35rem 0.55rem !important;
+    font-size: 0.6875rem !important;
     font-weight: 700 !important;
-    letter-spacing: 0.04em !important;
+    letter-spacing: 0.03em !important;
     text-transform: uppercase !important;
+    white-space: nowrap !important;
 }
 
 /* Table body row cells */
 .fi-ta-cell {
-    padding: 0.5rem 0.75rem !important;
-    font-size: 0.8125rem !important;
+    padding: 0.35rem 0.55rem !important;
+    font-size: 0.775rem !important;
+    vertical-align: middle !important;
+}
+
+.fi-ta-cell .fi-ta-text-item-description,
+.fi-ta-cell p.text-xs,
+.fi-ta-cell span.text-xs {
+    font-size: 0.6875rem !important;
+    line-height: 1.05rem !important;
+    opacity: 0.85 !important;
 }
 
 .fi-ta-row {
@@ -3134,26 +3158,35 @@ header.fi-header,
 
 /* Compact Badges in Tables & Modals */
 .fi-badge {
-    padding: 0.15rem 0.45rem !important;
-    font-size: 0.7rem !important;
-    line-height: 1rem !important;
+    padding: 0.1rem 0.375rem !important;
+    font-size: 0.6875rem !important;
+    line-height: 0.95rem !important;
     font-weight: 600 !important;
     border-radius: 0.375rem !important;
 }
 
 /* Compact Action Buttons inside Tables */
 .fi-ta-actions {
-    gap: 0.25rem !important;
+    gap: 0.2rem !important;
+    white-space: nowrap !important;
 }
 
 .fi-ta-actions .fi-btn {
-    padding: 0.25rem 0.45rem !important;
-    font-size: 0.75rem !important;
-    min-height: 28px !important;
+    padding: 0.2rem 0.35rem !important;
+    font-size: 0.72rem !important;
+    min-height: 26px !important;
+    height: 26px !important;
 }
 
 .fi-ta-actions .fi-btn-icon {
-    padding: 0.25rem !important;
+    padding: 0.2rem !important;
+    width: 26px !important;
+    height: 26px !important;
+}
+
+.fi-ta-actions svg {
+    width: 0.9rem !important;
+    height: 0.9rem !important;
 }
 
 /* 4. Table Toolbar and Search Inputs */

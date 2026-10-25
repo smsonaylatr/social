@@ -141,11 +141,13 @@ class ScheduledPostResource extends Resource
                     ->label('Yayın Durumu')
                     ->options(collect(PublishStatus::cases())->mapWithKeys(fn ($c) => [$c->value => $c->label()])),
             ], layout: Tables\Enums\FiltersLayout::AboveContentCollapsible)
+            ->actionsColumnLabel('İşlemler')
             ->actions([
                 Action::make('publish_now')
                     ->label('Şimdi Gönder')
                     ->icon('heroicon-o-paper-airplane')
                     ->iconButton()
+                    ->size('sm')
                     ->tooltip('Şimdi Gönder')
                     ->color('success')
                     ->requiresConfirmation()
@@ -199,11 +201,14 @@ class ScheduledPostResource extends Resource
                     ->label('Detaylar')
                     ->icon('heroicon-o-eye')
                     ->iconButton()
+                    ->size('sm')
                     ->tooltip('Detayları Gör')
                     ->modalHeading('Yayın Hedefleri ve Detayları')
                     ->modalContent(fn (ScheduledPost $record) => view('filament.modals.scheduled-post-details', ['post' => $record])),
 
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->iconButton()
+                    ->size('sm'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
