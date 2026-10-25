@@ -22,6 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
         $middleware->validateCsrfTokens(except: [
             'webhooks/*',
+            'cron/*',
+            'admin/deploy',
+            'admin/videos/*/save-thumbnail',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
