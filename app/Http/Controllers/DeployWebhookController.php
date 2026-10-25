@@ -42,17 +42,35 @@ class DeployWebhookController extends Controller
         $outputs = [];
         $errors = [];
 
-        // 1. Run git pull origin main
-        try {
-            $gitProcess = Process::fromShellCommandline('git pull origin main', base_path());
-            $gitProcess->setTimeout(120);
-            $gitProcess->run();
-            $outputs[] = "GIT: " . trim($gitProcess->getOutput());
-            if ($gitProcess->getErrorOutput()) {
-                $errors[] = "GIT ERR: " . trim($gitProcess->getErrorOutput());
+        // 1. Run git pull origin main (find git directory or initialize it)
+        $workDir = base_path();
+
+        if (! is_dir($workDir . '/.git')) {
+            // Initialize git repo if missing so it can pull directly from GitHub
+            try {
+                $initCmd = 'git init && git remote add origin https://github.com/smsonaylatr/social.git && git fetch origin main && git reset --hard origin/main';
+                $initProcess = Process::fromShellCommandline($initCmd, $workDir);
+                $initProcess->setTimeout(180);
+                $initProcess->run();
+                $outputs[] = "GIT INIT & SYNC: " . trim($initProcess->getOutput());
+                if ($initProcess->getErrorOutput()) {
+                    $outputs[] = "GIT INIT MSG: " . trim($initProcess->getErrorOutput());
+                }
+            } catch (\Throwable $e) {
+                $errors[] = "GIT INIT EXCEPTION: " . $e->getMessage();
             }
-        } catch (\Throwable $e) {
-            $errors[] = "GIT EXCEPTION: " . $e->getMessage();
+        } else {
+            try {
+                $gitProcess = Process::fromShellCommandline('git pull origin main', $workDir);
+                $gitProcess->setTimeout(120);
+                $gitProcess->run();
+                $outputs[] = "GIT PULL: " . trim($gitProcess->getOutput());
+                if ($gitProcess->getErrorOutput()) {
+                    $outputs[] = "GIT PULL MSG: " . trim($gitProcess->getErrorOutput());
+                }
+            } catch (\Throwable $e) {
+                $errors[] = "GIT PULL EXCEPTION: " . $e->getMessage();
+            }
         }
 
         // 2. Clear & optimize Laravel caches
