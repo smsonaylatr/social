@@ -31,7 +31,14 @@ class XPublisher extends AbstractSocialPublisher
         @set_time_limit(180);
 
         $token = $this->getAccessToken($account);
-        $caption = mb_substr($this->buildFullCaption($target), 0, 280);
+        $fullText = $this->buildFullCaption($target);
+
+        // Ensure full https:// URL for X so X always generates the SEO Website Link Card ("From patenliayakkabilar.com")
+        if (! str_contains($fullText, 'https://') && ! str_contains($fullText, 'http://')) {
+            $fullText = preg_replace('/\b(patenliayakkabilar\.com)\b/i', 'https://$1', $fullText);
+        }
+
+        $caption = mb_substr($fullText, 0, 280);
 
         if ($this->isSandboxToken($token)) {
             $tweetId = '178' . rand(10000000000000, 99999999999999);

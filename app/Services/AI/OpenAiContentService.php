@@ -195,29 +195,37 @@ class OpenAiContentService implements AiContentProviderInterface
         ];
 
         $bodies = [
-            'Hem şık bir spor ayakkabı hem de tek hareketle eğlenceli bir paten! Çocuklar için hem hareket dolu hem de çok keyifli bir deneyim.',
-            'Hem günlük kullanıma uygun rahat bir ayakkabı, hem de tek hareketle kaymaya hazır eğlenceli bir paten! Çocukların dışarıda daha aktif ve neşeli vakit geçirmesi için tasarlandı.',
-            'Sadece bir ayakkabı değil, aynı zamanda gün boyu süren bir eğlence! Hem şık tasarımıyla günlük hayatta rahatça kullanılır, hem de gizli tekerlekleriyle anında patene dönüşür.',
-            'Çocuklara unutulmaz bir sürpriz yapmak isteyen ailelerin bir numaralı tercihi! İster okulda ve sokakta yürüyüş yap, ister tekerleği çıkarıp özgürce kay.',
-            'Hafta sonu gezmelerini ve park saatlerini festivale dönüştürün! Konforlu iç tabanı ve dayanıklı gizli tekerlek mekanizmasıyla her adımda maksimum heyecan sunuyor.',
+            'Hem şık bir spor ayakkabı hem de tek hareketle eğlenceli bir paten! Çocuk patenli ayakkabı ve tekerlekli ayakkabı modellerimizle çocuklar için hareket dolu bir deneyim.',
+            'Hem günlük kullanıma uygun rahat bir spor ayakkabı, hem de tek hareketle kaymaya hazır patenli ayakkabı! Işıklı patenli ayakkabı ve tekerlekli ayakkabı koleksiyonu ile dışarıda aktif vakit geçirmek çok keyifli.',
+            'Sadece bir ayakkabı değil, gün boyu süren bir eğlence! Patenli ayakkabı modelleri hem günlük hayatta rahatça kullanılır, hem de gizli tekerlekleriyle anında tekerlekli ayakkabı ve patene dönüşür.',
+            'Çocuklara unutulmaz bir sürpriz yapmak isteyen ailelerin bir numaralı tercihi çocuk patenli ayakkabı! İster okulda ve sokakta yürüyüş yap, ister gizli tekerlekli ayakkabı ile özgürce kay.',
+            'Hafta sonu gezmelerini festivale dönüştüren ışıklı patenli ayakkabı ve tekerlekli spor ayakkabı modelleri! Konforlu iç tabanı ve dayanıklı gizli tekerlek mekanizmasıyla her adımda maksimum heyecan.',
         ];
 
         $ytTitles = [
-            '✨ Onun Yeni Favori Ayakkabısı Olmaya Hazır! 🎁 #patenliayakkabı',
-            '🔥 Yürümek Güzel Ama Kayarak İlerlemek Çok Daha Eğlenceli! 👟 #Shorts',
-            '⚡ Tek Hareketle Patene Dönüşen Efsane Spor Ayakkabı! ✨ #patenliayakkabı',
-            '🎁 Çocukları Ekran Başından Kaldıran En Eğlenceli Hediye! 🌟 #Shorts',
-            '🚀 Hem Spor Ayakkabı Hem Paten Bir Arada! 👟 #tekerlekliayakkabı',
+            '✨ Patenli Ayakkabı Modelleri | Tek Hareketle Patene Dönüşen Tekerlekli Ayakkabı! 🎁 #Shorts',
+            '🔥 Çocuk Patenli Ayakkabı & Işıklı Tekerlekli Spor Ayakkabı Modelleri! 👟 #patenliayakkabı',
+            '⚡ Tek Hareketle Patene Dönüşen Efsane Patenli Ayakkabı! ✨ #tekerlekliayakkabı #Shorts',
+            '🎁 Çocukları Ekran Başından Kaldıran Hediye: Patenli Ayakkabılar! 🌟 #patenliayakkabı',
+            '🚀 Hem Spor Ayakkabı Hem Paten Bir Arada | Tekerlekli Ayakkabı Modelleri 👟 #Shorts',
         ];
 
         $fbTitles = [
-            '✨ Ekran Başından Kaldıracak Eğlenceli Fikir: Patenli Ayakkabılar',
-            '🎁 Çocuklar İçin En Unutulmaz Doğum Günü Hediyesi: Patenli Ayakkabılar',
-            '🔥 Hem Günlük Spor Ayakkabı Hem Eğlenceli Bir Paten Bir Arada!',
-            '⚡ Sokakları Piste Dönüştüren Tekerlekli Spor Ayakkabı Modelleri',
+            '✨ Patenli Ayakkabı ve Tekerlekli Spor Ayakkabı Modelleri | Patenli Ayakkabılar',
+            '🎁 Çocuklar İçin En Unutulmaz Hediye: Çocuk Patenli Ayakkabı & Işıklı Modeller',
+            '🔥 Hem Günlük Spor Ayakkabı Hem Tekerlekli Patenli Ayakkabı Bir Arada!',
+            '⚡ Sokakları Piste Dönüştüren Patenli Ayakkabı ve Tekerlekli Ayakkabı Fiyatları',
         ];
 
-        $bullets = "✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🎁 Doğum günü ve özel günler için farklı bir hediye\n🚚 Hızlı kargo • Güvenli alışveriş";
+        $xCaptions = [
+            "Patenli ayakkabı ve tekerlekli ayakkabı modelleriyle sokaklar artık bir pist! 👟✨\n\nÇocuk patenli ayakkabı ve ışıklı patenli spor ayakkabı koleksiyonunu hemen keşfet 🛍️\n🌐 {$productUrl}",
+            "Çocuk patenli ayakkabı arayanlara tek hareketle patene dönüşen efsane tekerlekli ayakkabı! 🎁✨\n\nIşıklı patenli ayakkabı modelleri ve fiyatları için 🛍️\n🌐 {$productUrl}",
+            "Hem günlük spor ayakkabı hem gizli tekerlekli paten! 🚀\n\nPatenli ayakkabı modelleri, çocuk patenli ayakkabı ve tekerlekli spor ayakkabı fırsatlarını incele 🛍️\n🌐 {$productUrl}",
+            "Yürümek güzel ama patenli ayakkabı ile kaymak çok daha eğlenceli! 🔥\n\nÇocuklar için ışıklı tekerlekli ayakkabı ve patenli spor ayakkabı modelleri 🛍️\n🌐 {$productUrl}",
+            "Ekran başından kaldıran en özel hediye: Patenli ayakkabı! ⚡\n\nGizli tekerlekli ayakkabı ve çocuk patenli ayakkabı modellerinde hızlı kargo 🛍️\n🌐 {$productUrl}",
+        ];
+
+        $bullets = "✨ Dikkat çeken modern patenli ayakkabı tasarımları\n👟 Spor ayakkabı + tekerlekli paten deneyimi bir arada\n🎁 Çocuk patenli ayakkabı & ışıklı modellerle harika hediye\n🚚 Hızlı kargo • Güvenli alışveriş";
 
         $igHook = $hooks[array_rand($hooks)];
         $igBody = $bodies[array_rand($bodies)];
@@ -234,6 +242,7 @@ class OpenAiContentService implements AiContentProviderInterface
         $tkBody = $bodies[array_rand($bodies)];
 
         $xHook = $hooks[array_rand($hooks)];
+        $xCaption = $xCaptions[array_rand($xCaptions)];
 
         $platforms = [
             'instagram' => new GeneratedPlatformContentDTO(
@@ -273,9 +282,9 @@ class OpenAiContentService implements AiContentProviderInterface
                 platformCode: 'x',
                 title: null,
                 hookSentence: $xHook,
-                caption: "{$xHook}\n\nTek hareketle patene dönüşen spor ayakkabılarla sokaklar artık bir pist! 👟✨\n\nÇocukların yeni favorisini şimdi keşfet 🛍️\n🌐 patenliayakkabilar.com",
-                hashtags: ['PatenliAyakkabı', 'TekerlekliAyakkabı'],
-                seoKeywords: array_slice($seoKeywords, 0, 2),
+                caption: $xCaption,
+                hashtags: ['PatenliAyakkabı', 'TekerlekliAyakkabı', 'ÇocukPatenliAyakkabı'],
+                seoKeywords: $seoKeywords,
                 callToAction: "Hemen tıkla: {$productUrl}",
                 suggestedProductUrl: $productUrl,
                 isTestMode: true
