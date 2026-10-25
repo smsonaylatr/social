@@ -25,6 +25,16 @@ Route::match(['get', 'post'], '/admin/run-migrate', function () {
     ]);
 });
 
+Route::match(['get', 'post'], '/admin/setup-platform-rules', function () {
+    $orchestrator = app(\App\Services\Automation\AutomationOrchestratorService::class);
+    $rules = $orchestrator->setupDefaultPlatformSpecificRules();
+    return response()->json([
+        'status' => 'ok',
+        'message' => count($rules) . ' platform için bağımsız algoritmik keşfet kuralları oluşturuldu.',
+        'rules' => $rules,
+    ]);
+});
+
 Route::match(['get', 'post'], '/admin/reschedule-algorithmic', function () {
     $orchestrator = app(\App\Services\Automation\AutomationOrchestratorService::class);
     $count = $orchestrator->reschedulePendingPostsToAlgorithmicWaves(\Carbon\Carbon::now());

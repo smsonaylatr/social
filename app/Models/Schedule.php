@@ -64,10 +64,14 @@ class Schedule extends Model
 
         // 0. Algoritmik Keşfet & Organik Büyüme Modu (Platform Zirve Saatleri)
         if ($this->schedule_type === 'algorithmic_growth') {
+            if (! empty($this->custom_run_times)) {
+                return $this->memoizedRunTimes = $this->custom_run_times;
+            }
+
             /** @var \App\Services\Scheduling\AlgorithmicGrowthSchedulerService $algoService */
             $algoService = app(\App\Services\Scheduling\AlgorithmicGrowthSchedulerService::class);
             return $this->memoizedRunTimes = $algoService->getAlgorithmicRunTimes(
-                $this->growth_strategy ?: 'balanced'
+                $this->growth_strategy ?: 'max_capacity'
             );
         }
 

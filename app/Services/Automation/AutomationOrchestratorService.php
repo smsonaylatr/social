@@ -53,17 +53,20 @@ class AutomationOrchestratorService
         if ($playlist) {
             $video = $this->playlistEngine->getNextVideo($playlist);
         } else {
-            // Pick next eligible video from the global pool sequentially (never used first by ID order, then oldest used)
+            // Son planlanmış veya yayınlanmış gönderideki video ID'si (Örn: En son 20. video paylaşıldıysa)
+            $lastScheduledVideoId = ScheduledPost::whereNotNull('video_id')->orderBy('id', 'desc')->value('video_id') ?? 0;
+
+            // Kural: Son paylaşılan 20 ise 21'den devam et, tüm havuz bitene kadar asla başa dönme!
             $video = Video::whereIn('status', ['ready', 'active', 'published'])
                 ->where(function ($q) {
                     $q->where('is_reusable', true)->orWhereNull('is_reusable');
                 })
-                ->orderByRaw('last_used_at IS NULL DESC, last_used_at ASC, id ASC')
+                ->orderByRaw('id > ? DESC, id ASC', [$lastScheduledVideoId])
                 ->first();
 
-            // Fallback: any video in the pool sequentially
+            // Fallback: havuzdaki sıralı video
             if (! $video) {
-                $video = Video::orderByRaw('last_used_at IS NULL DESC, last_used_at ASC, id ASC')->first();
+                $video = Video::orderByRaw('id > ? DESC, id ASC', [$lastScheduledVideoId])->first();
             }
         }
 
@@ -117,12 +120,17 @@ class AutomationOrchestratorService
         } else {
             $query = Video::where('status', 'ready');
 
-            $query = match ($orderMode) {
-                'newest_first' => $query->orderBy('id', 'desc'),
-                'least_used' => $query->orderByRaw('usage_count ASC, last_used_at IS NULL DESC, last_used_at ASC, id ASC'),
-                'shuffle' => $query->inRandomOrder(),
-                default => $query->orderBy('id', 'asc'), // 'sequential' (1 -> 2 -> 3)
-            };
+            if ($orderMode === 'sequential') {
+                $lastScheduledVideoId = ScheduledPost::whereNotNull('video_id')->orderBy('id', 'desc')->value('video_id') ?? 0;
+                $query->orderByRaw('id > ? DESC, id ASC', [$lastScheduledVideoId]);
+            } else {
+                $query = match ($orderMode) {
+                    'newest_first' => $query->orderBy('id', 'desc'),
+                    'least_used' => $query->orderByRaw('usage_count ASC, last_used_at IS NULL DESC, last_used_at ASC, id ASC'),
+                    'shuffle' => $query->inRandomOrder(),
+                    default => $query->orderBy('id', 'asc'),
+                };
+            }
 
             if ($limit && $limit > 0) {
                 $query->limit($limit);
@@ -147,6 +155,11 @@ class AutomationOrchestratorService
         foreach ($videos as $index => $video) {
             $postTime = $isAlgorithmic ? ($waveSlots[$index] ?? $currentTime->copy()) : $currentTime->copy();
 
+            $video->update([
+                'last_used_at' => $postTime,
+                'usage_count' => \Illuminate\Support\Facades\DB::raw('usage_count + 1'),
+            ]);
+
             $this->schedulingService->createScheduledPost(
                 video: $video,
                 scheduledAt: $postTime,
@@ -167,6 +180,7 @@ class AutomationOrchestratorService
     /**
      * Henüz yayınlanmamış tüm planlı gönderileri (scheduled / queued)
      * günde 5 dalga halindeki algoritmik keşfet saatlerine göre yeniden takvimler.
+     * Eksik kalan platform hedeflerini de (örn: LinkedIn) otomatik tamamlar.
      */
     public function reschedulePendingPostsToAlgorithmicWaves(string $strategy = 'max_capacity'): int
     {
@@ -186,6 +200,11 @@ class AutomationOrchestratorService
 
         $waveSlots = $algoService->generateUpcomingWaveSlots(now(), $pendingPosts->count(), $strategy);
 
+        $allActiveAccounts = \App\Models\SocialAccount::where('is_active', true)->with('platform')->get();
+        if ($allActiveAccounts->isEmpty()) {
+            $allActiveAccounts = \App\Models\SocialAccount::with('platform')->get();
+        }
+
         $rescheduledCount = 0;
 
         foreach ($pendingPosts as $index => $post) {
@@ -196,9 +215,50 @@ class AutomationOrchestratorService
                 'status' => PublishStatus::SCHEDULED,
             ]);
 
-            // Hedef platformların zamanlarını da kademeli ve jitterlı olarak güncelle
+            // Eksik platform hedeflerini tamamla (LinkedIn vb. daha önce düşmüşse geri ekle)
             $targets = $post->targets()->with('socialAccount.platform')->get();
-            $accounts = $targets->pluck('socialAccount')->filter()->values();
+            $existingAccountIds = $targets->pluck('social_account_id')->toArray();
+            $missingAccounts = $allActiveAccounts->reject(fn ($a) => in_array($a->id, $existingAccountIds));
+
+            $aiService = app(\App\Services\AI\Contracts\AiContentProviderInterface::class);
+            $hashtagService = app(\App\Services\SEO\HashtagOptimizationService::class);
+
+            foreach ($missingAccounts as $missingAccount) {
+                $platformCode = $missingAccount->platform?->code?->value ?? (string) $missingAccount->platform?->code;
+                if (empty($platformCode)) {
+                    continue;
+                }
+
+                $aiContent = \App\Models\AiContentGeneration::where('video_id', $post->video_id)
+                    ->where('platform_code', $platformCode)
+                    ->first();
+
+                $rawCaption = $aiContent?->caption ?? 'Patenli ayakkabı modelleri ile keyifli adımlar! ✨';
+                $rawTitle = $aiContent?->title ?? $post->video?->title ?? 'Patenli Ayakkabı';
+
+                $hashtags = $hashtagService->getOptimizedHashtags($post->video, $platformCode);
+                $caption = \App\Services\AI\OpenAiContentService::cleanSystemLabels($rawCaption);
+                $title = \App\Services\AI\OpenAiContentService::cleanSystemLabels($rawTitle);
+
+                ScheduledPostTarget::create([
+                    'scheduled_post_id' => $post->id,
+                    'social_account_id' => $missingAccount->id,
+                    'platform_code' => $platformCode,
+                    'scheduled_at' => $newTime,
+                    'correlation_id' => 'corr_' . \Illuminate\Support\Str::uuid()->toString(),
+                    'idempotency_key' => hash('sha256', "post_{$post->id}_acc_{$missingAccount->id}_ts_{$newTime->timestamp}"),
+                    'status' => PublishStatus::SCHEDULED,
+                    'title' => $title,
+                    'caption' => $caption,
+                    'hashtags' => $hashtags,
+                    'product_url' => $aiContent?->suggested_product_url ?: 'https://patenliayakkabilar.com',
+                    'attempt_count' => 0,
+                ]);
+            }
+
+            // Yenilenmiş hedefleri çek ve zamanlarını kademelendir
+            $freshTargets = $post->targets()->with('socialAccount.platform')->get();
+            $accounts = $freshTargets->pluck('socialAccount')->filter()->values();
 
             $staggeredTimes = $algoService->generateStaggeredTargetTimes(
                 accounts: $accounts,
@@ -207,7 +267,7 @@ class AutomationOrchestratorService
                 enableStagger: true
             );
 
-            foreach ($targets as $target) {
+            foreach ($freshTargets as $target) {
                 $targetTime = $staggeredTimes[$target->social_account_id] ?? $newTime;
                 $target->update([
                     'scheduled_at' => $targetTime,
@@ -219,6 +279,101 @@ class AutomationOrchestratorService
         }
 
         return $rescheduledCount;
+    }
+
+    /**
+     * Her platform için bağımsız, spam engeline takılmayan ve
+     * o platformun en yüksek izlenme getiren zirve saatlerine özel kurallar oluşturur.
+     */
+    public function setupDefaultPlatformSpecificRules(): array
+    {
+        $accounts = \App\Models\SocialAccount::with('platform')->get();
+        $createdRules = [];
+
+        $platformConfigs = [
+            'instagram' => [
+                'name' => '📸 Instagram Reels Keşfet Kuralı (Günde 5 Dalga)',
+                'times' => ['09:30', '12:45', '16:15', '19:15', '22:00'],
+                'max_posts' => 5,
+            ],
+            'tiktok' => [
+                'name' => '🎵 TikTok FYP Viral Kuralı (Günde 5 Dalga)',
+                'times' => ['10:00', '13:00', '16:30', '19:45', '22:15'],
+                'max_posts' => 5,
+            ],
+            'youtube' => [
+                'name' => '▶️ YouTube Shorts Algoritma Kuralı (Günde 5 Dalga)',
+                'times' => ['09:45', '12:30', '16:00', '19:00', '21:45'],
+                'max_posts' => 5,
+            ],
+            'facebook' => [
+                'name' => '👥 Facebook Reels & Akış Kuralı (Günde 5 Dalga)',
+                'times' => ['10:15', '13:15', '16:45', '19:30', '22:00'],
+                'max_posts' => 5,
+            ],
+            'x' => [
+                'name' => '🐦 X (Twitter) Zirve Etkileşim Kuralı (Günde 5 Dalga)',
+                'times' => ['09:15', '12:15', '15:45', '18:45', '21:30'],
+                'max_posts' => 5,
+            ],
+            'linkedin' => [
+                'name' => '💼 LinkedIn Profesyonel Ağ Kuralı (Günde 4 Dalga)',
+                'times' => ['09:00', '12:30', '16:45', '19:30'],
+                'max_posts' => 4,
+            ],
+            'pinterest' => [
+                'name' => '📌 Pinterest Pin & Keşfet Kuralı (Günde 4 Dalga)',
+                'times' => ['13:00', '16:30', '19:30', '22:00'],
+                'max_posts' => 4,
+            ],
+        ];
+
+        foreach ($platformConfigs as $platformCode => $cfg) {
+            $acc = $accounts->first(function ($a) use ($platformCode) {
+                $code = $a->platform?->code?->value ?? (string) $a->platform?->code ?? (string) $a->platform_id;
+                return strtolower($code) === strtolower($platformCode) || (int) $a->platform_id === match ($platformCode) {
+                    'facebook' => 1,
+                    'instagram' => 2,
+                    'youtube' => 3,
+                    'x' => 4,
+                    'pinterest' => 5,
+                    'tiktok' => 6,
+                    'linkedin' => 7,
+                    default => 0,
+                };
+            });
+
+            if (! $acc) {
+                continue;
+            }
+
+            $acc->update(['is_active' => true]);
+
+            $schedule = Schedule::firstOrNew([
+                'name' => $cfg['name'],
+            ]);
+
+            $schedule->fill([
+                'workspace_id' => 1,
+                'brand_id' => 1,
+                'schedule_type' => 'algorithmic_growth',
+                'growth_strategy' => 'max_capacity',
+                'anti_spam_shield' => true,
+                'enable_smart_jitter' => true,
+                'enable_staggered_dispatch' => true,
+                'days_of_week' => [1, 2, 3, 4, 5, 6, 7],
+                'target_social_account_ids' => [$acc->id],
+                'custom_run_times' => $cfg['times'],
+                'time_of_day' => $cfg['times'][0] . ':00',
+                'max_posts_per_day' => $cfg['max_posts'],
+                'is_active' => true,
+            ]);
+            $schedule->save();
+
+            $createdRules[] = $cfg['name'];
+        }
+
+        return $createdRules;
     }
 
     /**

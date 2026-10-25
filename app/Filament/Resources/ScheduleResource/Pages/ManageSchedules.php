@@ -18,6 +18,28 @@ class ManageSchedules extends ManageRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('setup_platform_rules')
+                ->label('⚡ Her Platforma Özel Kural Oluştur')
+                ->icon('heroicon-o-sparkles')
+                ->color('success')
+                ->size('sm')
+                ->tooltip('Instagram, TikTok, YouTube Shorts, Facebook, X, LinkedIn ve Pinterest için ayrı ayrı optimize edilmiş 7 zirve keşfet kuralını otomatik oluşturur.')
+                ->requiresConfirmation()
+                ->modalHeading('Tüm Platformlara Özel Ayrık Keşfet Kuralları Oluştur')
+                ->modalDescription('Her mecra için bağımsız, spam engeline takılmayan ve o platformun en çok izlendiği saatlerde çalışan 7 adet otomasyon kuralı sisteme eklenecektir.')
+                ->modalSubmitActionLabel('Platform Kurallarını Kur')
+                ->action(function () {
+                    $orchestrator = app(\App\Services\Automation\AutomationOrchestratorService::class);
+                    $rules = $orchestrator->setupDefaultPlatformSpecificRules();
+                    $count = count($rules);
+
+                    \Filament\Notifications\Notification::make()
+                        ->title("{$count} Platform İçin Özel Keşfet Kuralları Oluşturuldu! 🚀")
+                        ->body('Instagram, TikTok, YouTube, Facebook, X, LinkedIn ve Pinterest kuralları bağımsız zamanlamalarıyla hazır.')
+                        ->success()
+                        ->send();
+                }),
+
             Actions\Action::make('trigger_cron_now')
                 ->label('Şimdi Çalıştır')
                 ->icon('heroicon-o-arrow-path')

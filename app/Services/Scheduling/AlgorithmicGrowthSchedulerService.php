@@ -24,15 +24,15 @@ class AlgorithmicGrowthSchedulerService
                 platformCode: 'instagram',
                 platformName: 'Instagram Reels',
                 icon: 'heroicon-o-camera',
-                peakSlotsWeekday: ['12:15', '17:45', '21:10'],
-                peakSlotsWeekend: ['11:30', '16:00', '20:45'],
-                minCooldownMinutes: 180, // 3 saat
-                maxRecommendedDailyPosts: 3,
+                peakSlotsWeekday: ['09:30', '12:45', '16:15', '19:15', '22:00'],
+                peakSlotsWeekend: ['10:30', '13:15', '16:30', '19:45', '22:30'],
+                minCooldownMinutes: 90, // 1.5 saat
+                maxRecommendedDailyPosts: 5,
                 staggerPriority: 1,
                 staggerDelayMinutes: 0,
                 jitterMinMinutes: 3,
-                jitterMaxMinutes: 9,
-                algorithmTip: 'Reels keşfet algoritması ilk 45 dakikadaki izlenme tamamlama ve kaydetme oranını test eder. 3 saatten sık paylaşım shadowban ve erişim kısıtlaması getirir.',
+                jitterMaxMinutes: 8,
+                algorithmTip: 'Reels algoritması ilk 45 dakikadaki izlenme tamamlama ve kaydetme oranını test eder. Kademeli yükleme shadowban riskini sıfırlar.',
                 bestDays: [1, 2, 3, 4, 5, 6, 7]
             ),
 
@@ -42,13 +42,13 @@ class AlgorithmicGrowthSchedulerService
                 icon: 'heroicon-o-musical-note',
                 peakSlotsWeekday: ['09:30', '12:45', '16:15', '19:15', '22:00'],
                 peakSlotsWeekend: ['10:30', '13:15', '16:30', '19:45', '22:30'],
-                minCooldownMinutes: 120, // 2 saat
+                minCooldownMinutes: 90, // 1.5 saat
                 maxRecommendedDailyPosts: 5,
                 staggerPriority: 2,
                 staggerDelayMinutes: 7,
-                jitterMinMinutes: 4,
-                jitterMaxMinutes: 11,
-                algorithmTip: 'FYP havuzunda 200-300 kişilik batch testi yapar. Günde 4-5 video kaldırabilir; 2 saatlik soğuma 0-view cezasını engeller.',
+                jitterMinMinutes: 3,
+                jitterMaxMinutes: 9,
+                algorithmTip: 'FYP havuzunda 200-300 kişilik batch testi yapar. Günde 5 video ile maksimum izlenme kapasitesi kullanılır.',
                 bestDays: [1, 2, 3, 4, 5, 6, 7]
             ),
 
@@ -56,15 +56,15 @@ class AlgorithmicGrowthSchedulerService
                 platformCode: 'youtube',
                 platformName: 'YouTube Shorts',
                 icon: 'heroicon-o-play-circle',
-                peakSlotsWeekday: ['14:30', '18:30', '21:15'],
-                peakSlotsWeekend: ['11:00', '15:00', '19:45'],
-                minCooldownMinutes: 240, // 4 saat
-                maxRecommendedDailyPosts: 2,
+                peakSlotsWeekday: ['09:30', '12:45', '16:15', '19:15', '22:00'],
+                peakSlotsWeekend: ['10:30', '13:15', '16:30', '19:45', '22:30'],
+                minCooldownMinutes: 90, // 1.5 saat
+                maxRecommendedDailyPosts: 5,
                 staggerPriority: 3,
                 staggerDelayMinutes: 14,
-                jitterMinMinutes: 5,
-                jitterMaxMinutes: 12,
-                algorithmTip: 'Shorts algoritması videoyu yüklendikten 4-6 saat sonra Shorts rafına sokar. Günde max 2 paylaşım ve 4 saat soğuma süresi spam cezasını engeller.',
+                jitterMinMinutes: 4,
+                jitterMaxMinutes: 10,
+                algorithmTip: 'Shorts algoritması videoyu yüklendikten 2-4 saat sonra Shorts rafına taşır. Günde 5 video hakkı güvenli aralıklarla tüketilir.',
                 bestDays: [1, 2, 3, 4, 5, 6, 7]
             ),
 
@@ -72,15 +72,15 @@ class AlgorithmicGrowthSchedulerService
                 platformCode: 'facebook',
                 platformName: 'Facebook Reels & Akış',
                 icon: 'heroicon-o-globe-alt',
-                peakSlotsWeekday: ['09:30', '12:45', '19:15'],
-                peakSlotsWeekend: ['10:30', '13:15', '19:45'],
-                minCooldownMinutes: 180, // 3 saat
-                maxRecommendedDailyPosts: 3,
+                peakSlotsWeekday: ['09:30', '12:45', '16:15', '19:15', '22:00'],
+                peakSlotsWeekend: ['10:30', '13:15', '16:30', '19:45', '22:30'],
+                minCooldownMinutes: 90, // 1.5 saat
+                maxRecommendedDailyPosts: 5,
                 staggerPriority: 4,
-                staggerDelayMinutes: 21,
-                jitterMinMinutes: 4,
-                jitterMaxMinutes: 10,
-                algorithmTip: 'Ebeveyn kitlesi sabah ve akşam saatlerinde en aktiftir. Günde 3 Reels/post sayfa etkileşimini zirvede tutar.',
+                staggerDelayMinutes: 20,
+                jitterMinMinutes: 3,
+                jitterMaxMinutes: 8,
+                algorithmTip: 'Facebook Reels ve sayfa akışı için 5 zirve dalgası en yüksek organik erişimi sağlar.',
                 bestDays: [1, 2, 3, 4, 5, 6, 7]
             ),
 
@@ -90,13 +90,13 @@ class AlgorithmicGrowthSchedulerService
                 icon: 'heroicon-o-chat-bubble-bottom-center-text',
                 peakSlotsWeekday: ['09:30', '12:45', '16:15', '19:15', '22:00'],
                 peakSlotsWeekend: ['10:30', '13:15', '16:30', '19:45', '22:30'],
-                minCooldownMinutes: 90, // 1.5 saat
+                minCooldownMinutes: 60, // 1 saat
                 maxRecommendedDailyPosts: 5,
                 staggerPriority: 5,
-                staggerDelayMinutes: 28,
-                jitterMinMinutes: 3,
-                jitterMaxMinutes: 8,
-                algorithmTip: 'X anlık tüketim mecrasıdır. Günde 5 tweete kadar kaldırır; gündem ve akşam zirvelerinde erişim katlanır.',
+                staggerDelayMinutes: 26,
+                jitterMinMinutes: 2,
+                jitterMaxMinutes: 7,
+                algorithmTip: 'X anlık tüketim mecrasıdır. 5 zirve dalgasında erişim ve etkileşim katlanır.',
                 bestDays: [1, 2, 3, 4, 5, 6, 7]
             ),
 
@@ -104,32 +104,32 @@ class AlgorithmicGrowthSchedulerService
                 platformCode: 'pinterest',
                 platformName: 'Pinterest Pins',
                 icon: 'heroicon-o-bookmark',
-                peakSlotsWeekday: ['15:30', '20:30', '22:45'],
-                peakSlotsWeekend: ['14:00', '19:30', '22:15'],
-                minCooldownMinutes: 180, // 3 saat
-                maxRecommendedDailyPosts: 3,
+                peakSlotsWeekday: ['12:45', '16:15', '19:15', '22:00'],
+                peakSlotsWeekend: ['13:00', '16:30', '19:30', '22:15'],
+                minCooldownMinutes: 90, // 1.5 saat
+                maxRecommendedDailyPosts: 4,
                 staggerPriority: 6,
-                staggerDelayMinutes: 35,
-                jitterMinMinutes: 5,
-                jitterMaxMinutes: 13,
-                algorithmTip: 'Görsel arama motorudur. Akşam saatlerinde pin kaydetme ve ürün kartı tıklamaları 3 katına çıkar.',
-                bestDays: [5, 6, 7, 1]
+                staggerDelayMinutes: 32,
+                jitterMinMinutes: 3,
+                jitterMaxMinutes: 9,
+                algorithmTip: 'Görsel arama motorudur. Öğle ve akşam zirvelerinde pin kaydetme ve kart tıklamaları maksimuma çıkar.',
+                bestDays: [1, 2, 3, 4, 5, 6, 7]
             ),
 
             'linkedin' => new PlatformAlgorithmProfile(
                 platformCode: 'linkedin',
                 platformName: 'LinkedIn Post',
                 icon: 'heroicon-o-briefcase',
-                peakSlotsWeekday: ['08:30', '12:30', '17:00'],
-                peakSlotsWeekend: ['10:30'],
-                minCooldownMinutes: 360, // 6 saat
-                maxRecommendedDailyPosts: 1,
+                peakSlotsWeekday: ['09:00', '12:30', '16:45', '19:30'],
+                peakSlotsWeekend: ['10:30', '13:30', '17:00', '20:30'],
+                minCooldownMinutes: 90, // 1.5 saat
+                maxRecommendedDailyPosts: 4,
                 staggerPriority: 7,
-                staggerDelayMinutes: 42,
-                jitterMinMinutes: 4,
-                jitterMaxMinutes: 10,
-                algorithmTip: 'Sadece iş günlerinde organik dağıtım yapar. Hafta sonu paylaşım erişimi %70 düşer. Günde 1 kaliteli paylaşım kuralı esastır.',
-                bestDays: [2, 3, 4, 5]
+                staggerDelayMinutes: 38,
+                jitterMinMinutes: 3,
+                jitterMaxMinutes: 8,
+                algorithmTip: 'Günde 4 paylaşım ile iş dünyası, e-ticaret ve sektörel kitleye hem hafta içi hem hafta sonu kesintisiz erişim sağlanır.',
+                bestDays: [1, 2, 3, 4, 5, 6, 7]
             ),
         ];
     }

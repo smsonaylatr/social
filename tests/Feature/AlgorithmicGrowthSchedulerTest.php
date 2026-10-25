@@ -221,13 +221,13 @@ class AlgorithmicGrowthSchedulerTest extends TestCase
         $service = app(AlgorithmicGrowthSchedulerService::class);
         $accounts = collect([$this->igAccount, $this->ytAccount]);
 
-        // Simüle et: YouTube hesabı bugün 2 gönderi kotasını doldurmuş olsun
-        for ($i = 0; $i < 2; $i++) {
+        // Simüle et: YouTube hesabı bugün 5 gönderi kotasını doldurmuş olsun
+        for ($i = 0; $i < 5; $i++) {
             $post = ScheduledPost::create([
                 'workspace_id' => $this->workspace->id,
                 'brand_id' => $this->brand->id,
                 'video_id' => $this->video->id,
-                'scheduled_at' => now()->subHours(8 - ($i * 4)),
+                'scheduled_at' => now()->subHours(12 - ($i * 2)),
                 'status' => PublishStatus::PUBLISHED,
             ]);
 
@@ -235,7 +235,7 @@ class AlgorithmicGrowthSchedulerTest extends TestCase
                 'scheduled_post_id' => $post->id,
                 'social_account_id' => $this->ytAccount->id,
                 'platform_code' => 'youtube',
-                'scheduled_at' => now()->subHours(8 - ($i * 4)),
+                'scheduled_at' => now()->subHours(12 - ($i * 2)),
                 'correlation_id' => 'yt_quota_test_' . $i,
                 'idempotency_key' => 'yt_quota_key_' . $i,
                 'status' => PublishStatus::PUBLISHED,
@@ -287,5 +287,66 @@ class AlgorithmicGrowthSchedulerTest extends TestCase
         
         $firstTarget = $posts->first()->targets->first();
         $this->assertNotNull($firstTarget->scheduled_at, 'Target scheduled_at should be populated with staggered time');
+    }
+
+    public function test_sequential_pool_progression_continues_from_last_video_without_looping_early(): void
+    {
+        $orchestrator = app(\App\Services\Automation\AutomationOrchestratorService::class);
+
+        // Havuzda 1..25 arası videolar oluşturalım
+        $videos = [];
+        for ($i = 1; $i <= 25; $i++) {
+            $v = Video::create([
+                'workspace_id' => $this->workspace->id,
+                'brand_id' => $this->brand->id,
+                'title' => "{$i}. Video",
+                'original_filename' => "video_{$i}.mp4",
+                'storage_path' => "videos/video_{$i}.mp4",
+                'file_size' => 1500000,
+                'aspect_ratio' => '9:16',
+                'status' => \App\Enums\VideoStatus::READY,
+                'file_hash' => 'hash_test_' . $i,
+                'duration_seconds' => 30,
+            ]);
+            $videos[$i] = $v;
+        }
+
+        // Simüle et: En son 20. Video paylaşılmış olsun
+        ScheduledPost::create([
+            'workspace_id' => $this->workspace->id,
+            'brand_id' => $this->brand->id,
+            'video_id' => $videos[20]->id,
+            'scheduled_at' => now()->subHour(),
+            'status' => PublishStatus::PUBLISHED,
+        ]);
+
+        // Şimdi otomatik sıralı kural çalıştırılsın
+        $schedule = Schedule::create([
+            'workspace_id' => $this->workspace->id,
+            'brand_id' => $this->brand->id,
+            'name' => 'Sıralı Test Kuralı',
+            'schedule_type' => 'algorithmic_growth',
+            'growth_strategy' => 'max_capacity',
+            'time_of_day' => '12:00:00',
+            'days_of_week' => [1, 2, 3, 4, 5, 6, 7],
+            'target_social_account_ids' => [$this->igAccount->id],
+            'is_active' => true,
+        ]);
+
+        $post = $orchestrator->runSchedule($schedule);
+
+        // Kural: Son paylaşılan 20. video ise, YENİ PAYLAŞIM 21. VİDEODAN BAŞLAMALI!
+        $this->assertNotNull($post);
+        $this->assertEquals($videos[21]->id, $post->video_id, 'Next video after 20 must be 21!');
+    }
+
+    public function test_setup_default_platform_specific_rules_creates_all_seven(): void
+    {
+        $orchestrator = app(\App\Services\Automation\AutomationOrchestratorService::class);
+        $created = $orchestrator->setupDefaultPlatformSpecificRules();
+
+        $this->assertNotEmpty($created);
+        $schedules = Schedule::where('schedule_type', 'algorithmic_growth')->get();
+        $this->assertGreaterThanOrEqual(3, $schedules->count());
     }
 }

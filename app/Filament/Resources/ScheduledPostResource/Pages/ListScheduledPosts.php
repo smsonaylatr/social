@@ -201,9 +201,14 @@ class ListScheduledPosts extends ListRecords
                         ->required(),
                 ])
                 ->action(function (array $data) {
-                    $video = Video::where('status', 'ready')
-                        ->orderByRaw('last_used_at IS NULL DESC, last_used_at ASC, id ASC')
+                    $lastScheduledVideoId = \App\Models\ScheduledPost::whereNotNull('video_id')->orderBy('id', 'desc')->value('video_id') ?? 0;
+                    $video = Video::whereIn('status', ['ready', 'active', 'published'])
+                        ->orderByRaw('id > ? DESC, id ASC', [$lastScheduledVideoId])
                         ->first();
+
+                    if (! $video) {
+                        $video = Video::orderByRaw('id > ? DESC, id ASC', [$lastScheduledVideoId])->first();
+                    }
 
                     if (! $video) {
                         Notification::make()
