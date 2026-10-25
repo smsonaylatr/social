@@ -79,6 +79,32 @@ class ScheduleResource extends Resource
                                     ->default('max_capacity')
                                     ->required(fn (Get $get): bool => $get('schedule_type') === 'algorithmic_growth'),
 
+                                TagsInput::make('posting_times')
+                                    ->label('Algoritmik Paylaşım Saatleri (Seçili Gelir - Dilediğiniz Saati Ekleyip Çıkarabilirsiniz)')
+                                    ->placeholder('Yeni saat eklemek için yazıp Enter tuşuna basın (Örn: 14:00, 21:30)')
+                                    ->helperText('Platform algoritmasının en yüksek izlenme getiren zirve saatleri otomatik seçili gelir. İstediğiniz saati çarpıdan silebilir veya kendi belirleyeceğiniz ek saatler ekleyebilirsiniz.')
+                                    ->suggestions([
+                                        '08:30', '09:00', '09:15', '09:30', '09:45', '10:00', '10:15', '10:30', '11:00', '12:00',
+                                        '12:15', '12:30', '12:45', '13:00', '13:15', '14:00', '15:30', '15:45', '16:00', '16:15',
+                                        '16:30', '16:45', '17:00', '18:00', '18:45', '19:00', '19:15', '19:30', '19:45', '20:30',
+                                        '21:30', '21:45', '22:00', '22:15', '22:30', '23:00',
+                                    ])
+                                    ->afterStateHydrated(function (TagsInput $component, ?Schedule $record, $state) {
+                                        if (!empty($state)) {
+                                            return;
+                                        }
+                                        if ($record) {
+                                            $times = $record->getDailyRunTimes();
+                                            if (!empty($times)) {
+                                                $component->state($times);
+                                                return;
+                                            }
+                                        }
+                                        $component->state(['09:30', '12:45', '16:15', '19:15', '22:00']);
+                                    })
+                                    ->dehydrated(fn (Get $get): bool => $get('schedule_type') === 'algorithmic_growth')
+                                    ->columnSpanFull(),
+
                                 Grid::make(3)
                                     ->schema([
                                         Toggle::make('anti_spam_shield')
@@ -190,6 +216,7 @@ class ScheduleResource extends Resource
                             ->default(['10:00', '14:00', '18:00', '22:00'])
                             ->helperText('Gün içinde paylaşım yapılmasını istediğiniz saatleri ekleyin. Aşağıdaki önerilen saatlere tıklayabilir veya özel saat yazıp Enter tuşuna basabilirsiniz.')
                             ->visible(fn (Get $get): bool => $get('schedule_type') === 'custom_times')
+                            ->dehydrated(fn (Get $get): bool => $get('schedule_type') === 'custom_times')
                             ->required(fn (Get $get): bool => $get('schedule_type') === 'custom_times'),
 
                         // 5. Belirli saat aralıkları modu

@@ -24,6 +24,12 @@ class ManageSchedules extends ManageRecords
                 if ($s->playlist_id !== null) {
                     $update['playlist_id'] = null;
                 }
+                if (empty($s->posting_times)) {
+                    $runTimes = $s->getDailyRunTimes();
+                    if (!empty($runTimes)) {
+                        $update['posting_times'] = $runTimes;
+                    }
+                }
                 if (!empty($update)) {
                     $s->update($update);
                 }

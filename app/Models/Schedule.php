@@ -64,6 +64,10 @@ class Schedule extends Model
 
         // 0. Algoritmik Keşfet & Organik Büyüme Modu (Platform Zirve Saatleri)
         if ($this->schedule_type === 'algorithmic_growth') {
+            if (! empty($this->posting_times) && is_array($this->posting_times)) {
+                return $this->memoizedRunTimes = $this->posting_times;
+            }
+
             if (! empty($this->custom_run_times)) {
                 return $this->memoizedRunTimes = $this->custom_run_times;
             }

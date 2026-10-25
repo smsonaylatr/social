@@ -357,7 +357,7 @@ class AutomationOrchestratorService
                 'enable_staggered_dispatch' => true,
                 'days_of_week' => [1, 2, 3, 4, 5, 6, 7],
                 'target_social_account_ids' => [$acc->id],
-                'custom_run_times' => $cfg['times'],
+                'posting_times' => $cfg['times'],
                 'time_of_day' => $cfg['times'][0] . ':00',
                 'max_posts_per_day' => $cfg['max_posts'],
                 'is_active' => true,
