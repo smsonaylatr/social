@@ -3203,25 +3203,34 @@ td.fi-ta-cell:first-child:has(input[type="checkbox"]) {
     font-size: 0.75rem !important;
 }
 
-/* 6. Form Fields & Modals Compactness */
+/* 6. Form Fields & Modals Compactness & Smooth Scrolling */
 .fi-modal-window {
     border-radius: 0.875rem !important;
-    max-height: 90vh !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
+    max-height: 88vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
 }
 
-.fi-modal-window > div {
-    display: flex !important;
-    flex-direction: column !important;
-    max-height: 90vh !important;
-    overflow: hidden !important;
+.fi-modal-window::-webkit-scrollbar {
+    width: 6px !important;
+}
+
+.fi-modal-window::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.fi-modal-window::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.4) !important;
+    border-radius: 3px !important;
+}
+
+.dark .fi-modal-window::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25) !important;
 }
 
 .fi-modal-header {
     padding: 0.875rem 1.25rem !important;
-    flex-shrink: 0 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
@@ -3232,22 +3241,11 @@ td.fi-ta-cell:first-child:has(input[type="checkbox"]) {
 
 .fi-modal-content {
     padding: 1rem 1.25rem !important;
-    overflow-y: auto !important;
-    flex: 1 1 auto !important;
 }
 
 .fi-modal-footer {
-    padding: 0.75rem 1.25rem !important;
-    flex-shrink: 0 !important;
-    position: sticky !important;
-    bottom: 0 !important;
-    z-index: 20 !important;
-    background-color: inherit !important;
+    padding: 0.875rem 1.25rem !important;
     border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-}
-
-.dark .fi-modal-footer {
-    background-color: #18181b !important;
 }
 
 /* Modal Helper Text & Typography Scaling */
