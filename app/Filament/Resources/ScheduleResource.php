@@ -7,11 +7,14 @@ use App\Models\Playlist;
 use App\Models\Schedule;
 use App\Models\SocialAccount;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Get;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -39,7 +42,7 @@ class ScheduleResource extends Resource
                     ->schema([
                         TextInput::make('name')
                             ->label('Otomasyon Adı')
-                            ->placeholder('Örn: Patenli Ayakkabılar Günlük 12:00 Yayını')
+                            ->placeholder('Örn: Patenli Ayakkabılar Gün İçi Çoklu Paylaşım')
                             ->required()
                             ->maxLength(255),
 
@@ -50,11 +53,65 @@ class ScheduleResource extends Resource
                             ->helperText('Boş bırakırsanız Video Havuzuna yüklediğiniz videolar sırayla (1 → 2 → 3) otomatik paylaşılır.')
                             ->searchable(),
 
+                        Select::make('schedule_type')
+                            ->label('Günlük Paylaşım Düzeni / Sıklığı')
+                            ->options([
+                                'custom_times' => '⏰ Günde Birden Fazla Kez (Seçilen Saatlerde)',
+                                'interval' => '⏳ Belirli Aralıklarla (Örn: Her 2 veya 3 Saatte Bir)',
+                                'single' => '🎯 Günde 1 Kez (Belirli Tek Saatte)',
+                            ])
+                            ->default('custom_times')
+                            ->live()
+                            ->required(),
+
                         TimePicker::make('time_of_day')
                             ->label('Günlük Paylaşım Saati')
                             ->default('12:00:00')
                             ->seconds(false)
-                            ->required(),
+                            ->visible(fn (Get $get): bool => $get('schedule_type') === 'single')
+                            ->required(fn (Get $get): bool => $get('schedule_type') === 'single'),
+
+                        TagsInput::make('posting_times')
+                            ->label('Gün İçi Paylaşım Saatleri')
+                            ->placeholder('Saat yazıp Enter tuşuna basın (Örn: 10:00, 14:00, 18:00, 22:00)')
+                            ->suggestions([
+                                '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00',
+                                '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00',
+                                '22:00', '23:00',
+                            ])
+                            ->default(['10:00', '14:00', '18:00', '22:00'])
+                            ->helperText('Gün içinde paylaşım yapılmasını istediğiniz saatleri ekleyin. Aşağıdaki önerilen saatlere tıklayabilir veya özel saat yazıp Enter tuşuna basabilirsiniz.')
+                            ->visible(fn (Get $get): bool => $get('schedule_type') === 'custom_times')
+                            ->required(fn (Get $get): bool => $get('schedule_type') === 'custom_times'),
+
+                        Grid::make(3)
+                            ->schema([
+                                TimePicker::make('start_time')
+                                    ->label('İlk Paylaşım Saati')
+                                    ->default('09:00:00')
+                                    ->seconds(false)
+                                    ->required(fn (Get $get): bool => $get('schedule_type') === 'interval'),
+
+                                TimePicker::make('end_time')
+                                    ->label('Son Paylaşım Saati')
+                                    ->default('23:00:00')
+                                    ->seconds(false)
+                                    ->required(fn (Get $get): bool => $get('schedule_type') === 'interval'),
+
+                                Select::make('interval_hours')
+                                    ->label('Paylaşım Aralığı')
+                                    ->options([
+                                        1 => 'Her 1 Saatte Bir',
+                                        2 => 'Her 2 Saatte Bir',
+                                        3 => 'Her 3 Saatte Bir',
+                                        4 => 'Her 4 Saatte Bir',
+                                        6 => 'Her 6 Saatte Bir',
+                                        8 => 'Her 8 Saatte Bir',
+                                    ])
+                                    ->default(2)
+                                    ->required(fn (Get $get): bool => $get('schedule_type') === 'interval'),
+                            ])
+                            ->visible(fn (Get $get): bool => $get('schedule_type') === 'interval'),
 
                         CheckboxList::make('days_of_week')
                             ->label('Yayın Günleri')
@@ -82,14 +139,15 @@ class ScheduleResource extends Resource
 
                         TextInput::make('max_posts_per_day')
                             ->label('Günlük Maksimum Paylaşım Limiti')
+                            ->helperText('Bir gün içinde bu kural ile en fazla kaç video paylaşılsın (Örn: 10 adet).')
                             ->numeric()
-                            ->default(3)
+                            ->default(10)
                             ->required(),
 
                         Toggle::make('is_active')
                             ->label('Otomasyonu Etkinleştir')
                             ->helperText('Etkinleştirildiğinde zamanı gelen paylaşımlar otomatik olarak kuyruğa aktarılır.')
-                            ->default(false),
+                            ->default(true),
                     ])->columns(2),
             ]);
     }
@@ -110,10 +168,21 @@ class ScheduleResource extends Resource
                     ->color('primary')
                     ->sortable(),
 
-                TextColumn::make('time_of_day')
-                    ->label('Yayın Saati')
-                    ->time('H:i')
-                    ->sortable(),
+                TextColumn::make('schedule_type')
+                    ->label('Gün İçi Paylaşım Saatleri')
+                    ->badge()
+                    ->color('info')
+                    ->formatStateUsing(function (Schedule $record): string {
+                        $times = $record->getDailyRunTimes();
+                        $count = count($times);
+                        if ($record->schedule_type === 'interval') {
+                            return "Her {$record->interval_hours} Saatte Bir (" . implode(', ', $times) . ") [{$count} kez]";
+                        }
+                        if ($record->schedule_type === 'custom_times') {
+                            return implode(' • ', $times) . " ({$count} kez)";
+                        }
+                        return ($times[0] ?? '12:00') . ' (Günde 1 kez)';
+                    }),
 
                 TextColumn::make('max_posts_per_day')
                     ->label('Günlük Limit')

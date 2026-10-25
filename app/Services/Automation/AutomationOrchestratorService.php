@@ -148,33 +148,59 @@ class AutomationOrchestratorService
     }
 
     /**
-     * Check all active schedules whose scheduled time has arrived today
+     * Check all active schedules whose scheduled time has arrived today (supports single, multiple times per day and intervals)
      */
     public function checkAndRunDueSchedules(): int
     {
-        $nowTime = now()->format('H:i');
-        $currentDayOfWeek = now()->dayOfWeekIso; // 1 = Monday, 7 = Sunday
+        $now = now();
+        $nowTime = $now->format('H:i');
+        $currentDayOfWeek = $now->dayOfWeekIso; // 1 = Monday, 7 = Sunday
 
         $schedules = Schedule::where('is_active', true)->get();
 
         $executed = 0;
 
         foreach ($schedules as $schedule) {
-            $scheduleTime = substr($schedule->time_of_day, 0, 5); // 'HH:mm'
             $days = $schedule->days_of_week ?: [1, 2, 3, 4, 5, 6, 7];
 
             if (! in_array($currentDayOfWeek, $days)) {
                 continue;
             }
 
-            // If time matches or if it hasn't run today yet and time has passed
-            $hasRunToday = $schedule->last_run_at && $schedule->last_run_at->isToday();
+            $dailyTimes = $schedule->getDailyRunTimes();
+            if (empty($dailyTimes)) {
+                continue;
+            }
 
-            if (! $hasRunToday && $nowTime >= $scheduleTime) {
-                $post = $this->runSchedule($schedule);
-                if ($post) {
-                    $executed++;
-                }
+            // Find all slot times that are <= current time
+            $dueSlots = array_values(array_filter($dailyTimes, fn ($t) => $t <= $nowTime));
+            if (empty($dueSlots)) {
+                // No slot time has arrived yet today
+                continue;
+            }
+
+            // The latest due time slot (e.g., '14:00' when current time is 14:05)
+            $latestDueSlot = end($dueSlots);
+            $dueTimestamp = Carbon::today()->setTimeFromTimeString($latestDueSlot);
+
+            // Check if this schedule has already run on or after the latest due time slot today
+            if ($schedule->last_run_at && $schedule->last_run_at->gte($dueTimestamp)) {
+                continue;
+            }
+
+            // Check daily limit
+            $todayPostsCount = ScheduledPost::where('schedule_id', $schedule->id)
+                ->whereDate('scheduled_at', Carbon::today())
+                ->count();
+
+            if ($todayPostsCount >= $schedule->max_posts_per_day) {
+                Log::info("Schedule #{$schedule->id} reached daily limit of {$schedule->max_posts_per_day} posts.");
+                continue;
+            }
+
+            $post = $this->runSchedule($schedule);
+            if ($post) {
+                $executed++;
             }
         }
 
