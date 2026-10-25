@@ -50,10 +50,15 @@ class XPublisher extends AbstractSocialPublisher
             ];
         }
 
-        // 1. Try uploading video media (supports X v2 media/upload and v1.1 fallback)
-        $mediaId = $this->tryUploadVideoMedia($video, $token);
+        // 1. Upload video media (supports X v2 media/upload and v1.1 fallback)
+        $mediaId = $this->tryUploadVideoMedia($video, $token, $account);
 
         // 2. Create Tweet: POST /2/tweets (with api.x.com and api.twitter.com fallback)
+        $account->load('credential');
+        if ($account->credential?->access_token) {
+            $token = $account->credential->access_token;
+        }
+
         $payload = [
             'text' => $caption,
         ];
@@ -73,9 +78,9 @@ class XPublisher extends AbstractSocialPublisher
             $tweetResponse = $this->postTweetRequest($token, $payload);
         }
 
-        // If media attachment caused an error, retry as text tweet
+        // If video is still finishing transcoding on X when tweet was posted, wait 5s and retry WITH video
         if ($tweetResponse && ! $tweetResponse->successful() && isset($payload['media'])) {
-            unset($payload['media']);
+            sleep(5);
             $tweetResponse = $this->postTweetRequest($token, $payload);
         }
 
@@ -119,7 +124,7 @@ class XPublisher extends AbstractSocialPublisher
      * Attempt chunked video upload via X API v2 (/2/media/upload/initialize -> append -> finalize -> status)
      * with fallback to v1.1 (upload.twitter.com/1.1/media/upload.json).
      */
-    protected function tryUploadVideoMedia(Video $video, string $token): ?string
+    protected function tryUploadVideoMedia(Video $video, string $token, ?SocialAccount $account = null): ?string
     {
         $videoFilePath = $this->resolveLocalVideoPath($video);
         if (! $videoFilePath) {
@@ -132,15 +137,31 @@ class XPublisher extends AbstractSocialPublisher
         }
 
         $mimeType = $video->mime_type ?: 'video/mp4';
+        $v2AuthError = null;
 
         // 1. Primary: X API v2 Chunked Media Upload (supports OAuth 2.0 PKCE User Token with media.write scope)
         try {
             $v2Init = $this->httpClient($token, 20)
                 ->post('https://api.x.com/2/media/upload/initialize', [
-                    'total_bytes' => $fileSize,
+                    'total_bytes' => (int) $fileSize,
                     'media_type' => $mimeType,
                     'media_category' => 'tweet_video',
                 ]);
+
+            if ($v2Init->status() === 401 && $account && $this->refreshToken($account)) {
+                $account->load('credential');
+                $token = $account->credential->access_token;
+                $v2Init = $this->httpClient($token, 20)
+                    ->post('https://api.x.com/2/media/upload/initialize', [
+                        'total_bytes' => (int) $fileSize,
+                        'media_type' => $mimeType,
+                        'media_category' => 'tweet_video',
+                    ]);
+            }
+
+            if (in_array($v2Init->status(), [401, 403], true)) {
+                $v2AuthError = $v2Init->body();
+            }
 
             $v2MediaId = $v2Init->json('data.id') ?? $v2Init->json('media_id_string');
             if ($v2Init->successful() && $v2MediaId) {
@@ -167,14 +188,20 @@ class XPublisher extends AbstractSocialPublisher
 
                 if ($appendOk) {
                     $finalizeResp = $this->httpClient($token, 25)
-                        ->post("https://api.x.com/2/media/upload/{$mediaId}/finalize");
+                        ->send('POST', "https://api.x.com/2/media/upload/{$mediaId}/finalize");
+
+                    if (! $finalizeResp->successful()) {
+                        $finalizeResp = $this->httpClient($token, 25)
+                            ->withBody('{}', 'application/json')
+                            ->post("https://api.x.com/2/media/upload/{$mediaId}/finalize");
+                    }
 
                     if ($finalizeResp->successful()) {
                         $processingInfo = $finalizeResp->json('data.processing_info') ?? $finalizeResp->json('processing_info') ?? [];
                         $processingState = $processingInfo['state'] ?? null;
                         $retries = 0;
 
-                        while (in_array($processingState, ['pending', 'in_progress'], true) && $retries < 15) {
+                        while (in_array($processingState, ['pending', 'in_progress'], true) && $retries < 20) {
                             $waitSecs = min(5, max(2, (int) ($processingInfo['check_after_secs'] ?? 3)));
                             sleep($waitSecs);
 
@@ -188,7 +215,8 @@ class XPublisher extends AbstractSocialPublisher
                             $processingState = $processingInfo['state'] ?? 'succeeded';
 
                             if ($processingState === 'failed') {
-                                return null;
+                                $errMsg = $processingInfo['error']['message'] ?? 'Video formatı X tarafından işlenemedi.';
+                                throw new \RuntimeException("X Video İşleme Hatası: {$errMsg}");
                             }
                             $retries++;
                         }
@@ -197,6 +225,8 @@ class XPublisher extends AbstractSocialPublisher
                     }
                 }
             }
+        } catch (\RuntimeException $e) {
+            throw $e;
         } catch (\Throwable) {
             // Fallback to v1.1 below
         }
@@ -213,6 +243,9 @@ class XPublisher extends AbstractSocialPublisher
                 ]);
 
             if (! $initResponse->successful() || ! $initResponse->json('media_id_string')) {
+                if ($v2AuthError !== null) {
+                    throw new \RuntimeException("X (Twitter) Video Yükleme İzni (media.write) Eksik: Lütfen Sosyal Medya Kanalları -> X (Twitter) sayfasından 'İzinleri Yenile' butonuna tıklayıp açılan X ekranında 'Uygulamaya İzin Ver' diyerek video iznini onaylayın.");
+                }
                 return null;
             }
 
@@ -267,7 +300,12 @@ class XPublisher extends AbstractSocialPublisher
             }
 
             return $mediaId;
+        } catch (\RuntimeException $e) {
+            throw $e;
         } catch (\Throwable) {
+            if ($v2AuthError !== null) {
+                throw new \RuntimeException("X (Twitter) Video Yükleme İzni (media.write) Eksik: Lütfen Sosyal Medya Kanalları -> X (Twitter) sayfasından 'İzinleri Yenile' butonuna tıklayıp açılan X ekranında 'Uygulamaya İzin Ver' diyerek video iznini onaylayın.");
+            }
             return null;
         }
     }

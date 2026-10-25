@@ -303,6 +303,12 @@ class SocialChannelsPage extends Page
                         'required' => true,
                     ],
                     [
+                        'name' => 'media.write',
+                        'label' => 'Video Medya Yükleme',
+                        'description' => 'X API v2 üzerinden MP4 video dosyalarını yükleme erişim izni.',
+                        'required' => true,
+                    ],
+                    [
                         'name' => 'offline.access',
                         'label' => 'Kesintisiz Otomasyon İzni',
                         'description' => 'Zamanlanmış yayınlar için erişim iznini otomatik yenileme.',
@@ -688,6 +694,21 @@ class SocialChannelsPage extends Page
         try {
             $manager = app(SocialPublisherManager::class);
             $platformCode = $account->platform?->code instanceof \BackedEnum ? $account->platform->code->value : (string) $account->platform?->code;
+
+            $clientId = Setting::get("partner_{$platformCode}_client_id") ?: config("services.{$platformCode}.client_id");
+            $envMode = Setting::get("partner_{$platformCode}_env", 'sandbox');
+
+            // In production mode with real OAuth credentials, redirect to Official OAuth 2.0 to refresh scopes (e.g. media.write) and token
+            if (! empty($clientId) && $envMode === 'production') {
+                session([
+                    'oauth_custom_name' => $account->name,
+                    'oauth_custom_username' => $account->username,
+                    'oauth_custom_account_id' => $account->account_id,
+                ]);
+
+                $this->redirect(route('oauth.redirect', ['platform' => $platformCode]));
+                return;
+            }
 
             $isValid = true;
             try {
