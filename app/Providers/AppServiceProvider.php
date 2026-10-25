@@ -41,5 +41,13 @@ class AppServiceProvider extends ServiceProvider
         if (! file_exists(public_path('storage'))) {
             @\Illuminate\Support\Facades\Artisan::call('storage:link');
         }
+
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('schedules') && ! \Illuminate\Support\Facades\Schema::hasColumn('schedules', 'schedule_type')) {
+                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+            }
+        } catch (\Throwable) {
+            // Sessizce geç
+        }
     }
 }

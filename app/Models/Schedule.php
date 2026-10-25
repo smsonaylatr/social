@@ -53,7 +53,7 @@ class Schedule extends Model
         if ($this->schedule_type === 'hourly') {
             $times = [];
             $startStr = $this->start_time ? substr($this->start_time, 0, 5) : '00:00';
-            $endStr = $this->end_time ? substr($this->end_time, 0, 5) : '23:00';
+            $endStr = $this->end_time ? substr($this->end_time, 0, 5) : '23:59';
 
             $start = \Carbon\Carbon::createFromFormat('H:i', $startStr);
             $end = \Carbon\Carbon::createFromFormat('H:i', $endStr);
@@ -104,8 +104,8 @@ class Schedule extends Model
         // 4. Belirli saat aralıkları modu (örn: her 2 saatte bir)
         if ($this->schedule_type === 'interval' && $this->interval_hours > 0) {
             $times = [];
-            $startStr = $this->start_time ? substr($this->start_time, 0, 5) : '09:00';
-            $endStr = $this->end_time ? substr($this->end_time, 0, 5) : '23:00';
+            $startStr = $this->start_time ? substr($this->start_time, 0, 5) : '00:00';
+            $endStr = $this->end_time ? substr($this->end_time, 0, 5) : '23:59';
 
             $start = \Carbon\Carbon::createFromFormat('H:i', $startStr);
             $end = \Carbon\Carbon::createFromFormat('H:i', $endStr);

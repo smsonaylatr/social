@@ -85,10 +85,10 @@ class ScheduleResource extends Resource
                                     ->required(fn (Get $get): bool => $get('schedule_type') === 'hourly'),
 
                                 TimePicker::make('end_time')
-                                    ->label('Günün Son Paylaşım Saati')
-                                    ->default('23:00:00')
+                                    ->label('Günün Bitiş Saati')
+                                    ->default('23:59:00')
                                     ->seconds(false)
-                                    ->helperText('Tüm gün için 23:00 bırakabilirsiniz.')
+                                    ->helperText('Tüm gün için 23:59 seçili kalabilir.')
                                     ->required(fn (Get $get): bool => $get('schedule_type') === 'hourly'),
                             ])
                             ->visible(fn (Get $get): bool => $get('schedule_type') === 'hourly'),
@@ -114,7 +114,7 @@ class ScheduleResource extends Resource
 
                                 TimePicker::make('start_time')
                                     ->label('İlk Başlangıç Saati')
-                                    ->default('08:00:00')
+                                    ->default('00:00:00')
                                     ->seconds(false)
                                     ->required(fn (Get $get): bool => $get('schedule_type') === 'minute_interval'),
 
@@ -145,13 +145,13 @@ class ScheduleResource extends Resource
                             ->schema([
                                 TimePicker::make('start_time')
                                     ->label('İlk Paylaşım Saati')
-                                    ->default('09:00:00')
+                                    ->default('00:00:00')
                                     ->seconds(false)
                                     ->required(fn (Get $get): bool => $get('schedule_type') === 'interval'),
 
                                 TimePicker::make('end_time')
-                                    ->label('Son Paylaşım Saati')
-                                    ->default('23:00:00')
+                                    ->label('Günün Bitiş Saati')
+                                    ->default('23:59:00')
                                     ->seconds(false)
                                     ->required(fn (Get $get): bool => $get('schedule_type') === 'interval'),
 
