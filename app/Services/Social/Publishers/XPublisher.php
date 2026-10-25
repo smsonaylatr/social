@@ -38,6 +38,11 @@ class XPublisher extends AbstractSocialPublisher
             $fullText = preg_replace('/\b(patenliayakkabilar\.com)\b/i', 'https://$1', $fullText);
         }
 
+        // Kesin güvenlik: X tweet metni asla boş gönderilemez!
+        if (empty(trim($fullText))) {
+            $fullText = "Patenli ayakkabı modelleri ile yürümek artık çok daha eğlenceli! ✨\n\n🌐 https://patenliayakkabilar.com\n#PatenliAyakkabı #TekerlekliAyakkabı";
+        }
+
         $caption = mb_substr($fullText, 0, 280);
 
         if ($this->isSandboxToken($token)) {

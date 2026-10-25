@@ -129,23 +129,39 @@ class OpenAiContentService implements AiContentProviderInterface
             $pData = $content[$code] ?? [];
             $hasTitle = in_array($code, ['youtube', 'pinterest', 'facebook'], true);
             $rawTitle = $hasTitle ? ($pData['title'] ?? '') : null;
-            $rawCaption = $pData['caption'] ?? ($video->custom_caption ?: 'Patenli Ayakkabı Modelleri');
-            $rawHook = $pData['hook_sentence'] ?? '';
+            
+            // OpenAI bazen "x" veya "linkedin" için "caption" yerine "tweet", "text", "post", "content" dönebilir
+            $candidateCaption = $pData['caption'] ?? $pData['tweet'] ?? $pData['text'] ?? $pData['post'] ?? $pData['content'] ?? null;
+            if (empty(trim((string) $candidateCaption))) {
+                $candidateCaption = $video->custom_caption ?: null;
+            }
+            if (empty(trim((string) $candidateCaption))) {
+                $candidateCaption = 'Patenli ayakkabı ve tekerlekli spor ayakkabı modelleri ile yürümek artık çok daha eğlenceli! ✨';
+            }
+            $rawCaption = $candidateCaption;
+            $rawHook = $pData['hook_sentence'] ?? $pData['hook'] ?? '';
 
             // Sistem içi "4. Video", "1. Video" gibi terimleri kesinlikle temizle
             $platformTitle = $rawTitle ? self::cleanSystemLabels($rawTitle) : null;
             $platformCaption = self::cleanSystemLabels($rawCaption);
+            if (empty(trim((string) $platformCaption))) {
+                $platformCaption = 'Patenli ayakkabı modelleri ile gün boyu özgürce kay! 🚀';
+            }
             $platformHook = self::cleanSystemLabels($rawHook);
+
+            $defaultHashtags = ['PatenliAyakkabı', 'PatenliAyakkabılar', 'TekerlekliAyakkabı', 'ÇocukPatenliAyakkabı'];
+            $hashtags = ! empty($pData['hashtags']) && is_array($pData['hashtags']) ? $pData['hashtags'] : $defaultHashtags;
+            $productUrl = ! empty($pData['suggested_product_url']) ? $pData['suggested_product_url'] : ($video->product_url ?: ($brand?->website ?? 'https://patenliayakkabilar.com'));
 
             $platforms[$code] = new GeneratedPlatformContentDTO(
                 platformCode: $code,
                 title: $platformTitle,
                 hookSentence: $platformHook,
                 caption: $platformCaption,
-                hashtags: $pData['hashtags'] ?? [],
+                hashtags: $hashtags,
                 seoKeywords: $pData['seo_keywords'] ?? [],
-                callToAction: $pData['call_to_action'] ?? ($brand?->default_cta ?? ''),
-                suggestedProductUrl: $pData['suggested_product_url'] ?? $video->product_url,
+                callToAction: $pData['call_to_action'] ?? ($brand?->default_cta ?? 'Hemen keşfedin! 🛍️'),
+                suggestedProductUrl: $productUrl,
                 isTestMode: false
             );
 

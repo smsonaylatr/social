@@ -51,26 +51,39 @@ class SchedulingService
             foreach ($accounts as $account) {
                 $platformCode = $account->platform->code->value;
 
-                // Ensure AI content generation exists for this platform
+                // Ensure AI content generation exists for this platform and has non-empty caption
                 $aiContent = AiContentGeneration::where('video_id', $video->id)
                     ->where('platform_code', $platformCode)
                     ->first();
 
-                if (! $aiContent) {
+                if (! $aiContent || empty(trim((string) $aiContent->caption))) {
                     $generated = $aiService->generateForSinglePlatform($video, $platformCode, $video->brand);
-                    $caption = $generated['caption'] ?? ($video->custom_caption ?: $video->title);
-                    $title = $generated['title'] ?? $video->title;
-                    $hashtags = $generated['hashtags'] ?? $hashtagService->getOptimizedHashtags($video, $platformCode);
-                    $productUrl = $generated['suggested_product_url'] ?? $video->product_url;
+                    $rawCaption = ! empty(trim((string) ($generated['caption'] ?? '')))
+                        ? $generated['caption']
+                        : ($video->custom_caption ?: 'Patenli ayakkabı ve tekerlekli spor ayakkabı modelleri ile yürümek çok daha eğlenceli! ✨');
+                    $rawTitle = ! empty(trim((string) ($generated['title'] ?? ''))) ? $generated['title'] : $video->title;
+                    $hashtags = ! empty($generated['hashtags']) && is_array($generated['hashtags'])
+                        ? $generated['hashtags']
+                        : $hashtagService->getOptimizedHashtags($video, $platformCode);
+                    $productUrl = ! empty($generated['suggested_product_url'])
+                        ? $generated['suggested_product_url']
+                        : ($video->product_url ?: ($video->brand?->website ?? 'https://patenliayakkabilar.com'));
                 } else {
-                    $caption = $aiContent->caption;
-                    $title = $aiContent->title;
-                    $hashtags = $aiContent->hashtags ?? $hashtagService->getOptimizedHashtags($video, $platformCode);
-                    $productUrl = $aiContent->suggested_product_url ?? $video->product_url;
+                    $rawCaption = $aiContent->caption;
+                    $rawTitle = $aiContent->title;
+                    $hashtags = ! empty($aiContent->hashtags) && is_array($aiContent->hashtags)
+                        ? $aiContent->hashtags
+                        : $hashtagService->getOptimizedHashtags($video, $platformCode);
+                    $productUrl = $aiContent->suggested_product_url ?: ($video->product_url ?: ($video->brand?->website ?? 'https://patenliayakkabilar.com'));
                 }
 
-                $caption = \App\Services\AI\OpenAiContentService::cleanSystemLabels($caption);
-                $title = \App\Services\AI\OpenAiContentService::cleanSystemLabels($title);
+                $caption = \App\Services\AI\OpenAiContentService::cleanSystemLabels($rawCaption);
+                $title = \App\Services\AI\OpenAiContentService::cleanSystemLabels($rawTitle);
+
+                // Kesin güvenlik: Başlık veya Açıklama ASLA boş gönderilemez!
+                if (empty(trim((string) $caption))) {
+                    $caption = 'Patenli ayakkabı ve tekerlekli spor ayakkabı modelleri ile yürümek çok daha eğlenceli! ✨';
+                }
 
                 $correlationId = 'corr_' . Str::uuid()->toString();
                 $idempotencyKey = hash('sha256', "post_{$scheduledPost->id}_acc_{$account->id}_ts_{$scheduledAt->timestamp}");

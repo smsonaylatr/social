@@ -120,10 +120,20 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
     protected function buildFullCaption(ScheduledPostTarget $target): string
     {
         $caption = trim((string) ($target->caption ?: ''));
+        $video = $target->scheduledPost?->video;
+        $brand = $video?->brand ?: \App\Models\Brand::first();
+
+        // 0. Güvenlik Bariyeri: Gönderi metni kesinlikle boş veya sadece sistem etiketi olamaz!
+        if ($caption === '' || preg_match('/^\d+[\.\s\-]+video$/i', $caption)) {
+            $caption = $video?->custom_caption
+                ?: ($video?->title && ! preg_match('/^\d+[\.\s\-]+video/i', $video->title) ? $video->title : '')
+                ?: 'Patenli ayakkabı modelleri ile yürümek artık çok daha eğlenceli! ✨ Hem şık bir spor ayakkabı hem tek hareketle paten! 🚀';
+        }
 
         // 1. Only append product_url if neither the full URL nor its bare domain is already in the caption
-        if (! empty($target->product_url)) {
-            $productUrl = trim((string) $target->product_url);
+        $rawProductUrl = $target->product_url ?: ($video?->product_url ?: ($brand?->website ?? 'https://patenliayakkabilar.com'));
+        if (! empty($rawProductUrl)) {
+            $productUrl = trim((string) $rawProductUrl);
             $host = parse_url($productUrl, PHP_URL_HOST) ?: $productUrl;
             $bareDomain = preg_replace('/^www\./i', '', (string) $host);
 
@@ -136,22 +146,24 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
         }
 
         // 2. Only append hashtags that are not already written inside the caption
-        if (! empty($target->hashtags) && is_array($target->hashtags)) {
-            $missingTags = [];
-            foreach ($target->hashtags as $rawTag) {
-                $cleanTag = ltrim(trim((string) $rawTag), '#');
-                if ($cleanTag === '') {
-                    continue;
-                }
-                $formattedTag = '#' . $cleanTag;
-                if (mb_stripos($caption, $formattedTag) === false) {
-                    $missingTags[] = $formattedTag;
-                }
-            }
+        $targetHashtags = (! empty($target->hashtags) && is_array($target->hashtags))
+            ? $target->hashtags
+            : ['PatenliAyakkabı', 'TekerlekliAyakkabı', 'PatenliAyakkabılar'];
 
-            if (! empty($missingTags)) {
-                $caption .= "\n\n" . implode(' ', $missingTags);
+        $missingTags = [];
+        foreach ($targetHashtags as $rawTag) {
+            $cleanTag = ltrim(trim((string) $rawTag), '#');
+            if ($cleanTag === '') {
+                continue;
             }
+            $formattedTag = '#' . $cleanTag;
+            if (mb_stripos($caption, $formattedTag) === false) {
+                $missingTags[] = $formattedTag;
+            }
+        }
+
+        if (! empty($missingTags)) {
+            $caption .= "\n\n" . implode(' ', $missingTags);
         }
 
         return trim($caption);
