@@ -69,25 +69,27 @@ class LinkedInPublisher extends AbstractSocialPublisher
                     ]);
 
                 if ($registerResp->successful()) {
-                    $candidateAsset = $registerResp->json('value.asset');
-                    $uploadUrl = $registerResp->json('value.uploadMechanism.com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest.uploadUrl');
+                    $registerData = $registerResp->json() ?? [];
+                    $candidateAsset = $registerData['value']['asset'] ?? null;
+                    $uploadRequestInfo = $registerData['value']['uploadMechanism']['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'] ?? [];
+                    $uploadUrl = $uploadRequestInfo['uploadUrl'] ?? null;
 
                     if ($candidateAsset && $uploadUrl) {
-                        $extraHeaders = $registerResp->json('value.uploadMechanism.com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest.headers') ?? [];
+                        $extraHeaders = $uploadRequestInfo['headers'] ?? [];
                         $uploadHeaders = array_merge(
                             is_array($extraHeaders) ? $extraHeaders : [],
                             ['Content-Type' => 'application/octet-stream']
                         );
 
-                        // Pre-signed LinkedIn upload URLs first without Bearer token, fallback with Bearer token
-                        $uploadResp = Http::withHeaders($uploadHeaders)
+                        // Upload binary to LinkedIn mediaUpload endpoint (with Bearer token first, fallback without)
+                        $uploadResp = Http::withToken($token)
+                            ->withHeaders($uploadHeaders)
                             ->timeout(180)
                             ->withBody($binaryContent, 'application/octet-stream')
                             ->put($uploadUrl);
 
                         if (! $uploadResp->successful() && $uploadResp->status() !== 201) {
-                            $uploadResp = Http::withToken($token)
-                                ->withHeaders($uploadHeaders)
+                            $uploadResp = Http::withHeaders($uploadHeaders)
                                 ->timeout(180)
                                 ->withBody($binaryContent, 'application/octet-stream')
                                 ->put($uploadUrl);
@@ -104,7 +106,7 @@ class LinkedInPublisher extends AbstractSocialPublisher
             }
         }
 
-        // 2. Publish via LinkedIn v2 ugcPosts API (VIDEO first, fallback to SEO ARTICLE Card)
+        // 2. Publish via LinkedIn v2 ugcPosts API (VIDEO when video asset uploaded)
         if ($assetUrn) {
             $shareContent = [
                 'shareCommentary' => [
@@ -161,35 +163,15 @@ class LinkedInPublisher extends AbstractSocialPublisher
             ->timeout(30)
             ->post('https://api.linkedin.com/v2/ugcPosts', $ugcPayload);
 
-        // If VIDEO share failed because LinkedIn was still transcoding, wait 5s and retry VIDEO once more
-        if (! $response->successful() && $assetUrn) {
-            sleep(5);
+        // If VIDEO share is still finishing transcoding on LinkedIn, wait and retry VIDEO up to 4 times
+        $videoRetries = 0;
+        while (! $response->successful() && $assetUrn && $videoRetries < 4) {
+            sleep(4);
             $response = Http::withToken($token)
                 ->withHeaders($headers)
                 ->timeout(30)
                 ->post('https://api.linkedin.com/v2/ugcPosts', $ugcPayload);
-        }
-
-        // Fallback: If VIDEO share still fails, publish as SEO ARTICLE Card with clickable link
-        if (! $response->successful() && $assetUrn) {
-            $ugcPayload['specificContent']['com.linkedin.ugc.ShareContent'] = [
-                'shareCommentary' => ['text' => $commentary],
-                'shareMediaCategory' => 'ARTICLE',
-                'media' => [
-                    [
-                        'status' => 'READY',
-                        'originalUrl' => $productUrl,
-                        'title' => ['text' => $seoTitle],
-                        'description' => [
-                            'text' => 'Patenli ayakkabı, tekerlekli ayakkabı ve çocuk ışıklı patenli spor ayakkabı modelleri — patenliayakkabilar.com',
-                        ],
-                    ],
-                ],
-            ];
-            $response = Http::withToken($token)
-                ->withHeaders($headers)
-                ->timeout(30)
-                ->post('https://api.linkedin.com/v2/ugcPosts', $ugcPayload);
+            $videoRetries++;
         }
 
         if (! $response->successful()) {
