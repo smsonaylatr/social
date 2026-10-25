@@ -17,6 +17,13 @@ Route::get('/privacy', fn () => redirect()->route('privacy.policy'));
 Route::get('/terms-of-service', fn () => view('legal.terms'))->name('terms.service');
 Route::get('/terms', fn () => redirect()->route('terms.service'));
 
+Route::get('/admin/debug-videos', function () {
+    return response()->json([
+        'videos' => \App\Models\Video::all(['id', 'title', 'original_filename', 'file_hash', 'usage_count', 'last_used_at', 'status']),
+        'recent_posts' => \App\Models\ScheduledPost::with(['video', 'targets'])->latest('id')->take(10)->get(),
+    ]);
+});
+
 Route::match(['get', 'post'], '/admin/quick-fix', function () {
     $service = app(\App\Services\Media\VideoProcessingService::class);
     $videos = \App\Models\Video::all();
