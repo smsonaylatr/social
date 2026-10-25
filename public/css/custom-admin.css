@@ -2808,10 +2808,38 @@ html, body {
    Video Pool & Media Library - Grid View (Izgara Görünümü) Perfecting
    ========================================================================== */
 
-/* Grid container layout spacing */
+/* Robust Responsive Grid System for Content Grid */
 .fi-ta-content-grid {
+    display: grid !important;
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    gap: 1.25rem !important;
     padding-top: 1rem !important;
     padding-bottom: 1.5rem !important;
+    width: 100% !important;
+}
+
+@media (min-width: 540px) {
+    .fi-ta-content-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (min-width: 820px) {
+    .fi-ta-content-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (min-width: 1180px) {
+    .fi-ta-content-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (min-width: 1560px) {
+    .fi-ta-content-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    }
 }
 
 /* Individual card enhancement */
@@ -2824,6 +2852,8 @@ html, body {
     box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.4) !important;
     display: flex !important;
     flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
 }
 
 .fi-ta-content-grid .fi-ta-record:hover {
@@ -2837,12 +2867,20 @@ html, body {
 .fi-ta-content-grid .fi-ta-record > div {
     padding: 0.75rem !important;
     width: 100% !important;
+    max-width: 100% !important;
 }
 
 .fi-ta-content-grid .fi-ta-record .flex.w-full.flex-col {
     padding-top: 0 !important;
     padding-bottom: 0 !important;
     gap: 0.5rem !important;
+    width: 100% !important;
+}
+
+/* Constrain video grid card container */
+.fi-ta-content-grid .video-grid-card {
+    width: 100% !important;
+    max-width: 100% !important;
 }
 
 /* Card actions toolbar inside grid item */

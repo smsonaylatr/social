@@ -10,9 +10,17 @@ class ListVideos extends ListRecords
 {
     public string $layoutView = 'grid';
 
+    public function mount(): void
+    {
+        parent::mount();
+        $this->layoutView = session()->get('video_pool_layout_view', 'grid');
+    }
+
     public function changeLayoutView(): void
     {
         $this->layoutView = $this->isListLayout() ? 'grid' : 'list';
+        session()->put('video_pool_layout_view', $this->layoutView);
+        $this->resetTable();
     }
 
     public function isGridLayout(): bool
@@ -37,9 +45,10 @@ class ListVideos extends ListRecords
     {
         return [
             Actions\Action::make('toggle_layout')
-                ->label(fn () => $this->isGridLayout() ? 'Liste Görünümü' : 'Izgara Görünümü')
+                ->label(fn () => $this->isGridLayout() ? 'Tablo Görünümüne Geç' : 'Izgara Görünümüne Geç')
                 ->icon(fn () => $this->isGridLayout() ? 'heroicon-o-bars-3-bottom-left' : 'heroicon-o-squares-2x2')
-                ->color('gray')
+                ->color(fn () => $this->isGridLayout() ? 'gray' : 'primary')
+                ->tooltip(fn () => $this->isGridLayout() ? 'Klasik satır satır tablo görünümüne geçer' : 'Görsel kart/ızgara görünümüne geçer')
                 ->action(fn () => $this->changeLayoutView()),
             Actions\Action::make('reanalyze_all')
                 ->label('Yeniden Analiz Et & Onar')

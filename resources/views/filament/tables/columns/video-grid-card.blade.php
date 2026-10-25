@@ -16,16 +16,18 @@
     $aspectRatio = $record->aspect_ratio ?: '9:16';
 @endphp
 
-<div class="video-grid-card flex flex-col w-full group/card select-none text-left">
+<div class="video-grid-card flex flex-col w-full max-w-full overflow-hidden group/card select-none text-left">
     {{-- Thumbnail / Media Container --}}
     <div 
         class="relative w-full overflow-hidden rounded-xl bg-slate-950 border border-slate-800/80 shadow-md group-hover/card:border-indigo-500/60 transition-all duration-300 {{ $isLandscape ? 'aspect-video' : 'aspect-[9/14]' }}"
+        style="{{ $isLandscape ? 'aspect-ratio: 16 / 9 !important; max-height: 240px !important;' : 'aspect-ratio: 9 / 14 !important; max-height: 380px !important;' }}"
     >
         @if($hasRealThumbnail)
             <img 
                 src="{{ $thumbnailUrl }}" 
                 alt="{{ $title }}"
                 loading="lazy"
+                style="width: 100% !important; height: 100% !important; max-width: 100% !important; max-height: 100% !important; object-fit: cover !important;"
                 class="w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-105 pointer-events-none"
                 onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='block';"
             />
@@ -37,7 +39,7 @@
                 preload="metadata" 
                 muted 
                 playsinline
-                style="{{ $hasRealThumbnail ? 'display: none !important;' : 'display: block !important;' }}"
+                style="{{ $hasRealThumbnail ? 'display: none !important;' : 'display: block !important;' }} width: 100% !important; height: 100% !important; max-width: 100% !important; max-height: 100% !important; object-fit: cover !important;"
                 class="w-full h-full object-cover pointer-events-none transition-transform duration-500 group-hover/card:scale-105"
             ></video>
         @elseif(! $hasRealThumbnail)
