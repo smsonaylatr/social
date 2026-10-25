@@ -2808,43 +2808,46 @@ html, body {
    Video Pool & Media Library - Grid View (Izgara Görünümü) Perfecting
    ========================================================================== */
 
-/* Robust Responsive Grid System for Content Grid */
+/* Robust Responsive 1:1 Square Grid System for Video Pool */
 .fi-ta-content-grid {
     display: grid !important;
-    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
-    gap: 1.25rem !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1rem !important;
     padding-top: 1rem !important;
     padding-bottom: 1.5rem !important;
     width: 100% !important;
 }
 
-@media (min-width: 540px) {
-    .fi-ta-content-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    }
-}
-
-@media (min-width: 820px) {
+@media (min-width: 640px) {
     .fi-ta-content-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 1.15rem !important;
     }
 }
 
-@media (min-width: 1180px) {
+@media (min-width: 1024px) {
     .fi-ta-content-grid {
         grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 1.25rem !important;
     }
 }
 
-@media (min-width: 1560px) {
+@media (min-width: 1400px) {
     .fi-ta-content-grid {
         grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        gap: 1.25rem !important;
     }
 }
 
-/* Individual card enhancement */
+@media (min-width: 1700px) {
+    .fi-ta-content-grid {
+        grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    }
+}
+
+/* Individual 1:1 Square Card */
 .fi-ta-content-grid .fi-ta-record {
-    border-radius: 1rem !important;
+    border-radius: 0.875rem !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
     background: #141416 !important;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -2852,49 +2855,66 @@ html, body {
     box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.4) !important;
     display: flex !important;
     flex-direction: column !important;
+    aspect-ratio: 1 / 1 !important;
     width: 100% !important;
-    max-width: 100% !important;
+    height: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
 }
 
 .fi-ta-content-grid .fi-ta-record:hover {
-    border-color: rgba(99, 102, 241, 0.45) !important;
-    box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.6), 0 0 16px 2px rgba(99, 102, 241, 0.15) !important;
-    transform: translateY(-2px) !important;
-    background: #18181c !important;
+    border-color: rgba(99, 102, 241, 0.6) !important;
+    box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.7), 0 0 20px 2px rgba(99, 102, 241, 0.2) !important;
+    transform: translateY(-2px) scale(1.01) !important;
 }
 
-/* Remove default heavy paddings inside grid record */
+/* Strip inner paddings in grid mode so the 1:1 image fills the card 100% */
 .fi-ta-content-grid .fi-ta-record > div {
-    padding: 0.75rem !important;
+    padding: 0 !important;
     width: 100% !important;
-    max-width: 100% !important;
+    height: 100% !important;
+    aspect-ratio: 1 / 1 !important;
 }
 
 .fi-ta-content-grid .fi-ta-record .flex.w-full.flex-col {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    gap: 0.5rem !important;
+    padding: 0 !important;
+    gap: 0 !important;
     width: 100% !important;
+    height: 100% !important;
+    aspect-ratio: 1 / 1 !important;
 }
 
-/* Constrain video grid card container */
-.fi-ta-content-grid .video-grid-card {
+.fi-ta-content-grid .fi-ta-record .flex-1 {
     width: 100% !important;
-    max-width: 100% !important;
+    height: 100% !important;
+    aspect-ratio: 1 / 1 !important;
 }
 
-/* Card actions toolbar inside grid item */
-.fi-ta-content-grid .fi-ta-actions {
-    margin-top: 0.25rem !important;
-    padding-top: 0.5rem !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
-    justify-content: flex-end !important;
+.fi-ta-content-grid .fi-ta-record button[wire\:click*="mountTableAction"] {
+    width: 100% !important;
+    height: 100% !important;
+    padding: 0 !important;
+    border: none !important;
+    aspect-ratio: 1 / 1 !important;
+    display: block !important;
 }
 
-/* Table layout toggle button hover & active state */
+.fi-ta-content-grid .video-grid-square {
+    aspect-ratio: 1 / 1 !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Hide default record actions and checkboxes in pure 1:1 visual grid mode */
+.fi-ta-content-grid .fi-ta-actions,
+.fi-ta-content-grid .fi-ta-record-checkbox {
+    display: none !important;
+}
+
+/* Toolbar layout toggle button style */
 .fi-ta-header-toolbar button:has(svg.heroicon-o-squares-2x2),
-.fi-ta-header-toolbar button:has(svg.heroicon-o-bars-3-bottom-left),
-.fi-ta-header-toolbar div:has(button) {
+.fi-ta-header-toolbar button:has(svg.heroicon-o-bars-3-bottom-left) {
     display: inline-flex !important;
     align-items: center !important;
+    justify-content: center !important;
 }

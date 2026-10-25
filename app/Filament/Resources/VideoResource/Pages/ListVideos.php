@@ -38,18 +38,21 @@ class ListVideos extends ListRecords
         return $this->layoutView;
     }
 
+    public function boot(): void
+    {
+        \Filament\Support\Facades\FilamentView::registerRenderHook(
+            \Filament\Tables\View\TablesRenderHook::TOOLBAR_SEARCH_AFTER,
+            fn () => view('filament.tables.toolbar.layout-toggle'),
+            scopes: static::class,
+        );
+    }
+
     protected static string $resource = VideoResource::class;
     protected static ?string $title = 'Video Havuzu & Medya Kütüphanesi';
 
     protected function getHeaderActions(): array
     {
         return [
-            Actions\Action::make('toggle_layout')
-                ->label(fn () => $this->isGridLayout() ? 'Tablo Görünümüne Geç' : 'Izgara Görünümüne Geç')
-                ->icon(fn () => $this->isGridLayout() ? 'heroicon-o-bars-3-bottom-left' : 'heroicon-o-squares-2x2')
-                ->color(fn () => $this->isGridLayout() ? 'gray' : 'primary')
-                ->tooltip(fn () => $this->isGridLayout() ? 'Klasik satır satır tablo görünümüne geçer' : 'Görsel kart/ızgara görünümüne geçer')
-                ->action(fn () => $this->changeLayoutView()),
             Actions\Action::make('reanalyze_all')
                 ->label('Yeniden Analiz Et & Onar')
                 ->icon('heroicon-o-arrow-path')
