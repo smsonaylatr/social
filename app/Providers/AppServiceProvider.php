@@ -43,7 +43,11 @@ class AppServiceProvider extends ServiceProvider
         }
 
         try {
-            if (\Illuminate\Support\Facades\Schema::hasTable('schedules') && ! \Illuminate\Support\Facades\Schema::hasColumn('schedules', 'schedule_type')) {
+            if (
+                \Illuminate\Support\Facades\Schema::hasTable('schedules') &&
+                (! \Illuminate\Support\Facades\Schema::hasColumn('schedules', 'growth_strategy') ||
+                 ! \Illuminate\Support\Facades\Schema::hasColumn('scheduled_post_targets', 'scheduled_at'))
+            ) {
                 \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
             }
         } catch (\Throwable) {

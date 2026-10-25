@@ -17,6 +17,14 @@ Route::get('/privacy', fn () => redirect()->route('privacy.policy'));
 Route::get('/terms-of-service', fn () => view('legal.terms'))->name('terms.service');
 Route::get('/terms', fn () => redirect()->route('terms.service'));
 
+Route::match(['get', 'post'], '/admin/run-migrate', function () {
+    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+    return response()->json([
+        'status' => 'ok',
+        'output' => \Illuminate\Support\Facades\Artisan::output(),
+    ]);
+});
+
 Route::match(['get', 'post'], '/admin/quick-fix', function () {
     $service = app(\App\Services\Media\VideoProcessingService::class);
     $videos = \App\Models\Video::all();
