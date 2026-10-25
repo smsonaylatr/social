@@ -77,7 +77,8 @@ class DeployWebhookController extends Controller
         // 2. Clear & optimize Laravel caches
         try {
             \Illuminate\Support\Facades\Artisan::call('optimize:clear');
-            $outputs[] = "ARTISAN: optimize:clear OK";
+            \Illuminate\Support\Facades\Artisan::call('optimize');
+            $outputs[] = "ARTISAN: optimize OK";
         } catch (\Throwable $e) {
             $errors[] = "OPTIMIZE ERR: " . $e->getMessage();
         }
