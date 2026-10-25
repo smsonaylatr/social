@@ -18,6 +18,10 @@ class Schedule extends Model
         'campaign_id',
         'name',
         'schedule_type',
+        'growth_strategy',
+        'anti_spam_shield',
+        'enable_smart_jitter',
+        'enable_staggered_dispatch',
         'time_of_day',
         'posting_times',
         'interval_hours',
@@ -39,6 +43,9 @@ class Schedule extends Model
         'target_social_account_ids' => 'array',
         'interval_hours' => 'integer',
         'interval_minutes' => 'integer',
+        'anti_spam_shield' => 'boolean',
+        'enable_smart_jitter' => 'boolean',
+        'enable_staggered_dispatch' => 'boolean',
         'is_active' => 'boolean',
         'last_run_at' => 'datetime',
         'next_run_at' => 'datetime',
@@ -53,6 +60,15 @@ class Schedule extends Model
     {
         if ($this->memoizedRunTimes !== null) {
             return $this->memoizedRunTimes;
+        }
+
+        // 0. Algoritmik Keşfet & Organik Büyüme Modu (Platform Zirve Saatleri)
+        if ($this->schedule_type === 'algorithmic_growth') {
+            /** @var \App\Services\Scheduling\AlgorithmicGrowthSchedulerService $algoService */
+            $algoService = app(\App\Services\Scheduling\AlgorithmicGrowthSchedulerService::class);
+            return $this->memoizedRunTimes = $algoService->getAlgorithmicRunTimes(
+                $this->growth_strategy ?: 'balanced'
+            );
         }
 
         // 1. Her saat başı modu

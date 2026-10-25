@@ -8,6 +8,7 @@ use App\Models\Schedule;
 use App\Models\SocialAccount;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
@@ -22,6 +23,7 @@ use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\HtmlString;
 
 class ScheduleResource extends Resource
 {
@@ -56,15 +58,66 @@ class ScheduleResource extends Resource
                         Select::make('schedule_type')
                             ->label('Günlük Paylaşım Düzeni / Sıklığı')
                             ->options([
+                                'algorithmic_growth' => '🚀 Algoritmik Keşfet & Organik Büyüme (Platforma Özel Zirve Saatler + Anti-Spam)',
                                 'hourly' => '🕐 Her Saat Başı Paylaş (00:00 - 23:00 / Gün Boyu Her Saat)',
                                 'minute_interval' => '⚡ ** Dakikada Bir Paylaş (Örn: Her 15, 30, 45 Dakikada Bir)',
                                 'interval' => '⏳ Belirli Saat Aralıklarıyla (Örn: Her 2 veya 3 Saatte Bir)',
                                 'custom_times' => '⏰ Belirli Saatlerde Paylaş (Seçilen Özel Saatlerde)',
                                 'single' => '🎯 Günde 1 Kez (Belirli Tek Saatte)',
                             ])
-                            ->default('hourly')
+                            ->default('algorithmic_growth')
                             ->live()
                             ->required(),
+
+                        // 0. Algoritmik Keşfet ve Büyüme Modu Alanları
+                        Section::make('🚀 Algoritmik Keşfet & Anti-Spam Kalkanı')
+                            ->description('Sosyal ağların bot algoritmalarını aşarak organik izlenmeyi ve keşfete çıkmayı maksimize eden akıllı zamanlayıcı.')
+                            ->schema([
+                                Select::make('growth_strategy')
+                                    ->label('Büyüme & Dalga Stratejisi')
+                                    ->options([
+                                        'conservative' => '🛡️ Hafif & Güvenli (Günde 2 Dalga / Öğle ve Akşam Zirvesi - Yeni Hesaplar İçin)',
+                                        'balanced' => '⚡ Dengeli Organik Keşfet (Günde 3 Dalga / Öğle, İkindi ve Akşam Prime - Tavsiye Edilen)',
+                                        'aggressive' => '🔥 Hızlı & Agresif Viral Büyüme (Günde 4 Dalga / Sabah, Öğle, Akşam, Gece)',
+                                    ])
+                                    ->default('balanced')
+                                    ->required(fn (Get $get): bool => $get('schedule_type') === 'algorithmic_growth'),
+
+                                Grid::make(3)
+                                    ->schema([
+                                        Toggle::make('anti_spam_shield')
+                                            ->label('🛡️ Algoritmik Soğuma (Cooldown)')
+                                            ->helperText('Platformun spam sınırından önce peş peşe post atılmasını engeller.')
+                                            ->default(true),
+
+                                        Toggle::make('enable_smart_jitter')
+                                            ->label('🎲 Akıllı Organik Sapma (Jitter)')
+                                            ->helperText('Tam saat yerine ±3-12 dk rastgele insan davranışı ekler.')
+                                            ->default(true),
+
+                                        Toggle::make('enable_staggered_dispatch')
+                                            ->label('⏳ Kademeli Çapraz Dağıtım')
+                                            ->helperText('Tüm mecralara aynı anda değil, 6-12 dk arayla yükler.')
+                                            ->default(true),
+                                    ]),
+
+                                Placeholder::make('algo_guide')
+                                    ->label('Platform Algoritma Kılavuzu & Zirve Keşfet Saatleri')
+                                    ->content(new HtmlString(
+                                        '<div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs mt-2">' .
+                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-pink-400">📸 Instagram Reels:</strong> 12:15 • 17:45 • 21:10<br><span class="text-gray-400">İlk 45 dk tamamlama oranı testi. Min 3 saat soğuma kuralı.</span></div>' .
+                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-cyan-400">🎵 TikTok FYP:</strong> 13:00 • 16:30 • 20:15 • 22:30<br><span class="text-gray-400">300 kişilik batch testi. Min 2 saat ara (0-view jail koruması).</span></div>' .
+                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-red-400">▶️ YouTube Shorts:</strong> 14:30 • 18:30 • 21:15<br><span class="text-gray-400">Shorts rafına 4-6 saatte girer. Günde max 2 paylaşım idealdir.</span></div>' .
+                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-blue-400">👥 Facebook Reels:</strong> 09:45 • 14:00 • 20:00<br><span class="text-gray-400">Ebeveyn etkileşimi. Günde 1-2 paylaşım sayfa kalitesini korur.</span></div>' .
+                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-gray-300">🐦 X (Twitter):</strong> 09:00 • 13:15 • 17:30 • 21:45<br><span class="text-gray-400">Gündem ve akşam sohbet saatleri. Min 90 dk aralık.</span></div>' .
+                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-red-500">📌 Pinterest:</strong> 15:30 • 20:30 • 22:45<br><span class="text-gray-400">Görsel arama motoru. Akşam pin kaydetme zirve yapar.</span></div>' .
+                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60 col-span-full"><strong class="text-blue-500">💼 LinkedIn:</strong> 08:30 • 12:30 • 17:00 (Sadece Hafta İçi)<br><span class="text-gray-400">İş saatleri akışı. Hafta sonu paylaşım yapılmaz, günde max 1 post.</span></div>' .
+                                        '</div>'
+                                    ))
+                                    ->columnSpanFull(),
+                            ])
+                            ->visible(fn (Get $get): bool => $get('schedule_type') === 'algorithmic_growth')
+                            ->columnSpanFull(),
 
                         // 1. Tek saat modu
                         TimePicker::make('time_of_day')
@@ -225,11 +278,19 @@ class ScheduleResource extends Resource
                 TextColumn::make('schedule_type')
                     ->label('Gün İçi Paylaşım Saatleri & Sıklık')
                     ->badge()
-                    ->color('info')
+                    ->color(fn (Schedule $record): string => $record->schedule_type === 'algorithmic_growth' ? 'success' : 'info')
                     ->wrap()
                     ->formatStateUsing(function (Schedule $record): string {
                         $times = $record->getDailyRunTimes();
                         $count = count($times);
+                        if ($record->schedule_type === 'algorithmic_growth') {
+                            $strategyLabel = match ($record->growth_strategy) {
+                                'conservative' => 'Hafif (1-2 Dalga)',
+                                'aggressive' => 'Agresif (4 Dalga)',
+                                default => 'Dengeli (3 Dalga)',
+                            };
+                            return "🚀 Keşfet ({$strategyLabel}) • " . implode(' • ', $times);
+                        }
                         if ($record->schedule_type === 'hourly') {
                             $start = $record->start_time ? substr($record->start_time, 0, 5) : '00:00';
                             $end = $record->end_time ? substr($record->end_time, 0, 5) : '23:00';

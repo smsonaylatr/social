@@ -27,9 +27,10 @@ class SchedulingService
         array $socialAccountIds,
         ?int $playlistId = null,
         ?int $scheduleId = null,
-        ?int $campaignId = null
+        ?int $campaignId = null,
+        bool $useAlgorithmicTiming = false
     ): ScheduledPost {
-        return DB::transaction(function () use ($video, $scheduledAt, $socialAccountIds, $playlistId, $scheduleId, $campaignId) {
+        return DB::transaction(function () use ($video, $scheduledAt, $socialAccountIds, $playlistId, $scheduleId, $campaignId, $useAlgorithmicTiming) {
             $scheduledPost = ScheduledPost::create([
                 'workspace_id' => $video->workspace_id,
                 'brand_id' => $video->brand_id,
@@ -45,11 +46,28 @@ class SchedulingService
                 ->with('platform')
                 ->get();
 
+            // Algoritmik Keşfet ve Anti-Spam zamanlama kontrolü
+            $schedule = $scheduleId ? \App\Models\Schedule::find($scheduleId) : null;
+            $isAlgo = ($schedule && $schedule->schedule_type === 'algorithmic_growth') || $useAlgorithmicTiming;
+
+            $staggeredTimes = [];
+            if ($isAlgo || ($schedule && $schedule->anti_spam_shield)) {
+                /** @var \App\Services\Scheduling\AlgorithmicGrowthSchedulerService $algoService */
+                $algoService = app(\App\Services\Scheduling\AlgorithmicGrowthSchedulerService::class);
+                $staggeredTimes = $algoService->generateStaggeredTargetTimes(
+                    accounts: $accounts,
+                    baseTime: $scheduledAt,
+                    enableJitter: $schedule ? $schedule->enable_smart_jitter : true,
+                    enableStagger: $schedule ? $schedule->enable_staggered_dispatch : true
+                );
+            }
+
             $aiService = app(AiContentProviderInterface::class);
             $hashtagService = app(HashtagOptimizationService::class);
 
             foreach ($accounts as $account) {
                 $platformCode = $account->platform->code->value;
+                $targetScheduledAt = $staggeredTimes[$account->id] ?? $scheduledAt;
 
                 // Ensure AI content generation exists for this platform and has non-empty caption
                 $aiContent = AiContentGeneration::where('video_id', $video->id)
@@ -108,6 +126,7 @@ class SchedulingService
                     'scheduled_post_id' => $scheduledPost->id,
                     'social_account_id' => $account->id,
                     'platform_code' => $platformCode,
+                    'scheduled_at' => $targetScheduledAt,
                     'correlation_id' => $correlationId,
                     'idempotency_key' => $idempotencyKey,
                     'status' => PublishStatus::SCHEDULED,
@@ -137,22 +156,39 @@ class SchedulingService
         }
 
         try {
-            $duePosts = ScheduledPost::where('status', PublishStatus::SCHEDULED)
-                ->where('scheduled_at', '<=', now())
-                ->with(['targets' => fn ($q) => $q->where('status', PublishStatus::SCHEDULED)])
+            $now = now();
+
+            // Zamanı gelmiş tüm platform hedeflerini tespit et (kademeli ve rastgele saatleri destekler)
+            $dueTargets = ScheduledPostTarget::where('status', PublishStatus::SCHEDULED)
+                ->where(function ($q) use ($now) {
+                    $q->where(function ($sub) use ($now) {
+                        $sub->whereNotNull('scheduled_at')
+                            ->where('scheduled_at', '<=', $now);
+                    })->orWhere(function ($sub) use ($now) {
+                        $sub->whereNull('scheduled_at')
+                            ->whereHas('scheduledPost', function ($postQ) use ($now) {
+                                $postQ->where('scheduled_at', '<=', $now);
+                            });
+                    });
+                })
+                ->whereHas('scheduledPost', function ($q) {
+                    $q->whereIn('status', [PublishStatus::SCHEDULED, PublishStatus::QUEUED, PublishStatus::PROCESSING]);
+                })
+                ->with('scheduledPost')
                 ->limit($batchSize)
                 ->get();
 
             $dispatchedCount = 0;
 
-            foreach ($duePosts as $post) {
-                $post->update(['status' => PublishStatus::QUEUED]);
+            foreach ($dueTargets as $target) {
+                $target->update(['status' => PublishStatus::QUEUED]);
 
-                foreach ($post->targets as $target) {
-                    $target->update(['status' => PublishStatus::QUEUED]);
-                    DispatchPlatformPostJob::dispatch($target->id);
-                    $dispatchedCount++;
+                if ($target->scheduledPost && $target->scheduledPost->status === PublishStatus::SCHEDULED) {
+                    $target->scheduledPost->update(['status' => PublishStatus::QUEUED]);
                 }
+
+                DispatchPlatformPostJob::dispatch($target->id);
+                $dispatchedCount++;
             }
 
             // Arka planda beklemesin, kuyruğu hemen işle ve sosyal medyaya yükle

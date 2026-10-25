@@ -16,6 +16,7 @@ class ScheduledPostTarget extends Model
         'scheduled_post_id',
         'social_account_id',
         'platform_code',
+        'scheduled_at',
         'correlation_id',
         'idempotency_key',
         'status',
@@ -33,6 +34,7 @@ class ScheduledPostTarget extends Model
 
     protected $casts = [
         'status' => PublishStatus::class,
+        'scheduled_at' => 'datetime',
         'hashtags' => 'array',
         'error_details' => 'array',
         'published_at' => 'datetime',
