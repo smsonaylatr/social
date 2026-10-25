@@ -276,7 +276,7 @@ class VideoResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('id', 'asc');
+            ->defaultSort('id', 'desc');
     }
 
     public static function getRelations(): array
