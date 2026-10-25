@@ -273,7 +273,7 @@ class AiStudio extends Page implements HasForms
         $service = app(AiContentProviderInterface::class);
 
         try {
-            $result = $service->generateForVideo($video);
+            $result = $service->generateForVideo($video, force: true);
             $this->isTestMode = $result->isTestMode;
             $this->modelUsed = $result->modelUsed;
 

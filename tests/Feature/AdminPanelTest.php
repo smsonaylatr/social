@@ -88,4 +88,20 @@ class AdminPanelTest extends TestCase
             ->assertSee('Sistem Sağlık ve Altyapı Durumu')
             ->assertSee('Veritabanı (MySQL)');
     }
+
+    public function test_audit_logs_are_recorded_and_accessible_in_admin(): void
+    {
+        $admin = User::where('email', 'admin@socialflow.ai')->first();
+        $this->actingAs($admin);
+
+        // Verify initial audit log created by seeder
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'system_init',
+        ]);
+
+        // Access Audit Logs page in Filament
+        $response = $this->get('/admin/audit-logs');
+        $response->assertStatus(200);
+        $response->assertSee('İşlem ve Denetim Kayıtları');
+    }
 }

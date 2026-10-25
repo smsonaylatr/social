@@ -89,6 +89,11 @@ class ListVideos extends ListRecords
                         }
                         $seq++;
                     }
+                    \App\Models\AuditLog::record('video_reanalyzed', null, [
+                        'count' => $count,
+                        'description' => "{$count} video başarıyla yeniden analiz edildi.",
+                    ]);
+
                     \Filament\Notifications\Notification::make()
                         ->title("{$count} video başarıyla yeniden analiz edildi.")
                         ->success()

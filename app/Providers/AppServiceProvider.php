@@ -53,5 +53,23 @@ class AppServiceProvider extends ServiceProvider
         \Filament\Tables\Table::configureUsing(function (\Filament\Tables\Table $table): void {
             $table->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContentCollapsible);
         });
+
+        // Denetim Günlüğü (Audit Log) Gözlemcileri ve Olayları
+        \App\Models\Video::observe(\App\Observers\VideoObserver::class);
+        \App\Models\ScheduledPost::observe(\App\Observers\ScheduledPostObserver::class);
+        \App\Models\SocialAccount::observe(\App\Observers\SocialAccountObserver::class);
+
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Events\Login::class,
+            function (\Illuminate\Auth\Events\Login $event) {
+                if ($event->user) {
+                    \App\Models\AuditLog::record('admin_login', $event->user, [
+                        'email' => $event->user->email,
+                        'name' => $event->user->name,
+                        'guard' => $event->guard ?? 'web',
+                    ]);
+                }
+            }
+        );
     }
 }

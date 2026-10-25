@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\SocialPlatformCode;
 use App\Enums\UserRole;
+use App\Models\AuditLog;
 use App\Models\Brand;
 use App\Models\Hashtag;
 use App\Models\HashtagGroup;
@@ -291,6 +292,15 @@ class InitialSystemSeeder extends Seeder
                     'is_active' => true,
                 ]
             );
+        }
+
+        // 8. Initial Audit Log
+        if (! AuditLog::where('action', 'system_init')->exists()) {
+            AuditLog::record('system_init', null, [
+                'message' => 'Sistem başlangıç veritabanı tohumlama işlemi tamamlandı.',
+                'brands_count' => Brand::count(),
+                'platforms_count' => SocialPlatform::count(),
+            ], null, $admin->id);
         }
     }
 }

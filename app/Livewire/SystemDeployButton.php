@@ -32,6 +32,10 @@ class SystemDeployButton extends Component
             $clear = Process::path($basePath)->run('php artisan optimize:clear');
             $outputLogs[] = "Cache: Temizlendi";
 
+            \App\Models\AuditLog::record('system_deploy', null, [
+                'details' => implode(' | ', $outputLogs),
+            ]);
+
             Notification::make()
                 ->title('✅ Sunucu Başarıyla Güncellendi!')
                 ->body(implode(' | ', $outputLogs))

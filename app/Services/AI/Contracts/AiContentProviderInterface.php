@@ -11,7 +11,7 @@ interface AiContentProviderInterface
     /**
      * Generate structured content for all 7 platforms for a given video
      */
-    public function generateForVideo(Video $video, ?Brand $brand = null): MultiPlatformContentGenerationResultDTO;
+    public function generateForVideo(Video $video, ?Brand $brand = null, bool $force = false): MultiPlatformContentGenerationResultDTO;
 
     /**
      * Generate content for a single specific platform

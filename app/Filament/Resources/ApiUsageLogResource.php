@@ -76,10 +76,13 @@ class ApiUsageLogResource extends Resource
                     ->visibleFrom('sm')
                     ->sortable(),
 
-                IconColumn::make('is_error')
-                    ->label('Hata')
-                    ->visibleFrom('md')
-                    ->boolean(),
+                TextColumn::make('is_error')
+                    ->label('Durum')
+                    ->badge()
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Hata' : 'Başarılı')
+                    ->color(fn (bool $state): string => $state ? 'danger' : 'success')
+                    ->tooltip(fn ($record) => $record->error_message)
+                    ->visibleFrom('md'),
 
                 TextColumn::make('created_at')
                     ->label('Zaman')

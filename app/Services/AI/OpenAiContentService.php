@@ -34,9 +34,47 @@ class OpenAiContentService implements AiContentProviderInterface
     /**
      * Generate content for all 7 platforms for a video
      */
-    public function generateForVideo(Video $video, ?Brand $brand = null): MultiPlatformContentGenerationResultDTO
+    public function generateForVideo(Video $video, ?Brand $brand = null, bool $force = false): MultiPlatformContentGenerationResultDTO
     {
         $brand = $brand ?: $video->brand ?: Brand::first();
+
+        // Database Caching: Eğer yeniden üretim zorlanmamışsa ve bu videonun içerikleri veritabanında zaten varsa, API çağırma (0 Maliyet)
+        if (! $force) {
+            $existingGenerations = AiContentGeneration::where('video_id', $video->id)->get();
+            $platformCodes = ['instagram', 'facebook', 'youtube', 'x', 'pinterest', 'tiktok', 'linkedin'];
+            $allExist = true;
+            $existingPlatforms = [];
+
+            foreach ($platformCodes as $code) {
+                $gen = $existingGenerations->firstWhere('platform_code', $code);
+                if (! $gen || empty(trim((string) $gen->caption))) {
+                    $allExist = false;
+                    break;
+                }
+                $existingPlatforms[$code] = new GeneratedPlatformContentDTO(
+                    platformCode: $code,
+                    title: $gen->title,
+                    hookSentence: $gen->hook_sentence,
+                    caption: $gen->caption,
+                    hashtags: is_array($gen->hashtags) ? $gen->hashtags : [],
+                    seoKeywords: is_array($gen->seo_keywords) ? $gen->seo_keywords : [],
+                    callToAction: $gen->call_to_action,
+                    suggestedProductUrl: $gen->suggested_product_url,
+                    isTestMode: $gen->ai_model === 'smart-library-engine'
+                );
+            }
+
+            if ($allExist && count($existingPlatforms) === count($platformCodes)) {
+                return new MultiPlatformContentGenerationResultDTO(
+                    platforms: $existingPlatforms,
+                    modelUsed: $existingGenerations->first()?->ai_model ?? $this->model,
+                    promptTokens: 0,
+                    completionTokens: 0,
+                    costUsd: 0,
+                    isTestMode: $existingGenerations->first()?->ai_model === 'smart-library-engine'
+                );
+            }
+        }
 
         if (! $this->isConfigured() || \Illuminate\Support\Facades\Cache::get('openai_quota_exhausted')) {
             return $this->generateTestModeContent($video, $brand);
@@ -58,6 +96,26 @@ class OpenAiContentService implements AiContentProviderInterface
      */
     public function generateForSinglePlatform(Video $video, string $platformCode, ?Brand $brand = null): array
     {
+        // 1. Önce veritabanında mevcut mu kontrol et (0 API çağrısı, 0 maliyet)
+        $existing = AiContentGeneration::where('video_id', $video->id)
+            ->where('platform_code', $platformCode)
+            ->whereNotNull('caption')
+            ->where('caption', '!=', '')
+            ->first();
+
+        if ($existing) {
+            return [
+                'title' => $existing->title,
+                'hook_sentence' => $existing->hook_sentence,
+                'caption' => $existing->caption,
+                'hashtags' => is_array($existing->hashtags) ? $existing->hashtags : [],
+                'seo_keywords' => is_array($existing->seo_keywords) ? $existing->seo_keywords : [],
+                'call_to_action' => $existing->call_to_action,
+                'suggested_product_url' => $existing->suggested_product_url,
+            ];
+        }
+
+        // 2. Yoksa video için üret
         $multiResult = $this->generateForVideo($video, $brand);
         $platformDto = $multiResult->getPlatform($platformCode);
 
@@ -90,6 +148,7 @@ class OpenAiContentService implements AiContentProviderInterface
                 ],
                 'response_format' => ['type' => 'json_object'],
                 'temperature' => 0.7,
+                'max_tokens' => 1500,
             ]);
 
         $durationMs = (microtime(true) - $startTime) * 1000;
@@ -400,144 +459,37 @@ class OpenAiContentService implements AiContentProviderInterface
         $forbidden = implode(', ', $brand?->forbidden_words ?? []);
 
         return <<<PROMPT
-Sen kıdemli bir Sosyal Medya İçerik Mimarı ve Sosyal SEO uzmanısın.
-Görevin, verilen video metadata ve marka profiline dayanarak aşağıdaki 7 sosyal medya platformu için tam uyumlu, özgün, yüksek dönüşüm sağlayan Türkçe içerik üretmektir:
-1. instagram (Reels odaklı, samimi kanca, emojiler, ilgili hashtagler. DİKKAT: Instagram'da ayrı başlık YOKTUR, title boş olmalıdır.)
-2. facebook (Fayda odaklı, aile ve ebeveyn dostu, video başlığı, bağlantı yönlendirmesi)
-3. youtube (Shorts ve arama odaklı SEO başlığı - ZORUNLU max 100 karakter, detaylı açıklama, etiketler)
-4. x (Twitter: DİKKAT: Başlık YOKTUR, 280 karakteri aşmayan dinamik tweet metni)
-5. pinterest (Görsel SEO Pin başlığı - ZORUNLU max 100 karakter, arama açıklaması, landing URL)
-6. tiktok (Trendlere uygun, genç kitle dili, izleyici etkileşimi, CTA. DİKKAT: Başlık YOKTUR, title boş olmalıdır.)
-7. linkedin (Marka ve perakende vizyonu, profesyonel ama samimi gönderi metni. DİKKAT: Gönderide ayrı başlık YOKTUR.)
+Sen uzman bir Sosyal Medya ve SEO Mimarı olarak verilen video ve marka profiline uygun, özgün, yüksek dönüşümlü Türkçe içerik üreten bir AI'sın.
+Marka: {$brandName} | Slogan: {$slogan} | Ton: {$brandTone} | Yasaklı Kelimeler: {$forbidden}
 
-Marka Bilgileri:
-- Marka: {$brandName}
-- Slogan: {$slogan}
-- Ton: {$brandTone}
-- Kesinlikle Yasaklı Kelimeler: {$forbidden}
+GENEL KURALLAR:
+1. Ürün: "Patenli Ayakkabı" / "Tekerlekli Spor Ayakkabı"dır (tek tıkla patene dönüşen ayakkabılar). Asla "1. Video", "klip", dosya adı gibi iç sistem etiketlerini metne yazma.
+2. SEO: Verilen SEO anahtar kelimelerini (seo_keywords) başlık, kanca veya maddelerde doğal olarak kullan.
+3. Emojiler: Sadece tüm cihazlarda sorunsuz görünen evrensel emojileri kullan (✨, 🔥, ⚡, 🎁, 👟, 🚚, 🛍️, 🌐, 📸, 👉, 🚀, ⭐). Windows'ta boş kutu (tofu) çıkan paten/kaykay emojilerini kullanma!
+4. Caption Şablonu: Tek parça düz metin KESİNLİKLE YASAKTIR. Satır satır, boşluklu (\n\n) ve maddeli görsel bloklardan oluşmalıdır:
+   - 1. satır: Vurucu Kanca (sonunda ✨, 🔥 veya 🎁 emojisi)
+   - \n\n
+   - 3-4 maddelik özellik listesi (Satır başlarında ✨, 👟, 🎁, 🚚 emojileriyle)
+   - \n\n
+   - CTA ve Yönlendirme (👉 Web sitesi ve @patenliayakkabilar)
+5. Platform Kuralları:
+   - instagram: Reels odaklı samimi kanca, title: null, 4-5 hashtag.
+   - facebook: title zorunlu, aile dostu açıklama, CTA ve ürün linki.
+   - youtube: title zorunlu (max 90 karakter, emojili SEO Shorts başlığı), açıklama, etiketler.
+   - x: title: null, max 240 karakter, satır satır maddeli tweet şablonu, 2-3 hashtag.
+   - pinterest: title zorunlu (max 90 karakter), görsel SEO açıklaması.
+   - tiktok: title: null, genç kitle dili, etkileşimli CTA, 4-5 hashtag.
+   - linkedin: title: null, marka ve perakende vizyonu odaklı metin.
 
-══════════════════════════════════════════════════════════════════════════════════
-KRİTİK İSİMLENDİRME VE METİN KURALLARI (HAYATİ ÖNEM TAŞIR!):
-══════════════════════════════════════════════════════════════════════════════════
-- Tanıtılan ürün kesinlikle "Patenli Ayakkabı" / "Tekerlekli Spor Ayakkabı"dır (tek tıkla patene dönüşen ayakkabılar).
-- KESİNLİKLE "1. Video", "2. Video", "4. Video", "video", "klip", dosya adı veya numara gibi iç sistem etiketlerini metne, kancaya veya açıklamalara YAZMA!
-- Cümlelerinde doğrudan üründen ve özelliklerinden bahset (Örn: "Patenli Ayakkabılar ile yürümek artık çok daha eğlenceli!", "Işıklı tekerlekli spor ayakkabı modelleri").
-
-══════════════════════════════════════════════════════════════════════════════════
-KRİTİK SEO ANAHTAR KELİME VE HAFIZA KURALI (HAYATİ ÖNEM TAŞIR!):
-══════════════════════════════════════════════════════════════════════════════════
-- Paylaşılan gönderiler "SEO Anahtar Kelime Hafızası"ndan mutlaka beslenmelidir.
-- Sana verilen SEO anahtar kelimelerini (seo_keywords) başlıkta (title), kanca cümlesinde (hook) veya açıklama metninin (caption) maddeleri içinde MUTLAKA doğal bir şekilde geçir ve kullan.
-- Çıktıdaki JSON'da "seo_keywords" alanında bu platform için kullandığın anahtar kelimeleri eksiksiz listele.
-
-══════════════════════════════════════════════════════════════════════════════════
-KRİTİK EMOJİ VE MASAÜSTÜ UYUMLULUK KURALLARI (HAYATİ ÖNEM TAŞIR!):
-══════════════════════════════════════════════════════════════════════════════════
-- Windows masaüstü Chrome/Edge/Firefox tarayıcılarında görünmeyen veya içi boş kare [ ] (tofu box) şeklinde bozuk çıkan paten ("\\u{1F6FC}"), buz pateni ("\\u{26F8}"), kaykay ("\\u{1F6F9}") emojilerini KESİNLİKLE KULLANMA!
-- SADECE tüm masaüstü ve mobil işletim sistemlerinde %100 sorunsuz ve net görünen evrensel emojileri kullan:
-  ✨, 🔥, ⚡, 🎁, 👟, 🚚, 🛍️, 🌐, 📸, 📲, 👉, 👇, 🛒, 🌟, 🚀, 💬, 💖, ⭐, 🎉, 💯
-
-══════════════════════════════════════════════════════════════════════════════════
-İÇERİK ŞABLON YAPISI (DÜZ PARAGRAF KESİNLİKLE YASAKTIR!):
-══════════════════════════════════════════════════════════════════════════════════
-Tüm platformlar için üretilen "caption" metinleri kesinlikle tek parça düz metin veya düz cümleler olamaz!
-Aşağıdaki gibi boş satırlarla (\n\n) ayrılmış, satır satır, maddeli ve emojili görsel şablon bloklarından oluşmak ZORUNDADIR:
-
-1) Vurucu Kanca (1. satır, sonu ✨, 🔥, ⚡ veya 🎁 emojisiyle biten merak uyandırıcı cümle)
-2) Boş satır (\n\n)
-3) 3-4 Maddelik Vurgu Listesi (Satır başlarında mutlaka ✨, 👟, 🎁, 🚚 emojileri olmalı):
-   ✨ Dikkat çeken modern patenli ayakkabı tasarımları
-   👟 Günlük ayakkabı konforu + paten eğlencesi bir arada
-   🎁 Çocuklar ve gençler için unutulmaz bir hediye
-   🚚 Hızlı kargo • Güvenli alışveriş
-4) Boş satır (\n\n)
-5) Eylem Çağrısı (CTA) & Yönlendirme:
-   👉 Modelleri ve fiyatları hemen keşfet:
-   🌐 patenliayakkabilar.com
-   📸 @patenliayakkabilar
-
-══════════════════════════════════════════════════════════════════════════════════
-X (TWITTER) İÇİN ZORUNLU MADDELİ ŞABLON (KESİNLİKLE DÜZ YAZI YAZMA!):
-══════════════════════════════════════════════════════════════════════════════════
-X için üretilen caption metni KESİNLİKLE düz 2 cümle olmayacaktır! X'te de yukarıdaki gibi satır satır, boşluklu ve maddeli şablon kullanılacaktır (Max 240 karakter):
-
-Örnek X Metni:
-Adım at, topuğa bas ve kaymaya başla! 🚀
-
-✨ Tek hareketle patene dönüşen ayakkabı
-👟 Çocuk & yetişkin patenli ayakkabılar
-🚚 Hızlı kargo • Güvenli alışveriş
-
-🛍️ Hemen sipariş verin:
-🌐 https://patenliayakkabilar.com
-
-* YouTube başlığı: Max 100 karakter, dikkat çekici, başında/sonunda masaüstü uyumlu emoji (örn: ✨ Onun Yeni Favori Ayakkabısı Olmaya Hazır! 🎁 #patenliayakkabı).
-
-Çıktıyı kesinlikle aşağıdaki JSON şemasına uygun tek bir JSON objesi olarak üret. Caption alanlarında satır sonları için mutlaka "\n\n" ve "\n" karakterlerini kullan:
+ÖNEMLİ: Gereksiz uzatmalardan kaçın, özlü, vurucu ve net yaz. Çıktıyı SADECE aşağıdaki JSON formatında tek bir JSON objesi olarak üret:
 {
-  "instagram": {
-    "title": null,
-    "hook_sentence": "Adım at, topuğa bas ve kaymaya başla! 🚀",
-    "caption": "Adım at, topuğa bas ve kaymaya başla! 🚀\n\nHem şık bir spor ayakkabı hem tek hareketle eğlenceli bir paten! Çocuk patenli ayakkabı modellerimizle hareket dolu bir deneyim.\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🎁 Doğum günü için harika bir hediye\n🚚 Hızlı kargo • Güvenli alışveriş\n\n👉 Detaylı bilgi ve sipariş için:\n🌐 https://patenliayakkabilar.com\n📸 @patenliayakkabilar",
-    "hashtags": ["PatenliAyakkabı", "PatenliAyakkabılar", "ÇocukPatenliAyakkabı", "TekerlekliAyakkabı", "RollerShoes"],
-    "seo_keywords": ["patenli ayakkabı", "çocuk patenli ayakkabı"],
-    "call_to_action": "Profildeki linkten hemen sipariş verin! 🛍️",
-    "suggested_product_url": "https://patenliayakkabilar.com"
-  },
-  "facebook": {
-    "title": "✨ Patenli Ayakkabı Modelleri | Patenli Ayakkabılar",
-    "hook_sentence": "Yürümek güzel ama kayarak ilerlemek çok daha eğlenceli! 🔥",
-    "caption": "Yürümek güzel ama kayarak ilerlemek çok daha eğlenceli! 🔥\n\nHem günlük kullanıma uygun spor ayakkabı hem de tek hareketle paten!\n\n✨ Dikkat çeken modern tasarımlar\n👟 Rahat spor ayakkabı konforu\n🚚 Hızlı kargo • Güvenli alışveriş\n\n👉 Detaylı bilgi ve sipariş için:\n🌐 https://patenliayakkabilar.com",
-    "hashtags": ["PatenliAyakkabı", "PatenliAyakkabılar", "TekerlekliAyakkabı"],
-    "seo_keywords": ["patenli ayakkabı"],
-    "call_to_action": "Detaylı bilgi ve sipariş için tıklayın",
-    "suggested_product_url": "https://patenliayakkabilar.com"
-  },
-  "youtube": {
-    "title": "✨ Tek Hareketle Patene Dönüşen Efsane Patenli Ayakkabı! 🎁 #patenliayakkabı",
-    "hook_sentence": "Tek hareketle patene dönüşen ayakkabıyı gördünüz mü? ⚡",
-    "caption": "Tek hareketle patene dönüşen ayakkabıyı gördünüz mü? ⚡\n\nGünlük spor ayakkabıyı tek hareketle patene dönüştürün!\n\n✨ Modern ve dayanıklı tasarım\n👟 Gizli tekerlek mekanizması\n🚚 Hızlı kargo • Güvenli alışveriş\n\n🌐 Resmi Web Sitesi: https://patenliayakkabilar.com\n📸 @patenliayakkabilar",
-    "hashtags": ["Shorts", "PatenliAyakkabı", "PatenliAyakkabılar", "TekerlekliAyakkabı"],
-    "seo_keywords": ["patenli ayakkabı"],
-    "call_to_action": "Kanalımıza abone olun ve yeni modelleri keşfedin!",
-    "suggested_product_url": "https://patenliayakkabilar.com"
-  },
-  "x": {
-    "title": null,
-    "hook_sentence": "Adım at, topuğa bas ve kaymaya başla! 🚀",
-    "caption": "Adım at, topuğa bas ve kaymaya başla! 🚀\n\n✨ Tek hareketle patene dönüşen ayakkabı\n👟 Çocuk & yetişkin patenli ayakkabılar\n🚚 Hızlı kargo • Güvenli alışveriş\n\n🛍️ Hemen sipariş verin:\n🌐 https://patenliayakkabilar.com",
-    "hashtags": ["PatenliAyakkabı", "TekerlekliAyakkabı"],
-    "seo_keywords": ["patenli ayakkabı"],
-    "call_to_action": "Hemen tıkla!",
-    "suggested_product_url": "https://patenliayakkabilar.com"
-  },
-  "pinterest": {
-    "title": "✨ Çocuk Patenli Ayakkabı Modelleri & Tekerlekli Spor Ayakkabı",
-    "hook_sentence": "Çocuklar için en havalı patenli ayakkabılar! 🎁",
-    "caption": "Çocuklar için en havalı patenli ayakkabılar! 🎁\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten bir arada\n🚚 Hızlı kargo • Güvenli alışveriş\n\n🌐 https://patenliayakkabilar.com",
-    "hashtags": ["PatenliAyakkabı", "ÇocukHediyesi"],
-    "seo_keywords": ["patenli ayakkabı"],
-    "call_to_action": "Ürünü İncele ve Satın Al",
-    "suggested_product_url": "https://patenliayakkabilar.com"
-  },
-  "tiktok": {
-    "title": null,
-    "hook_sentence": "Kaymayı sevenler buraya! 🔥",
-    "caption": "Kaymayı sevenler buraya! 🔥\n\n✨ Tek tıkla patene dönüşen ayakkabı\n👟 Çocuk ve yetişkin modelleri\n🚚 Hızlı teslimat\n\n🌐 https://patenliayakkabilar.com",
-    "hashtags": ["PatenliAyakkabı", "RollerShoes", "fyp", "kesfet"],
-    "seo_keywords": ["patenli ayakkabı"],
-    "call_to_action": "Takip etmeyi ve videoyu kaydetmeyi unutma!",
-    "suggested_product_url": "https://patenliayakkabilar.com"
-  },
-  "linkedin": {
-    "title": null,
-    "hook_sentence": "Yenilikçi ayakkabı ve mobilite konsepti: Patenli Ayakkabılar 🚀",
-    "caption": "Yenilikçi ayakkabı ve mobilite konsepti: Patenli Ayakkabılar 🚀\n\nŞehir hayatında eğlence ve fonksiyonelliği bir araya getiren tekerlekli spor ayakkabı teknolojisi.\n\n✨ İnovatif tasarım ve mühendislik\n👟 Günlük konfor ve gizli mekanizma\n🚚 Güvenli e-ticaret altyapısı\n\n🌐 https://patenliayakkabilar.com",
-    "hashtags": ["İnovasyon", "PatenliAyakkabı", "Girişimcilik", "E-Ticaret"],
-    "seo_keywords": ["patenli ayakkabı"],
-    "call_to_action": "Koleksiyonu inceleyin",
-    "suggested_product_url": "https://patenliayakkabilar.com"
-  }
+  "instagram": {"title": null, "hook_sentence": "kanca", "caption": "metin", "hashtags": ["PatenliAyakkabı", "TekerlekliAyakkabı"], "seo_keywords": ["patenli ayakkabı"], "call_to_action": "cta", "suggested_product_url": "url"},
+  "facebook": {"title": "başlık", "hook_sentence": "kanca", "caption": "metin", "hashtags": ["PatenliAyakkabı"], "seo_keywords": ["patenli ayakkabı"], "call_to_action": "cta", "suggested_product_url": "url"},
+  "youtube": {"title": "başlık", "hook_sentence": "kanca", "caption": "metin", "hashtags": ["Shorts", "PatenliAyakkabı"], "seo_keywords": ["patenli ayakkabı"], "call_to_action": "cta", "suggested_product_url": "url"},
+  "x": {"title": null, "hook_sentence": "kanca", "caption": "metin", "hashtags": ["PatenliAyakkabı"], "seo_keywords": ["patenli ayakkabı"], "call_to_action": "cta", "suggested_product_url": "url"},
+  "pinterest": {"title": "başlık", "hook_sentence": "kanca", "caption": "metin", "hashtags": ["PatenliAyakkabı"], "seo_keywords": ["patenli ayakkabı"], "call_to_action": "cta", "suggested_product_url": "url"},
+  "tiktok": {"title": null, "hook_sentence": "kanca", "caption": "metin", "hashtags": ["PatenliAyakkabı", "fyp"], "seo_keywords": ["patenli ayakkabı"], "call_to_action": "cta", "suggested_product_url": "url"},
+  "linkedin": {"title": null, "hook_sentence": "kanca", "caption": "metin", "hashtags": ["PatenliAyakkabı"], "seo_keywords": ["patenli ayakkabı"], "call_to_action": "cta", "suggested_product_url": "url"}
 }
 PROMPT;
     }
