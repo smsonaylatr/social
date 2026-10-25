@@ -17,8 +17,15 @@ class ManageSchedules extends ManageRecords
         try {
             \App\Models\Schedule::all()->each(function (\App\Models\Schedule $s) {
                 $clean = ScheduleResource::formatPlatformName($s->name);
+                $update = [];
                 if ($clean !== $s->name) {
-                    $s->update(['name' => $clean]);
+                    $update['name'] = $clean;
+                }
+                if ($s->playlist_id !== null) {
+                    $update['playlist_id'] = null;
+                }
+                if (!empty($update)) {
+                    $s->update($update);
                 }
             });
         } catch (\Throwable) {}

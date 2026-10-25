@@ -42,20 +42,14 @@ class ScheduleResource extends Resource
     {
         return $form
             ->schema([
-                Section::make('Zamanlayıcı ve Video Kaynağı')
+                Section::make('Zamanlayıcı ve Otomasyon Ayarları')
                     ->schema([
                         TextInput::make('name')
                             ->label('Otomasyon Adı')
-                            ->placeholder('Örn: Patenli Ayakkabılar Gün İçi Çoklu Paylaşım')
+                            ->placeholder('Örn: Instagram Reels')
                             ->required()
-                            ->maxLength(255),
-
-                        Select::make('playlist_id')
-                            ->label('Video Kaynağı')
-                            ->options(Playlist::pluck('name', 'id'))
-                            ->placeholder('Tüm Video Havuzundan Otomatik Sırayla Seç (1 → 2 → 3)')
-                            ->helperText('Boş bırakırsanız Video Havuzuna yüklediğiniz videolar sırayla (1 → 2 → 3) otomatik paylaşılır.')
-                            ->searchable(),
+                            ->maxLength(255)
+                            ->columnSpanFull(),
 
                         Select::make('schedule_type')
                             ->label('Günlük Paylaşım Düzeni / Sıklığı')
@@ -337,21 +331,11 @@ class ScheduleResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['playlist']))
             ->columns([
                 ViewColumn::make('name')
                     ->label('Platform')
                     ->view('filament.columns.platform-badge')
                     ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('playlist.name')
-                    ->label('Kaynak')
-                    ->default('Tüm Havuz')
-                    ->badge()
-                    ->color('gray')
-                    ->size(TextColumnSize::ExtraSmall)
-                    ->visibleFrom('sm')
                     ->sortable(),
 
                 TextColumn::make('schedule_type')

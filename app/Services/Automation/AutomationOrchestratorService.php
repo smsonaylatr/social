@@ -48,26 +48,20 @@ class AutomationOrchestratorService
             return null;
         }
 
-        // 1. Pick the next eligible video: from playlist if available, otherwise directly from video pool in sequence
-        $playlist = $schedule->playlist;
-        if ($playlist) {
-            $video = $this->playlistEngine->getNextVideo($playlist);
-        } else {
-            // Son planlanmış veya yayınlanmış gönderideki video ID'si (Örn: En son 20. video paylaşıldıysa)
-            $lastScheduledVideoId = ScheduledPost::whereNotNull('video_id')->orderBy('id', 'desc')->value('video_id') ?? 0;
+        // 1. Pick the next eligible video: Sabit Kural — Her zaman ana Video Havuzundan sırayla (1 -> 2 -> ... -> 20 -> 21) seçilir
+        $lastScheduledVideoId = ScheduledPost::whereNotNull('video_id')->orderBy('id', 'desc')->value('video_id') ?? 0;
 
-            // Kural: Son paylaşılan 20 ise 21'den devam et, tüm havuz bitene kadar asla başa dönme!
-            $video = Video::whereIn('status', ['ready', 'active', 'published'])
-                ->where(function ($q) {
-                    $q->where('is_reusable', true)->orWhereNull('is_reusable');
-                })
-                ->orderByRaw('id > ? DESC, id ASC', [$lastScheduledVideoId])
-                ->first();
+        // Kural: Son paylaşılan video ID'sinden sonrakini al (20 ise 21). Tüm havuz bitene kadar asla başa dönme!
+        $video = Video::whereIn('status', ['ready', 'active', 'published'])
+            ->where(function ($q) {
+                $q->where('is_reusable', true)->orWhereNull('is_reusable');
+            })
+            ->orderByRaw('id > ? DESC, id ASC', [$lastScheduledVideoId])
+            ->first();
 
-            // Fallback: havuzdaki sıralı video
-            if (! $video) {
-                $video = Video::orderByRaw('id > ? DESC, id ASC', [$lastScheduledVideoId])->first();
-            }
+        // Fallback: havuzdaki sıralı video
+        if (! $video) {
+            $video = Video::orderByRaw('id > ? DESC, id ASC', [$lastScheduledVideoId])->first();
         }
 
         if (! $video) {
@@ -84,7 +78,7 @@ class AutomationOrchestratorService
             video: $video,
             scheduledAt: now(),
             socialAccountIds: $targetAccountIds,
-            playlistId: $playlist?->id,
+            playlistId: null,
             scheduleId: $schedule->id,
             campaignId: $schedule->campaign_id
         );
