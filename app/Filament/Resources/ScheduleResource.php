@@ -362,12 +362,9 @@ class ScheduleResource extends Resource
                     ->size(TextColumnSize::ExtraSmall)
                     ->formatStateUsing(function (Schedule $record): string {
                         if ($record->schedule_type === 'algorithmic_growth') {
-                            $strategyLabel = match ($record->growth_strategy) {
-                                'conservative' => 'Hafif (2 Dalga)',
-                                'balanced' => 'Dengeli (3 Dalga)',
-                                default => 'Keşfet (5 Dalga)',
-                            };
-                            return "🚀 {$strategyLabel}";
+                            $times = $record->getDailyRunTimes();
+                            $waveCount = count($times);
+                            return "🚀 Keşfet ({$waveCount} Dalga)";
                         }
                         if ($record->schedule_type === 'hourly') {
                             return '🕐 Saat Başı';

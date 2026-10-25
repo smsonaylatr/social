@@ -25,7 +25,7 @@ class AlgorithmicGrowthSchedulerService
                 platformName: 'Instagram Reels',
                 icon: 'heroicon-o-camera',
                 peakSlotsWeekday: ['09:30', '12:45', '16:15', '19:15', '22:00'],
-                peakSlotsWeekend: ['10:30', '13:15', '16:30', '19:45', '22:30'],
+                peakSlotsWeekend: ['10:15', '13:00', '16:30', '19:45', '22:15'],
                 minCooldownMinutes: 90, // 1.5 saat
                 maxRecommendedDailyPosts: 5,
                 staggerPriority: 1,
@@ -40,8 +40,8 @@ class AlgorithmicGrowthSchedulerService
                 platformCode: 'tiktok',
                 platformName: 'TikTok FYP',
                 icon: 'heroicon-o-musical-note',
-                peakSlotsWeekday: ['09:30', '12:45', '16:15', '19:15', '22:00'],
-                peakSlotsWeekend: ['10:30', '13:15', '16:30', '19:45', '22:30'],
+                peakSlotsWeekday: ['10:00', '13:00', '16:45', '20:00', '22:30'],
+                peakSlotsWeekend: ['10:45', '13:30', '17:00', '20:15', '22:45'],
                 minCooldownMinutes: 90, // 1.5 saat
                 maxRecommendedDailyPosts: 5,
                 staggerPriority: 2,
@@ -56,8 +56,8 @@ class AlgorithmicGrowthSchedulerService
                 platformCode: 'youtube',
                 platformName: 'YouTube Shorts',
                 icon: 'heroicon-o-play-circle',
-                peakSlotsWeekday: ['09:30', '12:45', '16:15', '19:15', '22:00'],
-                peakSlotsWeekend: ['10:30', '13:15', '16:30', '19:45', '22:30'],
+                peakSlotsWeekday: ['09:45', '12:30', '16:00', '19:00', '21:45'],
+                peakSlotsWeekend: ['10:00', '12:45', '15:45', '18:45', '21:30'],
                 minCooldownMinutes: 90, // 1.5 saat
                 maxRecommendedDailyPosts: 5,
                 staggerPriority: 3,
@@ -72,8 +72,8 @@ class AlgorithmicGrowthSchedulerService
                 platformCode: 'facebook',
                 platformName: 'Facebook Reels & Akış',
                 icon: 'heroicon-o-globe-alt',
-                peakSlotsWeekday: ['09:30', '12:45', '16:15', '19:15', '22:00'],
-                peakSlotsWeekend: ['10:30', '13:15', '16:30', '19:45', '22:30'],
+                peakSlotsWeekday: ['10:15', '13:15', '16:30', '19:30', '22:00'],
+                peakSlotsWeekend: ['11:00', '13:45', '16:45', '20:00', '22:15'],
                 minCooldownMinutes: 90, // 1.5 saat
                 maxRecommendedDailyPosts: 5,
                 staggerPriority: 4,
@@ -88,8 +88,8 @@ class AlgorithmicGrowthSchedulerService
                 platformCode: 'x',
                 platformName: 'X (Twitter)',
                 icon: 'heroicon-o-chat-bubble-bottom-center-text',
-                peakSlotsWeekday: ['09:30', '12:45', '16:15', '19:15', '22:00'],
-                peakSlotsWeekend: ['10:30', '13:15', '16:30', '19:45', '22:30'],
+                peakSlotsWeekday: ['09:15', '12:15', '15:45', '18:45', '21:30'],
+                peakSlotsWeekend: ['09:45', '12:30', '16:00', '19:15', '22:00'],
                 minCooldownMinutes: 60, // 1 saat
                 maxRecommendedDailyPosts: 5,
                 staggerPriority: 5,
@@ -104,8 +104,8 @@ class AlgorithmicGrowthSchedulerService
                 platformCode: 'pinterest',
                 platformName: 'Pinterest Pins',
                 icon: 'heroicon-o-bookmark',
-                peakSlotsWeekday: ['12:45', '16:15', '19:15', '22:00'],
-                peakSlotsWeekend: ['13:00', '16:30', '19:30', '22:15'],
+                peakSlotsWeekday: ['13:00', '16:30', '19:30', '22:00'],
+                peakSlotsWeekend: ['13:30', '17:00', '20:00', '22:30'],
                 minCooldownMinutes: 90, // 1.5 saat
                 maxRecommendedDailyPosts: 4,
                 staggerPriority: 6,

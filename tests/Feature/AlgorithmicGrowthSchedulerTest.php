@@ -349,4 +349,30 @@ class AlgorithmicGrowthSchedulerTest extends TestCase
         $schedules = Schedule::where('schedule_type', 'algorithmic_growth')->get();
         $this->assertGreaterThanOrEqual(3, $schedules->count());
     }
+
+    public function test_each_platform_schedule_has_distinct_peak_hours(): void
+    {
+        $igSchedule = new Schedule(['schedule_type' => 'algorithmic_growth', 'name' => 'Instagram Reels']);
+        $ytSchedule = new Schedule(['schedule_type' => 'algorithmic_growth', 'name' => 'YouTube Shorts']);
+        $fbSchedule = new Schedule(['schedule_type' => 'algorithmic_growth', 'name' => 'Facebook']);
+        $xSchedule = new Schedule(['schedule_type' => 'algorithmic_growth', 'name' => 'X (Twitter)']);
+        $liSchedule = new Schedule(['schedule_type' => 'algorithmic_growth', 'name' => 'LinkedIn']);
+
+        $igTimes = $igSchedule->getDailyRunTimes();
+        $ytTimes = $ytSchedule->getDailyRunTimes();
+        $fbTimes = $fbSchedule->getDailyRunTimes();
+        $xTimes = $xSchedule->getDailyRunTimes();
+        $liTimes = $liSchedule->getDailyRunTimes();
+
+        $this->assertCount(5, $igTimes);
+        $this->assertCount(5, $ytTimes);
+        $this->assertCount(5, $fbTimes);
+        $this->assertCount(5, $xTimes);
+        $this->assertCount(4, $liTimes, 'LinkedIn should have 4 peak wave slots');
+
+        // Saatler birbirinin kopyası olmamalı, her platformun kendi saatleri olmalı!
+        $this->assertNotEquals($igTimes, $ytTimes, 'Instagram and YouTube should have different peak times');
+        $this->assertNotEquals($ytTimes, $fbTimes, 'YouTube and Facebook should have different peak times');
+        $this->assertNotEquals($xTimes, $liTimes, 'X and LinkedIn should have different peak times');
+    }
 }

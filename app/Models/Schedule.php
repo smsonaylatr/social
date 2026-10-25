@@ -70,6 +70,40 @@ class Schedule extends Model
 
             /** @var \App\Services\Scheduling\AlgorithmicGrowthSchedulerService $algoService */
             $algoService = app(\App\Services\Scheduling\AlgorithmicGrowthSchedulerService::class);
+
+            // 1. Hedeflenen hesap tek bir platforma aitse o platformun algoritma zirvelerini döndür
+            $targetAccountIds = $this->target_social_account_ids ?: [];
+            $platformCode = null;
+            if (count($targetAccountIds) === 1) {
+                $account = \App\Models\SocialAccount::with('platform')->find($targetAccountIds[0]);
+                if ($account) {
+                    $platformCode = strtolower($account->platform?->code?->value ?? (string) $account->platform?->code ?? (string) $account->platform_id);
+                }
+            }
+
+            // 2. Kural adından tespit (örn: "Instagram Reels", "YouTube Shorts", "Facebook", "X (Twitter)", "LinkedIn")
+            if (empty($platformCode) && ! empty($this->name)) {
+                $nameLower = mb_strtolower($this->name);
+                $platformCode = match (true) {
+                    str_contains($nameLower, 'instagram') => 'instagram',
+                    str_contains($nameLower, 'tiktok') => 'tiktok',
+                    str_contains($nameLower, 'youtube') => 'youtube',
+                    str_contains($nameLower, 'facebook') => 'facebook',
+                    str_contains($nameLower, 'linkedin') => 'linkedin',
+                    str_contains($nameLower, 'pinterest') => 'pinterest',
+                    str_contains($nameLower, 'twitter') || preg_match('/\bx\b/u', $nameLower) => 'x',
+                    default => null,
+                };
+            }
+
+            if (! empty($platformCode)) {
+                $profile = $algoService->getProfile($platformCode);
+                $slots = now()->isWeekend() ? $profile->peakSlotsWeekend : $profile->peakSlotsWeekday;
+                if (! empty($slots)) {
+                    return $this->memoizedRunTimes = $slots;
+                }
+            }
+
             return $this->memoizedRunTimes = $algoService->getAlgorithmicRunTimes(
                 $this->growth_strategy ?: 'max_capacity'
             );
