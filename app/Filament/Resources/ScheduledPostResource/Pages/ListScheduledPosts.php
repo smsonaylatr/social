@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\ScheduledPostResource\Pages;
 
+use App\Enums\PublishStatus;
 use App\Filament\Resources\ScheduledPostResource;
 use App\Models\Playlist;
 use App\Models\Schedule;
+use App\Models\ScheduledPost;
 use App\Models\SocialAccount;
 use App\Models\Video;
 use App\Services\Automation\AutomationOrchestratorService;
@@ -19,11 +21,46 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Get;
 use Filament\Notifications\Notification;
+use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Database\Eloquent\Builder;
 
 class ListScheduledPosts extends ListRecords
 {
     protected static string $resource = ScheduledPostResource::class;
+
+    public function getTabs(): array
+    {
+        return [
+            'queue' => Tab::make('Kuyrukta Bekleyenler')
+                ->icon('heroicon-o-clock')
+                ->badge(ScheduledPost::whereIn('status', [PublishStatus::SCHEDULED, PublishStatus::QUEUED])->count())
+                ->badgeColor('warning')
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('status', [PublishStatus::SCHEDULED, PublishStatus::QUEUED])->orderBy('scheduled_at', 'asc')),
+
+            'published' => Tab::make('Yayınlananlar')
+                ->icon('heroicon-o-check-circle')
+                ->badge(ScheduledPost::where('status', PublishStatus::PUBLISHED)->count())
+                ->badgeColor('success')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', PublishStatus::PUBLISHED)->orderBy('scheduled_at', 'desc')),
+
+            'failed' => Tab::make('Başarısız / Kısmi')
+                ->icon('heroicon-o-exclamation-triangle')
+                ->badge(ScheduledPost::whereIn('status', [PublishStatus::FAILED, PublishStatus::PARTIALLY_PUBLISHED])->count())
+                ->badgeColor('danger')
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('status', [PublishStatus::FAILED, PublishStatus::PARTIALLY_PUBLISHED])->orderBy('scheduled_at', 'desc')),
+
+            'all' => Tab::make('Tümü')
+                ->icon('heroicon-o-bars-3')
+                ->badge(ScheduledPost::count())
+                ->modifyQueryUsing(fn (Builder $query) => $query->orderBy('scheduled_at', 'asc')),
+        ];
+    }
+
+    public function getDefaultActiveTab(): string | int | null
+    {
+        return 'queue';
+    }
 
     protected function getHeaderActions(): array
     {
@@ -100,7 +137,8 @@ class ListScheduledPosts extends ListRecords
                             Select::make('order_mode')
                                 ->label('Sıralama ve Kaynak Modu')
                                 ->options([
-                                    'sequential' => 'Sırayla Paylaş (Video 1 → 2 → 3 Yükleme Sırası)',
+                                    'sequential' => 'Sırayla Paylaş (Kaldığı Yerden: Son Paylaşılandan Sonraki)',
+                                    'id_asc' => '1. Videodan Başla (Video 1 → 2 → 3... Tüm Havuz)',
                                     'least_used' => 'Döngüsel Sırayla (Hiç Yayınlanmayanlar Önce, Sonra En Eski Yayınlananlar)',
                                     'newest_first' => 'En Yeni Videodan Eskiye Doğru Sırayla',
                                     'shuffle' => 'Karışık (Rastgele) Sırayla',

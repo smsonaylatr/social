@@ -117,6 +117,8 @@ class AutomationOrchestratorService
             if ($orderMode === 'sequential') {
                 $lastScheduledVideoId = ScheduledPost::whereNotNull('video_id')->orderBy('id', 'desc')->value('video_id') ?? 0;
                 $query->orderByRaw('id > ? DESC, id ASC', [$lastScheduledVideoId]);
+            } elseif ($orderMode === 'id_asc') {
+                $query->orderBy('id', 'asc');
             } else {
                 $query = match ($orderMode) {
                     'newest_first' => $query->orderBy('id', 'desc'),
@@ -182,6 +184,7 @@ class AutomationOrchestratorService
             PublishStatus::SCHEDULED,
             PublishStatus::QUEUED
         ])
+        ->orderBy('scheduled_at', 'asc')
         ->orderBy('id', 'asc')
         ->get();
 
