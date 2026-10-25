@@ -14,7 +14,9 @@ class ManageKeywordLibraries extends ManageRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('Yeni Anahtar Kelime Ekle')
+                ->label('Kelime Ekle')
+                ->icon('heroicon-o-plus')
+                ->size('sm')
                 ->mutateFormDataUsing(function (array $data) {
                     $data['workspace_id'] = 1;
                     return $data;

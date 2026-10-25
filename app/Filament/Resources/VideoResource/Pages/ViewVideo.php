@@ -36,6 +36,7 @@ class ViewVideo extends ViewRecord
             Actions\Action::make('reanalyze')
                 ->label('Tekrar Analiz Et')
                 ->icon('heroicon-o-arrow-path')
+                ->size('sm')
                 ->action(function () {
                     /** @var Video $video */
                     $video = $this->getRecord();

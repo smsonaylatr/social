@@ -14,7 +14,9 @@ class ListPlaylists extends ListRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('Yeni Oynatma Listesi'),
+                ->label('Yeni Liste')
+                ->icon('heroicon-o-plus')
+                ->size('sm'),
         ];
     }
 }

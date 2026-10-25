@@ -25,6 +25,7 @@ class ManageHashtags extends ManageRecords
                 ->label('Tekil Ekle')
                 ->icon('heroicon-o-plus')
                 ->color('primary')
+                ->size('sm')
                 ->modalWidth(\Filament\Support\Enums\MaxWidth::TwoExtraLarge)
                 ->mutateFormDataUsing(function (array $data) {
                     $data['workspace_id'] = 1;
@@ -36,6 +37,7 @@ class ManageHashtags extends ManageRecords
                 ->label('AI Trend Keşfet')
                 ->icon('heroicon-o-sparkles')
                 ->color('info')
+                ->size('sm')
                 ->modalWidth(\Filament\Support\Enums\MaxWidth::TwoExtraLarge)
                 ->modalHeading('Yapay Zeka ile Platform Trendlerini Keşfet')
                 ->modalDescription('Seçtiğiniz platformun o anki en güncel algoritmasında viral olan revaçtaki Türkçe ve global hashtagleri AI otomatik üretir ve havuza ekler.')
@@ -107,6 +109,7 @@ class ManageHashtags extends ManageRecords
                 ->label('Toplu Ekle')
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('warning')
+                ->size('sm')
                 ->modalWidth(\Filament\Support\Enums\MaxWidth::TwoExtraLarge)
                 ->modalHeading('Platforma Özel Revaçtaki Hashtagleri Toplu Ekle')
                 ->modalDescription('Virgülle, boşlukla veya alt alta onlarca hashtag yapıştırabilirsiniz. # işaretleri ve mükerrerler otomatik temizlenir.')

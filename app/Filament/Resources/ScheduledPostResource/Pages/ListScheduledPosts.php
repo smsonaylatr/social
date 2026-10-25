@@ -29,9 +29,11 @@ class ListScheduledPosts extends ListRecords
     {
         return [
             Actions\Action::make('reschedule_algorithmic')
-                ->label('🚀 Kuyruğu Keşfet Dalgalarına Yeniden Dağıt')
+                ->label('Keşfete Dağıt')
                 ->icon('heroicon-o-sparkles')
                 ->color('primary')
+                ->size('sm')
+                ->tooltip('Kuyruktaki bekleyen tüm videoları günün en çok izlenen 5 Zirve Dalgasına yeniden dağıtır.')
                 ->requiresConfirmation()
                 ->modalHeading('Tüm Bekleyen Kuyruğu Keşfet Dalgalarına Yeniden Dağıt')
                 ->modalDescription('Kuyruktaki bekleyen tüm videoları 5 dakikalık sıkışık aralıklardan çıkarıp, her platformun en çok izlendiği 5 Zirve Dalgasına (09:30 • 12:45 • 16:15 • 19:15 • 22:00) ve platform kotalarına uygun biçimde yeniden planlar.')
@@ -56,9 +58,11 @@ class ListScheduledPosts extends ListRecords
                 }),
 
             Actions\Action::make('auto_sequential_queue')
-                ->label('Otomatik Sırayla Kuyruk Oluştur')
+                ->label('Sıralı Kuyruk')
                 ->icon('heroicon-o-queue-list')
                 ->color('success')
+                ->size('sm')
+                ->tooltip('Video havuzundaki videoları otomatik sırayla paylaşım takvimine ve kuyruğa ekler.')
                 ->modalHeading('Videoları Otomatik Sırayla Kuyruğa & Takvime Diz')
                 ->modalDescription('Video havuzundaki videolarınızı tek tek seçmek yerine belirlediğiniz sırayla ve zaman aralığıyla otomatik olarak paylaşım kuyruğuna dizer.')
                 ->modalSubmitActionLabel('Sıralı Kuyruğu Başlat')
@@ -179,9 +183,11 @@ class ListScheduledPosts extends ListRecords
                 }),
 
             Actions\Action::make('publish_next_in_sequence')
-                ->label('Sıradaki Videoyu Şimdi Paylaş')
+                ->label('Sıradakini Paylaş')
                 ->icon('heroicon-o-bolt')
                 ->color('warning')
+                ->size('sm')
+                ->tooltip('Video havuzunda sırası gelen bir sonraki videoyu seçip anında gönderir.')
                 ->modalHeading('Sıradaki Videoyu Anında Paylaş')
                 ->modalDescription('Video havuzunda sırası gelen (henüz yayınlanmamış veya en eski yayınlanmış) bir sonraki videoyu otomatik seçip seçtiğiniz hesaplara şimdi gönderir.')
                 ->form([
@@ -225,8 +231,9 @@ class ListScheduledPosts extends ListRecords
                 }),
 
             Actions\CreateAction::make()
-                ->label('Tekil Gönderi Planla')
-                ->icon('heroicon-o-plus'),
+                ->label('Tekil Planla')
+                ->icon('heroicon-o-plus')
+                ->size('sm'),
         ];
     }
 }

@@ -54,11 +54,13 @@ class ListVideos extends ListRecords
     {
         return [
             Actions\Action::make('reanalyze_all')
-                ->label('Yeniden Analiz Et & Onar')
+                ->label('Videoları Onar')
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')
+                ->size('sm')
+                ->tooltip('Kayıtlı tüm videoların süre, çözünürlük, format ve önizleme görsellerini baştan tarar ve onarır.')
                 ->requiresConfirmation()
-                ->modalHeading('Tüm Videoları Yeniden Analiz Et')
+                ->modalHeading('Tüm Videoları Yeniden Analiz Et & Onar')
                 ->modalDescription('Kayıtlı tüm videoların süre, çözünürlük, format ve önizleme görselleri baştan taranacaktır.')
                 ->action(function () {
                     $service = app(\App\Services\Media\VideoProcessingService::class);
@@ -108,7 +110,8 @@ class ListVideos extends ListRecords
 
             Actions\CreateAction::make()
                 ->label('Video Yükle')
-                ->icon('heroicon-o-arrow-up-tray'),
+                ->icon('heroicon-o-arrow-up-tray')
+                ->size('sm'),
         ];
     }
 }

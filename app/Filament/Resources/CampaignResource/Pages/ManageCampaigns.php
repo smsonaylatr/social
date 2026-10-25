@@ -14,7 +14,9 @@ class ManageCampaigns extends ManageRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('Yeni Kampanya Oluştur')
+                ->label('Yeni Kampanya')
+                ->icon('heroicon-o-plus')
+                ->size('sm')
                 ->mutateFormDataUsing(function (array $data) {
                     $data['workspace_id'] = 1;
                     return $data;

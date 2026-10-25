@@ -14,7 +14,9 @@ class ManageVideoCategories extends ManageRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('Yeni Kategori'),
+                ->label('Yeni Kategori')
+                ->icon('heroicon-o-plus')
+                ->size('sm'),
         ];
     }
 }

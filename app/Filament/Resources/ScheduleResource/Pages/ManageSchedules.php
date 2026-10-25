@@ -19,9 +19,10 @@ class ManageSchedules extends ManageRecords
     {
         return [
             Actions\Action::make('trigger_cron_now')
-                ->label('Otomasyonu Şimdi Kontrol Et ve Çalıştır')
+                ->label('Şimdi Çalıştır')
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')
+                ->size('sm')
                 ->tooltip('Zamanı gelen tüm kuralları ve bekleyen kuyruk gönderilerini anında tetikler.')
                 ->action(function () {
                     $orchestrator = app(\App\Services\Automation\AutomationOrchestratorService::class);
@@ -46,7 +47,9 @@ class ManageSchedules extends ManageRecords
                 }),
 
             Actions\CreateAction::make()
-                ->label('Yeni Otomasyon Kuralı Oluştur')
+                ->label('Yeni Kural')
+                ->icon('heroicon-o-plus')
+                ->size('sm')
                 ->modalWidth(\Filament\Support\Enums\MaxWidth::ThreeExtraLarge)
                 ->mutateFormDataUsing(function (array $data) {
                     $data['workspace_id'] = 1;

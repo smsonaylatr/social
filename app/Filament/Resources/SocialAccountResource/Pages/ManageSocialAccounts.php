@@ -16,7 +16,9 @@ class ManageSocialAccounts extends ManageRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('Yeni Sosyal Hesap Bağla')
+                ->label('Yeni Hesap Bağla')
+                ->icon('heroicon-o-plus')
+                ->size('sm')
                 ->using(function (array $data): Model {
                     $accessToken = $data['access_token'] ?? null;
                     $refreshToken = $data['refresh_token'] ?? null;
