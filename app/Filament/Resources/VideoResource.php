@@ -78,7 +78,7 @@ class VideoResource extends Resource
 
         return $table
             ->modifyQueryUsing(fn ($query) => $query->with(['brand', 'category']))
-            ->defaultSort('id', 'asc')
+            ->defaultSort('id', 'desc')
             ->recordAction('play')
             ->recordUrl(null)
             ->columns(
