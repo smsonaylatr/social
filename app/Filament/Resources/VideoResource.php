@@ -21,6 +21,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Storage;
 
@@ -98,7 +99,21 @@ class VideoResource extends Resource
                     ->label('Video Başlığı')
                     ->weight('bold')
                     ->searchable()
-                    ->sortable()
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        $dir = strtolower($direction) === 'desc' ? 'desc' : 'asc';
+                        $driver = $query->getConnection()->getDriverName();
+
+                        if ($driver === 'mysql' || $driver === 'mariadb') {
+                            return $query
+                                ->orderByRaw("CASE WHEN title REGEXP '^[0-9]' THEN 0 WHEN title REGEXP '[0-9]' THEN 1 ELSE 2 END ASC")
+                                ->orderByRaw("CAST(REGEXP_SUBSTR(title, '[0-9]+') AS UNSIGNED) {$dir}")
+                                ->orderBy('title', $dir);
+                        }
+
+                        return $query
+                            ->orderByRaw("CAST(title AS UNSIGNED) {$dir}")
+                            ->orderBy('title', $dir);
+                    })
                     ->wrap()
                     ->description(function (Video $record): ?string {
                         $parts = [];
@@ -260,7 +275,8 @@ class VideoResource extends Resource
 
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->defaultSort('id', 'asc');
     }
 
     public static function getRelations(): array
