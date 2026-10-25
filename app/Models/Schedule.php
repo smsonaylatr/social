@@ -21,6 +21,7 @@ class Schedule extends Model
         'time_of_day',
         'posting_times',
         'interval_hours',
+        'interval_minutes',
         'start_time',
         'end_time',
         'days_of_week',
@@ -37,6 +38,7 @@ class Schedule extends Model
         'posting_times' => 'array',
         'target_social_account_ids' => 'array',
         'interval_hours' => 'integer',
+        'interval_minutes' => 'integer',
         'is_active' => 'boolean',
         'last_run_at' => 'datetime',
         'next_run_at' => 'datetime',
@@ -47,12 +49,59 @@ class Schedule extends Model
      */
     public function getDailyRunTimes(): array
     {
+        // 1. Her saat başı modu
+        if ($this->schedule_type === 'hourly') {
+            $times = [];
+            $startStr = $this->start_time ? substr($this->start_time, 0, 5) : '00:00';
+            $endStr = $this->end_time ? substr($this->end_time, 0, 5) : '23:00';
+
+            $start = \Carbon\Carbon::createFromFormat('H:i', $startStr);
+            $end = \Carbon\Carbon::createFromFormat('H:i', $endStr);
+
+            if ($end->lessThan($start)) {
+                $end->addDay();
+            }
+
+            $current = $start->copy();
+            while ($current->lessThanOrEqualTo($end)) {
+                $times[] = $current->format('H:i');
+                $current->addHour();
+            }
+
+            return ! empty($times) ? $times : [substr($this->time_of_day ?: '12:00', 0, 5)];
+        }
+
+        // 2. Belirli dakikada bir paylaşım modu (örn: her 15, 30, 45 dakikada bir)
+        if ($this->schedule_type === 'minute_interval' && $this->interval_minutes > 0) {
+            $times = [];
+            $startStr = $this->start_time ? substr($this->start_time, 0, 5) : '00:00';
+            $endStr = $this->end_time ? substr($this->end_time, 0, 5) : '23:59';
+
+            $start = \Carbon\Carbon::createFromFormat('H:i', $startStr);
+            $end = \Carbon\Carbon::createFromFormat('H:i', $endStr);
+
+            if ($end->lessThan($start)) {
+                $end->addDay();
+            }
+
+            $step = max(1, (int) $this->interval_minutes);
+            $current = $start->copy();
+            while ($current->lessThanOrEqualTo($end)) {
+                $times[] = $current->format('H:i');
+                $current->addMinutes($step);
+            }
+
+            return ! empty($times) ? $times : [substr($this->time_of_day ?: '12:00', 0, 5)];
+        }
+
+        // 3. Belirli özel saatler modu
         if ($this->schedule_type === 'custom_times' && ! empty($this->posting_times)) {
             $times = array_values(array_unique(array_filter(array_map('trim', (array) $this->posting_times))));
             sort($times);
             return ! empty($times) ? $times : [substr($this->time_of_day ?: '12:00', 0, 5)];
         }
 
+        // 4. Belirli saat aralıkları modu (örn: her 2 saatte bir)
         if ($this->schedule_type === 'interval' && $this->interval_hours > 0) {
             $times = [];
             $startStr = $this->start_time ? substr($this->start_time, 0, 5) : '09:00';
@@ -74,6 +123,7 @@ class Schedule extends Model
             return ! empty($times) ? $times : [substr($this->time_of_day ?: '12:00', 0, 5)];
         }
 
+        // 5. Tek saat modu (varsayılan)
         return [substr($this->time_of_day ?: '12:00', 0, 5)];
     }
 
