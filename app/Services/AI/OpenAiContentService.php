@@ -204,9 +204,18 @@ class OpenAiContentService implements AiContentProviderInterface
         $brandName = $brand?->name ?? 'Patenli Ayakkabılar';
         $productUrl = $video->product_url ?: ($brand?->website ?? 'https://patenliayakkabilar.com');
 
-        $seoKeywords = $brand?->seo_keywords ?? [
-            'patenli ayakkabı', 'tekerlekli ayakkabı', 'çocuk patenli ayakkabı', 'ışıklı patenli ayakkabı'
-        ];
+        $seoService = app(\App\Services\SEO\HashtagOptimizationService::class);
+        $seoKeywords = $seoService->getRelevantKeywords($video, limit: 6);
+        if (empty($seoKeywords)) {
+            $seoKeywords = $brand?->seo_keywords ?? [
+                'patenli ayakkabı', 'tekerlekli ayakkabı', 'çocuk patenli ayakkabı', 'ışıklı patenli ayakkabı'
+            ];
+        }
+
+        $kw1 = $seoKeywords[0] ?? 'patenli ayakkabı';
+        $kw2 = $seoKeywords[1] ?? 'tekerlekli ayakkabı';
+        $kw3 = $seoKeywords[2] ?? 'çocuk patenli ayakkabı';
+        $kw4 = $seoKeywords[3] ?? 'ışıklı patenli ayakkabı';
 
         $hooks = [
             'Sıradan yürüyüşleri unutun! ✨',
@@ -218,11 +227,11 @@ class OpenAiContentService implements AiContentProviderInterface
         ];
 
         $bodies = [
-            'Hem şık bir spor ayakkabı hem de tek hareketle eğlenceli bir paten! Çocuk patenli ayakkabı ve tekerlekli ayakkabı modellerimizle çocuklar için hareket dolu bir deneyim.',
-            'Hem günlük kullanıma uygun rahat bir spor ayakkabı, hem de tek hareketle kaymaya hazır patenli ayakkabı! Işıklı patenli ayakkabı ve tekerlekli ayakkabı koleksiyonu ile dışarıda aktif vakit geçirmek çok keyifli.',
-            'Sadece bir ayakkabı değil, gün boyu süren bir eğlence! Patenli ayakkabı modelleri hem günlük hayatta rahatça kullanılır, hem de gizli tekerlekleriyle anında tekerlekli ayakkabı ve patene dönüşür.',
-            'Çocuklara unutulmaz bir sürpriz yapmak isteyen ailelerin bir numaralı tercihi çocuk patenli ayakkabı! İster okulda ve sokakta yürüyüş yap, ister gizli tekerlekli ayakkabı ile özgürce kay.',
-            'Hafta sonu gezmelerini festivale dönüştüren ışıklı patenli ayakkabı ve tekerlekli spor ayakkabı modelleri! Konforlu iç tabanı ve dayanıklı gizli tekerlek mekanizmasıyla her adımda maksimum heyecan.',
+            "Hem şık bir spor ayakkabı hem de tek hareketle eğlenceli bir paten! {$kw3} ve {$kw2} modellerimizle çocuklar için hareket dolu bir deneyim.",
+            "Hem günlük kullanıma uygun rahat bir spor ayakkabı, hem de tek hareketle kaymaya hazır {$kw1}! {$kw4} ve {$kw2} koleksiyonu ile dışarıda aktif vakit geçirmek çok keyifli.",
+            "Sadece bir ayakkabı değil, gün boyu süren bir eğlence! {$kw1} modelleri hem günlük hayatta rahatça kullanılır, hem de gizli tekerlekleriyle anında {$kw2} ve patene dönüşür.",
+            "Çocuklara unutulmaz bir sürpriz yapmak isteyen ailelerin bir numaralı tercihi {$kw3}! İster okulda ve sokakta yürüyüş yap, ister gizli {$kw2} ile özgürce kay.",
+            "Hafta sonu gezmelerini festivale dönüştüren {$kw4} ve {$kw1} modelleri! Konforlu iç tabanı ve dayanıklı gizli tekerlek mekanizmasıyla her adımda maksimum heyecan.",
         ];
 
         $ytTitles = [
@@ -415,6 +424,13 @@ KRİTİK İSİMLENDİRME VE METİN KURALLARI (HAYATİ ÖNEM TAŞIR!):
 - Cümlelerinde doğrudan üründen ve özelliklerinden bahset (Örn: "Patenli Ayakkabılar ile yürümek artık çok daha eğlenceli!", "Işıklı tekerlekli spor ayakkabı modelleri").
 
 ══════════════════════════════════════════════════════════════════════════════════
+KRİTİK SEO ANAHTAR KELİME VE HAFIZA KURALI (HAYATİ ÖNEM TAŞIR!):
+══════════════════════════════════════════════════════════════════════════════════
+- Paylaşılan gönderiler "SEO Anahtar Kelime Hafızası"ndan mutlaka beslenmelidir.
+- Sana verilen SEO anahtar kelimelerini (seo_keywords) başlıkta (title), kanca cümlesinde (hook) veya açıklama metninin (caption) maddeleri içinde MUTLAKA doğal bir şekilde geçir ve kullan.
+- Çıktıdaki JSON'da "seo_keywords" alanında bu platform için kullandığın anahtar kelimeleri eksiksiz listele.
+
+══════════════════════════════════════════════════════════════════════════════════
 KRİTİK EMOJİ VE MASAÜSTÜ UYUMLULUK KURALLARI (HAYATİ ÖNEM TAŞIR!):
 ══════════════════════════════════════════════════════════════════════════════════
 - Windows masaüstü Chrome/Edge/Firefox tarayıcılarında görünmeyen veya içi boş kare [ ] (tofu box) şeklinde bozuk çıkan paten ("\\u{1F6FC}"), buz pateni ("\\u{26F8}"), kaykay ("\\u{1F6F9}") emojilerini KESİNLİKLE KULLANMA!
@@ -536,6 +552,14 @@ PROMPT;
             $titleForAi = $productCategory;
         }
 
+        $seoService = app(\App\Services\SEO\HashtagOptimizationService::class);
+        $seoKeywords = $seoService->getRelevantKeywords($video, limit: 6);
+        if (empty($seoKeywords)) {
+            $seoKeywords = $brand?->seo_keywords ?? [
+                'patenli ayakkabı', 'tekerlekli ayakkabı', 'çocuk patenli ayakkabı', 'ışıklı patenli ayakkabı'
+            ];
+        }
+
         return json_encode([
             'product_name' => $titleForAi,
             'product_category' => $productCategory,
@@ -544,7 +568,7 @@ PROMPT;
             'aspect_ratio' => $video->aspect_ratio,
             'custom_caption' => $video->custom_caption,
             'product_url' => $video->product_url ?: ($brand?->website ?? 'https://patenliayakkabilar.com'),
-            'seo_keywords' => $brand?->seo_keywords,
+            'seo_keywords' => $seoKeywords,
         ], JSON_UNESCAPED_UNICODE);
     }
 

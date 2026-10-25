@@ -23,11 +23,13 @@ class KeywordLibrary extends Model
         'target_url',
         'platform',
         'usage_count',
+        'last_used_at',
         'is_active',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'last_used_at' => 'datetime',
     ];
 
     public function workspace(): BelongsTo

@@ -115,6 +115,13 @@ class KeywordLibraryResource extends Resource
                     ->visibleFrom('lg')
                     ->sortable(),
 
+                TextColumn::make('last_used_at')
+                    ->label('Son Kullanım')
+                    ->dateTime('d.m.Y H:i')
+                    ->placeholder('Hiç kullanılmadı')
+                    ->visibleFrom('md')
+                    ->sortable(),
+
                 TextColumn::make('target_url')
                     ->label('Hedef URL')
                     ->limit(30)

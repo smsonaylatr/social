@@ -87,4 +87,63 @@ class HashtagAndSeoTest extends TestCase
         $responseKeywords->assertStatus(200);
         $responseKeywords->assertSee('SEO ve Anahtar Kelimeler');
     }
+
+    public function test_relevant_keywords_fetched_from_library_and_rotated(): void
+    {
+        $keywords = $this->service->getRelevantKeywords($this->video, 'instagram', 3);
+        $this->assertCount(3, $keywords);
+        $this->assertNotEmpty($keywords[0]);
+
+        $firstKw = KeywordLibrary::where('keyword', $keywords[0])->first();
+        $this->assertNotNull($firstKw);
+        $this->assertEquals(0, $firstKw->usage_count);
+
+        // Mark usage
+        $this->service->recordKeywordUsage([$keywords[0]], $this->workspace->id);
+        $this->assertEquals(1, $firstKw->fresh()->usage_count);
+        $this->assertNotNull($firstKw->fresh()->last_used_at);
+
+        // Content detection
+        $this->service->recordKeywordUsageFromContent("Bu bir {$keywords[1]} içeren gönderidir.", $this->workspace->id);
+        $secondKw = KeywordLibrary::where('keyword', $keywords[1])->first();
+        $this->assertEquals(1, $secondKw->fresh()->usage_count);
+        $this->assertNotNull($secondKw->fresh()->last_used_at);
+    }
+
+    public function test_scheduled_post_includes_seo_keywords_from_memory(): void
+    {
+        $platform = \App\Models\SocialPlatform::where('code', 'instagram')->first();
+        $socialAccount = \App\Models\SocialAccount::create([
+            'workspace_id' => $this->workspace->id,
+            'brand_id' => $this->brand->id,
+            'platform_id' => $platform->id,
+            'account_id' => 'ig_test_123',
+            'name' => 'Instagram Test',
+            'username' => 'testig',
+            'status' => 'active',
+        ]);
+
+        $schedulingService = app(\App\Services\Publisher\SchedulingService::class);
+
+        $scheduledPost = $schedulingService->createScheduledPost(
+            video: $this->video,
+            scheduledAt: now(),
+            socialAccountIds: [$socialAccount->id]
+        );
+
+        $target = $scheduledPost->targets->first();
+        $this->assertNotNull($target);
+
+        // Check caption includes at least one keyword from KeywordLibrary
+        $allKeywords = KeywordLibrary::pluck('keyword')->toArray();
+        $found = false;
+        foreach ($allKeywords as $kw) {
+            if (mb_stripos($target->caption, $kw) !== false) {
+                $found = true;
+                break;
+            }
+        }
+
+        $this->assertTrue($found, 'Post caption must include keywords from the SEO Keyword Library memory.');
+    }
 }

@@ -189,56 +189,84 @@ class InitialSystemSeeder extends Seeder
             );
         }
 
-        // 6. Initial Hashtags for Patenli Ayakkabılar
-        $groupBrand = HashtagGroup::firstOrCreate(
-            ['workspace_id' => $workspace->id, 'name' => 'Marka Etiketleri'],
-            ['brand_id' => $brand->id, 'category' => 'brand', 'color' => '#3b82f6']
-        );
-
-        $brandHashtags = [
-            'patenliayakkabi',
-            'patenliayakkabilar',
-            'walkrollfly',
-            'tekerlekliayakkabi',
-            'rollershoes',
+        // 6. Initial Hashtags for Patenli Ayakkabılar (Zengin Hashtag Havuzu)
+        $hashtagGroupsData = [
+            [
+                'name' => 'Marka & Temel Ürün',
+                'category' => 'brand',
+                'color' => '#3b82f6',
+                'priority' => 10,
+                'tags' => [
+                    'patenliayakkabi', 'patenliayakkabilar', 'walkrollfly', 'tekerlekliayakkabi',
+                    'rollershoes', 'tekerleklisporayakkabi', 'ayakkabipaten', 'patensporu',
+                    'heelysturkiye', 'cocukpatenliayakkabi', 'orijinalpatenliayakkabi', 'tekerleklipaten',
+                ],
+            ],
+            [
+                'name' => 'Çocuk & Hediye Etiketleri',
+                'category' => 'kids',
+                'color' => '#10b981',
+                'priority' => 8,
+                'tags' => [
+                    'cocukmodasi', 'cocukhediyesi', 'dogumgunuhediyesi', 'isikliayakkabi',
+                    'eglenceliayakkabi', 'sporyapancocuklar', 'cocukgiyim', 'cocukaktivite',
+                    'karnehediyesi', 'erkekcocukhediye', 'kizcocukhediye', 'surprizhediye',
+                    'cocuktrendleri', 'eniyicocukhediyesi', 'mutlucocuklar',
+                ],
+            ],
+            [
+                'name' => 'Trend, Keşfet & Viral',
+                'category' => 'trending',
+                'color' => '#f59e0b',
+                'priority' => 9,
+                'tags' => [
+                    'kesfet', 'kesfetteyiz', 'viral', 'reels', 'fyp', 'trend',
+                    'kesfetbeni', 'kesfetteyim', 'trendvideolar', 'viraltiktok',
+                    'reelsvideo', 'shorts', 'shortsvideo', 'tiktoktrend', 'instareels',
+                    'onecikar', 'viralreels', 'kesfetpostu',
+                ],
+            ],
+            [
+                'name' => 'Paten & Sokak Eğlencesi',
+                'category' => 'general',
+                'color' => '#ec4899',
+                'priority' => 7,
+                'tags' => [
+                    'patenkeyfi', 'patenkaymak', 'sokakmodasi', 'eglence', 'spor',
+                    'aktivite', 'haftasonuaktivitesi', 'kaykayvepaten', 'patenciler',
+                    'ozgurluk', 'hareketet', 'saglikliyasam', 'aksiyon', 'tarz',
+                ],
+            ],
+            [
+                'name' => 'Moda & Online Alışveriş',
+                'category' => 'product',
+                'color' => '#8b5cf6',
+                'priority' => 7,
+                'tags' => [
+                    'alisveris', 'alisverisonerisi', 'onlinealisveris', 'indirim',
+                    'guvenlialisveris', 'hizlikargo', 'sporayakkabi', 'trendayakkabi',
+                    'tarzayakkabi', 'yeniurun', 'kampanya', 'firsat', 'tarzcocuklar',
+                ],
+            ],
         ];
 
-        foreach ($brandHashtags as $tag) {
-            Hashtag::firstOrCreate(
-                ['workspace_id' => $workspace->id, 'tag' => $tag],
-                [
-                    'group_id' => $groupBrand->id,
-                    'category' => 'brand',
-                    'priority' => 10,
-                    'is_active' => true,
-                ]
+        foreach ($hashtagGroupsData as $gData) {
+            $group = HashtagGroup::firstOrCreate(
+                ['workspace_id' => $workspace->id, 'name' => $gData['name']],
+                ['brand_id' => $brand->id, 'category' => $gData['category'], 'color' => $gData['color']]
             );
-        }
 
-        $groupKids = HashtagGroup::firstOrCreate(
-            ['workspace_id' => $workspace->id, 'name' => 'Çocuk & Hediye Etiketleri'],
-            ['brand_id' => $brand->id, 'category' => 'kids', 'color' => '#10b981']
-        );
-
-        $kidsHashtags = [
-            'cocukmodasi',
-            'cocukhediyesi',
-            'dogumgunuhediyesi',
-            'isikliayakkabi',
-            'eglenceliayakkabi',
-            'sporyapançocuklar',
-        ];
-
-        foreach ($kidsHashtags as $tag) {
-            Hashtag::firstOrCreate(
-                ['workspace_id' => $workspace->id, 'tag' => $tag],
-                [
-                    'group_id' => $groupKids->id,
-                    'category' => 'kids',
-                    'priority' => 8,
-                    'is_active' => true,
-                ]
-            );
+            foreach ($gData['tags'] as $tag) {
+                Hashtag::firstOrCreate(
+                    ['workspace_id' => $workspace->id, 'tag' => $tag],
+                    [
+                        'group_id' => $group->id,
+                        'category' => $gData['category'],
+                        'priority' => $gData['priority'],
+                        'is_active' => true,
+                    ]
+                );
+            }
         }
 
         // 7. Initial SEO Keywords

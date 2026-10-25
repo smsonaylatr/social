@@ -172,4 +172,33 @@ class VideoManagementTest extends TestCase
         $responseView->assertSee('Test Video Listeleme');
         $responseView->assertSee('Platform Uyumluluk Analizi');
     }
+
+    public function test_admin_can_toggle_between_grid_and_list_layout(): void
+    {
+        Video::create([
+            'workspace_id' => $this->workspace->id,
+            'brand_id' => $this->brand->id,
+            'title' => 'Izgara Test Videosu',
+            'original_filename' => 'grid_test.mp4',
+            'storage_path' => 'videos/grid_test.mp4',
+            'file_hash' => hash('sha256', 'grid_test_hash'),
+            'file_size' => 1500000,
+            'duration_seconds' => 15,
+            'aspect_ratio' => '9:16',
+            'status' => VideoStatus::READY,
+        ]);
+
+        $this->actingAs($this->admin);
+
+        \Livewire\Livewire::test(\App\Filament\Resources\VideoResource\Pages\ListVideos::class)
+            ->assertSuccessful()
+            ->assertSee('Izgara Test Videosu')
+            ->assertSet('layoutView', 'grid')
+            ->call('changeLayoutView')
+            ->assertSet('layoutView', 'list')
+            ->assertSuccessful()
+            ->call('changeLayoutView')
+            ->assertSet('layoutView', 'grid')
+            ->assertSuccessful();
+    }
 }

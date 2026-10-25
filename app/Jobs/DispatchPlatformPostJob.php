@@ -75,6 +75,19 @@ class DispatchPlatformPostJob implements ShouldQueue
             $video->increment('usage_count', 1, ['last_used_at' => now()]);
             $account->update(['last_posted_at' => now()]);
 
+            // Update hashtag usage metrics in pool
+            if (! empty($target->hashtags) && is_array($target->hashtags)) {
+                app(\App\Services\SEO\HashtagOptimizationService::class)
+                    ->recordHashtagUsage($target->hashtags, $video->workspace_id);
+            }
+
+            // Update SEO keyword memory usage metrics (continuous rotation)
+            app(\App\Services\SEO\HashtagOptimizationService::class)
+                ->recordKeywordUsageFromContent(
+                    ($target->caption ?? '') . ' ' . ($target->title ?? '') . ' ' . implode(' ', $target->hashtags ?? []),
+                    $video->workspace_id
+                );
+
             $this->updateParentPostStatus($target->scheduledPost);
 
         } catch (\Throwable $e) {

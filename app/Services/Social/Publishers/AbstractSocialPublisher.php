@@ -124,11 +124,17 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
         $brand = $video?->brand ?: \App\Models\Brand::first();
         $rawProductUrl = $target->product_url ?: ($video?->product_url ?: ($brand?->website ?? 'https://patenliayakkabilar.com'));
 
+        $seoService = app(\App\Services\SEO\HashtagOptimizationService::class);
+        $seoKeywords = $seoService->getRelevantKeywords($video ?: new Video(), $this->getPlatformCode(), limit: 4);
+
+        $kw1 = ! empty($seoKeywords[0]) ? mb_convert_case($seoKeywords[0], MB_CASE_TITLE, 'UTF-8') : 'Patenli Ayakkabı';
+        $kw2 = ! empty($seoKeywords[1]) ? mb_convert_case($seoKeywords[1], MB_CASE_TITLE, 'UTF-8') : 'Tekerlekli Spor Ayakkabı';
+
         // 0. Güvenlik Bariyeri: Gönderi metni kesinlikle boş veya sadece sistem etiketi olamaz!
         if ($caption === '' || preg_match('/^\d+[\.\s\-]+video$/i', $caption)) {
             $caption = $video?->custom_caption
                 ?: ($video?->title && ! preg_match('/^\d+[\.\s\-]+video/i', $video->title) ? $video->title : '')
-                ?: "Adım at, topuğa bas ve kaymaya başla! 🚀\n\n✨ Spor ayakkabı + paten konforu bir arada\n👟 Çocuk ve yetişkin modelleri\n🚚 Hızlı kargo • Güvenli alışveriş";
+                ?: "Adım at, topuğa bas ve kaymaya başla! 🚀\n\n✨ {$kw1} modelleri ile eğlence ve konfor bir arada\n👟 {$kw2} ve günlük spor ayakkabı deneyimi\n🚚 Hızlı kargo • Güvenli alışveriş";
         }
 
         // 1. Şablon Güvencesi: Eğer metin tek satır/düz paragrafsa ve maddeli şablon içermiyorsa, estetik şablon yapısını uygula
@@ -146,8 +152,25 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
                 $cleanHook .= ' 🔥';
             }
 
-            $bullets = "✨ Tek hareketle patene dönüşen spor ayakkabı\n👟 Çocuk & yetişkin patenli ayakkabı modelleri\n🚚 Hızlı kargo • Güvenli alışveriş";
+            $bullets = "✨ Tek hareketle patene dönüşen {$kw1}\n👟 {$kw2} modelleri\n🚚 Hızlı kargo • Güvenli alışveriş";
             $caption = "{$cleanHook}\n\n{$bullets}";
+        } else {
+            // Eğer metinde SEO hafızasındaki anahtar kelimelerden hiçbiri geçmiyorsa, maddelere doğal olarak ekle
+            $hasKeyword = false;
+            foreach ($seoKeywords as $keyword) {
+                if (mb_stripos($caption, $keyword) !== false) {
+                    $hasKeyword = true;
+                    break;
+                }
+            }
+
+            if (! $hasKeyword && ! empty($seoKeywords)) {
+                $seoLine = "✨ {$kw1} ve {$kw2} modelleri";
+                // Eğer şablonda ✨ varsa ve ilk satır kancaysa, maddeler arasına dahil et
+                if (! str_contains($caption, $kw1)) {
+                    $caption = preg_replace('/(\n\n✨)/u', "\n\n{$seoLine}\n✨", $caption, 1);
+                }
+            }
         }
 
         // 2. Only append product_url if neither the full URL nor its bare domain is already in the caption
@@ -164,25 +187,26 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
             }
         }
 
-        // 3. Only append hashtags that are not already written inside the caption
+        // 3. Hashtag havuzundan gelen platforma özel dinamik etiketleri ekle (SEO hafızası öncelikli)
         $targetHashtags = (! empty($target->hashtags) && is_array($target->hashtags))
             ? $target->hashtags
-            : ['PatenliAyakkabı', 'TekerlekliAyakkabı', 'PatenliAyakkabılar'];
+            : $seoService->getOptimizedHashtags($video ?: new Video(), $this->getPlatformCode());
 
-        $missingTags = [];
+        // Metin gövdesinde eski/dağınık hashtag kalıntıları varsa temizle
+        $captionWithoutTags = preg_replace('/#[^\s#]+/u', '', $caption);
+        $caption = trim(preg_replace('/\n{3,}/', "\n\n", (string) $captionWithoutTags));
+
+        $formattedTags = [];
         foreach ($targetHashtags as $rawTag) {
             $cleanTag = ltrim(trim((string) $rawTag), '#');
-            if ($cleanTag === '') {
+            if ($cleanTag === '' || in_array('#' . $cleanTag, $formattedTags)) {
                 continue;
             }
-            $formattedTag = '#' . $cleanTag;
-            if (mb_stripos($caption, $formattedTag) === false) {
-                $missingTags[] = $formattedTag;
-            }
+            $formattedTags[] = '#' . $cleanTag;
         }
 
-        if (! empty($missingTags)) {
-            $caption .= "\n\n" . implode(' ', $missingTags);
+        if (! empty($formattedTags)) {
+            $caption .= "\n\n" . implode(' ', $formattedTags);
         }
 
         return trim($caption);

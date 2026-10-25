@@ -32,11 +32,15 @@ class YouTubePublisher extends AbstractSocialPublisher
         }
 
         // Resumable upload metadata session
+        $seoKeywords = app(\App\Services\SEO\HashtagOptimizationService::class)->getRelevantKeywords($video, 'youtube', limit: 8);
+        $cleanHashtags = array_map(fn ($t) => ltrim(trim($t), '#'), $target->hashtags ?: []);
+        $combinedTags = array_values(array_unique(array_filter(array_merge($seoKeywords, $cleanHashtags, ['Shorts']))));
+
         $metadata = [
             'snippet' => [
                 'title' => $title,
                 'description' => $description,
-                'tags' => $target->hashtags ?: ['Shorts'],
+                'tags' => $combinedTags,
                 'categoryId' => '22', // People & Blogs
             ],
             'status' => [

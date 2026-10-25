@@ -5,9 +5,24 @@ namespace App\Filament\Resources\VideoResource\Pages;
 use App\Filament\Resources\VideoResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
+use Hydrat\TableLayoutToggle\Concerns\HasToggleableTable;
 
 class ListVideos extends ListRecords
 {
+    use HasToggleableTable;
+
+    public function booted(): void
+    {
+        if ($this->layoutView === null) {
+            $this->layoutView = $this->getLayoutView();
+        }
+    }
+
+    public function getDefaultLayoutView(): string
+    {
+        return 'grid';
+    }
+
     protected static string $resource = VideoResource::class;
     protected static ?string $title = 'Video Havuzu & Medya Kütüphanesi';
 

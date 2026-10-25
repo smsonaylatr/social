@@ -73,118 +73,32 @@ class VideoResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $livewire = $table->getLivewire();
+        $isGrid = $livewire && method_exists($livewire, 'isGridLayout') && $livewire->isGridLayout();
+
         return $table
             ->modifyQueryUsing(fn ($query) => $query->with(['brand', 'category']))
             ->defaultSort('id', 'asc')
             ->recordAction('play')
             ->recordUrl(null)
-            ->columns([
-                ViewColumn::make('preview')
-                    ->label('Önizleme')
-                    ->view('filament.tables.columns.video-preview')
-                    ->grow(false)
-                    ->action(
-                        Action::make('preview_play')
-                            ->label('İzle')
-                            ->modalWidth(MaxWidth::Small)
-                            ->modalHeading(fn (Video $record): string => $record->title)
-                            ->modalDescription(fn (Video $record): string => "{$record->aspect_ratio} • {$record->formatted_duration} • {$record->formatted_file_size}")
-                            ->modalContent(fn (Video $record) => view('filament.modals.video-player-modal', ['video' => $record]))
-                            ->modalSubmitAction(false)
-                            ->modalCancelAction(false)
-                            ->modalFooterActions([])
-                    ),
-
-                TextColumn::make('title')
-                    ->label('Video Başlığı')
-                    ->weight('bold')
-                    ->searchable()
-                    ->sortable(query: function (Builder $query, string $direction): Builder {
-                        $dir = strtolower($direction) === 'desc' ? 'desc' : 'asc';
-                        $driver = $query->getConnection()->getDriverName();
-
-                        if ($driver === 'mysql' || $driver === 'mariadb') {
-                            return $query
-                                ->orderByRaw("CASE WHEN title REGEXP '^[0-9]' THEN 0 WHEN title REGEXP '[0-9]' THEN 1 ELSE 2 END ASC")
-                                ->orderByRaw("CAST(REGEXP_SUBSTR(title, '[0-9]+') AS UNSIGNED) {$dir}")
-                                ->orderBy('title', $dir);
-                        }
-
-                        return $query
-                            ->orderByRaw("CAST(title AS UNSIGNED) {$dir}")
-                            ->orderBy('title', $dir);
-                    })
-                    ->wrap()
-                    ->description(function (Video $record): ?string {
-                        $parts = [];
-                        if ($record->aspect_ratio) {
-                            $parts[] = $record->aspect_ratio;
-                        }
-                        if ($record->formatted_duration) {
-                            $parts[] = $record->formatted_duration;
-                        }
-                        if ($record->formatted_file_size) {
-                            $parts[] = $record->formatted_file_size;
-                        }
-                        if ($record->usage_count > 0) {
-                            $parts[] = "{$record->usage_count} kez yayınlandı";
-                        }
-
-                        return count($parts) > 0 ? implode(' • ', $parts) : null;
-                    }),
-
-                TextColumn::make('duration_seconds')
-                    ->label('Süre')
-                    ->formatStateUsing(fn (Video $record): string => $record->formatted_duration)
-                    ->badge()
-                    ->color('info')
-                    ->sortable()
-                    ->visibleFrom('sm')
-                    ->toggleable(),
-
-                TextColumn::make('aspect_ratio')
-                    ->label('Format')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        '9:16' => 'success',
-                        '16:9' => 'primary',
-                        default => 'gray',
-                    })
-                    ->sortable()
-                    ->visibleFrom('md')
-                    ->toggleable(),
-
-                TextColumn::make('file_size')
-                    ->label('Dosya Boyutu')
-                    ->formatStateUsing(fn (Video $record): string => $record->formatted_file_size)
-                    ->sortable()
-                    ->visibleFrom('lg')
-                    ->toggleable(),
-
-                TextColumn::make('usage_count')
-                    ->label('Yayın Sayısı')
-                    ->badge()
-                    ->color(fn (int $state): string => $state > 0 ? 'success' : 'gray')
-                    ->suffix(' kez')
-                    ->sortable()
-                    ->visibleFrom('lg')
-                    ->toggleable(),
-
-                TextColumn::make('status')
-                    ->label('Durum')
-                    ->badge()
-                    ->color('success')
-                    ->formatStateUsing(fn (): string => 'Yayına Hazır')
-                    ->visibleFrom('xl')
-                    ->toggleable(),
-
-                TextColumn::make('created_at')
-                    ->label('Yüklenme Tarihi')
-                    ->dateTime('d.m.Y H:i')
-                    ->sortable()
-                    ->visibleFrom('xl')
-                    ->toggleable(isToggledHiddenByDefault: true),
-            ])
+            ->columns(
+                $isGrid
+                    ? static::getGridTableColumns()
+                    : static::getListTableColumns()
+            )
+            ->contentGrid(
+                fn () => ($table->getLivewire() && method_exists($table->getLivewire(), 'isGridLayout') && $table->getLivewire()->isGridLayout())
+                    ? [
+                        'sm' => 2,
+                        'md' => 3,
+                        'lg' => 4,
+                        'xl' => 4,
+                        '2xl' => 5,
+                    ]
+                    : null
+            )
+            ->paginationPageOptions([12, 24, 36, 48, 96])
+            ->defaultPaginationPageOption(24)
             ->filters([
                 SelectFilter::make('aspect_ratio')
                     ->label('Format (En-Boy)')
@@ -275,8 +189,130 @@ class VideoResource extends Resource
 
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
-            ])
-            ->defaultSort('id', 'desc');
+            ]);
+    }
+
+    public static function getListTableColumns(): array
+    {
+        return [
+            ViewColumn::make('preview')
+                ->label('Önizleme')
+                ->view('filament.tables.columns.video-preview')
+                ->grow(false)
+                ->action(
+                    Action::make('preview_play')
+                        ->label('İzle')
+                        ->modalWidth(MaxWidth::Small)
+                        ->modalHeading(fn (Video $record): string => $record->title)
+                        ->modalDescription(fn (Video $record): string => "{$record->aspect_ratio} • {$record->formatted_duration} • {$record->formatted_file_size}")
+                        ->modalContent(fn (Video $record) => view('filament.modals.video-player-modal', ['video' => $record]))
+                        ->modalSubmitAction(false)
+                        ->modalCancelAction(false)
+                        ->modalFooterActions([])
+                ),
+
+            TextColumn::make('title')
+                ->label('Video Başlığı')
+                ->weight('bold')
+                ->searchable()
+                ->sortable(query: function (Builder $query, string $direction): Builder {
+                    $dir = strtolower($direction) === 'desc' ? 'desc' : 'asc';
+                    $driver = $query->getConnection()->getDriverName();
+
+                    if ($driver === 'mysql' || $driver === 'mariadb') {
+                        return $query
+                            ->orderByRaw("CASE WHEN title REGEXP '^[0-9]' THEN 0 WHEN title REGEXP '[0-9]' THEN 1 ELSE 2 END ASC")
+                            ->orderByRaw("CAST(REGEXP_SUBSTR(title, '[0-9]+') AS UNSIGNED) {$dir}")
+                            ->orderBy('title', $dir);
+                    }
+
+                    return $query
+                        ->orderByRaw("CAST(title AS UNSIGNED) {$dir}")
+                        ->orderBy('title', $dir);
+                })
+                ->wrap()
+                ->description(function (Video $record): ?string {
+                    $parts = [];
+                    if ($record->aspect_ratio) {
+                        $parts[] = $record->aspect_ratio;
+                    }
+                    if ($record->formatted_duration) {
+                        $parts[] = $record->formatted_duration;
+                    }
+                    if ($record->formatted_file_size) {
+                        $parts[] = $record->formatted_file_size;
+                    }
+                    if ($record->usage_count > 0) {
+                        $parts[] = "{$record->usage_count} kez yayınlandı";
+                    }
+
+                    return count($parts) > 0 ? implode(' • ', $parts) : null;
+                }),
+
+            TextColumn::make('duration_seconds')
+                ->label('Süre')
+                ->formatStateUsing(fn (Video $record): string => $record->formatted_duration)
+                ->badge()
+                ->color('info')
+                ->sortable()
+                ->visibleFrom('sm')
+                ->toggleable(),
+
+            TextColumn::make('aspect_ratio')
+                ->label('Format')
+                ->badge()
+                ->color(fn (string $state): string => match ($state) {
+                    '9:16' => 'success',
+                    '16:9' => 'primary',
+                    default => 'gray',
+                })
+                ->sortable()
+                ->visibleFrom('md')
+                ->toggleable(),
+
+            TextColumn::make('file_size')
+                ->label('Dosya Boyutu')
+                ->formatStateUsing(fn (Video $record): string => $record->formatted_file_size)
+                ->sortable()
+                ->visibleFrom('lg')
+                ->toggleable(),
+
+            TextColumn::make('usage_count')
+                ->label('Yayın Sayısı')
+                ->badge()
+                ->color(fn (int $state): string => $state > 0 ? 'success' : 'gray')
+                ->suffix(' kez')
+                ->sortable()
+                ->visibleFrom('lg')
+                ->toggleable(),
+
+            TextColumn::make('status')
+                ->label('Durum')
+                ->badge()
+                ->color('success')
+                ->formatStateUsing(fn (): string => 'Yayına Hazır')
+                ->visibleFrom('xl')
+                ->toggleable(),
+
+            TextColumn::make('created_at')
+                ->label('Yüklenme Tarihi')
+                ->dateTime('d.m.Y H:i')
+                ->sortable()
+                ->visibleFrom('xl')
+                ->toggleable(isToggledHiddenByDefault: true),
+        ];
+    }
+
+    public static function getGridTableColumns(): array
+    {
+        return [
+            Tables\Columns\Layout\Stack::make([
+                Tables\Columns\Layout\View::make('filament.tables.columns.video-grid-card'),
+                TextColumn::make('title')
+                    ->searchable()
+                    ->hidden(),
+            ])->space(0),
+        ];
     }
 
     public static function getRelations(): array
