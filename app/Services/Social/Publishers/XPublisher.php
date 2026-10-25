@@ -5,6 +5,7 @@ namespace App\Services\Social\Publishers;
 use App\Models\ScheduledPostTarget;
 use App\Models\SocialAccount;
 use App\Models\Video;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
@@ -13,6 +14,16 @@ class XPublisher extends AbstractSocialPublisher
     public function getPlatformCode(): string
     {
         return 'x';
+    }
+
+    protected function httpClient(string $token, int $timeout = 30): PendingRequest
+    {
+        return Http::withToken($token)
+            ->timeout($timeout)
+            ->connectTimeout(10)
+            ->withOptions([
+                'force_ip_resolve' => 'v4',
+            ]);
     }
 
     public function publish(Video $video, ScheduledPostTarget $target, SocialAccount $account): array
@@ -32,33 +43,10 @@ class XPublisher extends AbstractSocialPublisher
             ];
         }
 
-        // Verify token or auto-refresh if 2-hour X OAuth 2.0 token expired
-        $meCheck = Http::withToken($token)->timeout(10)->get('https://api.twitter.com/2/users/me');
-        if ($meCheck->status() === 401 && $this->refreshToken($account)) {
-            $account->load('credential');
-            $token = $account->credential->access_token;
-            $meCheck = Http::withToken($token)->timeout(10)->get('https://api.twitter.com/2/users/me');
-        }
-
-        if ($meCheck->successful() && $meCheck->json('data.username')) {
-            $realUsername = $meCheck->json('data.username');
-            $realId = $meCheck->json('data.id');
-            $updates = [];
-            if ($realId && $account->account_id !== $realId) {
-                $updates['account_id'] = $realId;
-            }
-            if ($realUsername && $account->username !== $realUsername) {
-                $updates['username'] = $realUsername;
-            }
-            if (! empty($updates)) {
-                $account->update($updates);
-            }
-        }
-
-        // 1. Try uploading video media (supports v2 media/upload or v1.1 if permitted)
+        // 1. Try uploading video media (supports X v2 media/upload and v1.1 fallback)
         $mediaId = $this->tryUploadVideoMedia($video, $token);
 
-        // 2. Create Tweet: POST https://api.twitter.com/2/tweets
+        // 2. Create Tweet: POST /2/tweets (with api.x.com and api.twitter.com fallback)
         $payload = [
             'text' => $caption,
         ];
@@ -69,29 +57,32 @@ class XPublisher extends AbstractSocialPublisher
             ];
         }
 
-        $tweetResponse = Http::withToken($token)
-            ->timeout(30)
-            ->post('https://api.twitter.com/2/tweets', $payload);
+        $tweetResponse = $this->postTweetRequest($token, $payload);
+
+        // If 401 Unauthorized, refresh the 2-hour OAuth 2.0 token and retry
+        if ($tweetResponse && $tweetResponse->status() === 401 && $this->refreshToken($account)) {
+            $account->load('credential');
+            $token = $account->credential->access_token;
+            $tweetResponse = $this->postTweetRequest($token, $payload);
+        }
 
         // If media attachment caused an error, retry as text tweet
-        if (! $tweetResponse->successful() && isset($payload['media'])) {
+        if ($tweetResponse && ! $tweetResponse->successful() && isset($payload['media'])) {
             unset($payload['media']);
-            $tweetResponse = Http::withToken($token)
-                ->timeout(30)
-                ->post('https://api.twitter.com/2/tweets', $payload);
+            $tweetResponse = $this->postTweetRequest($token, $payload);
         }
 
         // If 403 duplicate content error (when testing the same video multiple times), make text unique
-        if ($tweetResponse->status() === 403 && str_contains(strtolower($tweetResponse->body()), 'duplicate')) {
+        if ($tweetResponse && $tweetResponse->status() === 403 && str_contains(strtolower($tweetResponse->body()), 'duplicate')) {
             $suffix = ' ✨';
             $payload['text'] = mb_substr($caption, 0, 280 - mb_strlen($suffix)) . $suffix;
-            $tweetResponse = Http::withToken($token)
-                ->timeout(30)
-                ->post('https://api.twitter.com/2/tweets', $payload);
+            $tweetResponse = $this->postTweetRequest($token, $payload);
         }
 
-        if (! $tweetResponse->successful()) {
-            throw new \RuntimeException($this->buildFriendlyXError($tweetResponse->status(), $tweetResponse->json() ?: $tweetResponse->body()));
+        if (! $tweetResponse || ! $tweetResponse->successful()) {
+            $status = $tweetResponse ? $tweetResponse->status() : 500;
+            $body = $tweetResponse ? ($tweetResponse->json() ?: $tweetResponse->body()) : 'X API sunucusuna bağlanılamadı.';
+            throw new \RuntimeException($this->buildFriendlyXError($status, $body));
         }
 
         $tweetId = $tweetResponse->json('data.id');
@@ -104,8 +95,21 @@ class XPublisher extends AbstractSocialPublisher
         ];
     }
 
+    protected function postTweetRequest(string $token, array $payload)
+    {
+        foreach (['https://api.x.com/2/tweets', 'https://api.twitter.com/2/tweets'] as $endpoint) {
+            try {
+                return $this->httpClient($token, 25)->post($endpoint, $payload);
+            } catch (\Throwable $e) {
+                $lastError = $e;
+            }
+        }
+
+        throw new \RuntimeException('X API Bağlantı Hatası: ' . ($lastError?->getMessage() ?? 'Zaman aşımı'));
+    }
+
     /**
-     * Attempt chunked video upload via X API v2 or v1.1 (returns null gracefully if OAuth 2.0 scope only permits tweet.write)
+     * Attempt chunked video upload via X API v2 or v1.1 (returns null gracefully if token only permits tweet.write)
      */
     protected function tryUploadVideoMedia(Video $video, string $token): ?string
     {
@@ -124,9 +128,8 @@ class XPublisher extends AbstractSocialPublisher
                 return null;
             }
 
-            // Try X v1.1 chunked upload
-            $initResponse = Http::withToken($token)
-                ->timeout(20)
+            // Try X v1.1 chunked upload with IPv4 forced
+            $initResponse = $this->httpClient($token, 15)
                 ->asForm()
                 ->post('https://upload.twitter.com/1.1/media/upload.json', [
                     'command' => 'INIT',
@@ -145,8 +148,7 @@ class XPublisher extends AbstractSocialPublisher
             $segmentIndex = 0;
             while (! feof($fileHandle)) {
                 $chunk = fread($fileHandle, 4 * 1024 * 1024);
-                $appendResponse = Http::withToken($token)
-                    ->timeout(60)
+                $appendResponse = $this->httpClient($token, 60)
                     ->attach('media', $chunk, 'video.mp4')
                     ->post('https://upload.twitter.com/1.1/media/upload.json', [
                         'command' => 'APPEND',
@@ -162,8 +164,7 @@ class XPublisher extends AbstractSocialPublisher
             }
             fclose($fileHandle);
 
-            $finalizeResponse = Http::withToken($token)
-                ->timeout(30)
+            $finalizeResponse = $this->httpClient($token, 25)
                 ->asForm()
                 ->post('https://upload.twitter.com/1.1/media/upload.json', [
                     'command' => 'FINALIZE',
@@ -174,13 +175,12 @@ class XPublisher extends AbstractSocialPublisher
                 return null;
             }
 
-            // Poll processing_info if present
             $processingState = $finalizeResponse->json('processing_info.state');
             $retries = 0;
             while (in_array($processingState, ['pending', 'in_progress'], true) && $retries < 12) {
                 $waitSecs = min(5, max(2, (int) $finalizeResponse->json('processing_info.check_after_secs', 3)));
                 sleep($waitSecs);
-                $statusResp = Http::withToken($token)
+                $statusResp = $this->httpClient($token, 15)
                     ->get('https://upload.twitter.com/1.1/media/upload.json', [
                         'command' => 'STATUS',
                         'media_id' => $mediaId,
@@ -236,28 +236,35 @@ class XPublisher extends AbstractSocialPublisher
             return false;
         }
 
-        $request = Http::asForm();
-        if ($clientSecret) {
-            $request->withBasicAuth($clientId, $clientSecret);
-        }
+        try {
+            $request = Http::asForm()
+                ->timeout(15)
+                ->withOptions(['force_ip_resolve' => 'v4']);
 
-        $response = $request->post('https://api.twitter.com/2/oauth2/token', [
-            'grant_type' => 'refresh_token',
-            'refresh_token' => $credential->refresh_token,
-            'client_id' => $clientId,
-        ]);
+            if ($clientSecret) {
+                $request->withBasicAuth($clientId, $clientSecret);
+            }
 
-        if (! $response->successful() || ! $response->json('access_token')) {
+            $response = $request->post('https://api.x.com/2/oauth2/token', [
+                'grant_type' => 'refresh_token',
+                'refresh_token' => $credential->refresh_token,
+                'client_id' => $clientId,
+            ]);
+
+            if (! $response->successful() || ! $response->json('access_token')) {
+                return false;
+            }
+
+            $credential->update([
+                'access_token' => $response->json('access_token'),
+                'refresh_token' => $response->json('refresh_token', $credential->refresh_token),
+                'token_expires_at' => now()->addSeconds((int) $response->json('expires_in', 7200)),
+            ]);
+
+            return true;
+        } catch (\Throwable) {
             return false;
         }
-
-        $credential->update([
-            'access_token' => $response->json('access_token'),
-            'refresh_token' => $response->json('refresh_token', $credential->refresh_token),
-            'token_expires_at' => now()->addSeconds((int) $response->json('expires_in', 7200)),
-        ]);
-
-        return true;
     }
 
     public function validateConnection(SocialAccount $account): bool
@@ -271,16 +278,20 @@ class XPublisher extends AbstractSocialPublisher
             return true;
         }
 
-        $response = Http::withToken($token)
-            ->get('https://api.twitter.com/2/users/me');
+        try {
+            $response = $this->httpClient($token, 15)
+                ->get('https://api.x.com/2/users/me');
 
-        if ($response->status() === 401 && $this->refreshToken($account)) {
-            $account->load('credential');
-            $response = Http::withToken($account->credential->access_token)
-                ->get('https://api.twitter.com/2/users/me');
+            if ($response->status() === 401 && $this->refreshToken($account)) {
+                $account->load('credential');
+                $response = $this->httpClient($account->credential->access_token, 15)
+                    ->get('https://api.x.com/2/users/me');
+            }
+
+            return $response->successful();
+        } catch (\Throwable) {
+            return false;
         }
-
-        return $response->successful();
     }
 
     public function getAnalytics(string $externalPostId, SocialAccount $account): array
@@ -290,8 +301,8 @@ class XPublisher extends AbstractSocialPublisher
             return ['views' => 760, 'likes' => 84, 'comments' => 12, 'shares' => 19];
         }
 
-        $response = Http::withToken($token)
-            ->get("https://api.twitter.com/2/tweets/{$externalPostId}", [
+        $response = $this->httpClient($token, 15)
+            ->get("https://api.x.com/2/tweets/{$externalPostId}", [
                 'tweet.fields' => 'public_metrics',
             ]);
 
