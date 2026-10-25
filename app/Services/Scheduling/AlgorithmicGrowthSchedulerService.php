@@ -40,15 +40,15 @@ class AlgorithmicGrowthSchedulerService
                 platformCode: 'tiktok',
                 platformName: 'TikTok FYP',
                 icon: 'heroicon-o-musical-note',
-                peakSlotsWeekday: ['13:00', '16:30', '20:15', '22:30'],
-                peakSlotsWeekend: ['12:00', '15:30', '19:30', '23:00'],
+                peakSlotsWeekday: ['09:30', '12:45', '16:15', '19:15', '22:00'],
+                peakSlotsWeekend: ['10:30', '13:15', '16:30', '19:45', '22:30'],
                 minCooldownMinutes: 120, // 2 saat
-                maxRecommendedDailyPosts: 4,
+                maxRecommendedDailyPosts: 5,
                 staggerPriority: 2,
                 staggerDelayMinutes: 7,
                 jitterMinMinutes: 4,
                 jitterMaxMinutes: 11,
-                algorithmTip: 'FYP (Sizin İçin) havuzunda ilk 300 test izleyicisine girer. 2 saatlik aralık ve 20:00-23:00 gece penceresi en yüksek viral patlamayı sağlar.',
+                algorithmTip: 'FYP havuzunda 200-300 kişilik batch testi yapar. Günde 4-5 video kaldırabilir; 2 saatlik soğuma 0-view cezasını engeller.',
                 bestDays: [1, 2, 3, 4, 5, 6, 7]
             ),
 
@@ -72,15 +72,15 @@ class AlgorithmicGrowthSchedulerService
                 platformCode: 'facebook',
                 platformName: 'Facebook Reels & Akış',
                 icon: 'heroicon-o-globe-alt',
-                peakSlotsWeekday: ['09:45', '14:00', '20:00'],
-                peakSlotsWeekend: ['10:30', '15:00', '20:30'],
-                minCooldownMinutes: 240, // 4 saat
-                maxRecommendedDailyPosts: 2,
+                peakSlotsWeekday: ['09:30', '12:45', '19:15'],
+                peakSlotsWeekend: ['10:30', '13:15', '19:45'],
+                minCooldownMinutes: 180, // 3 saat
+                maxRecommendedDailyPosts: 3,
                 staggerPriority: 4,
                 staggerDelayMinutes: 21,
                 jitterMinMinutes: 4,
                 jitterMaxMinutes: 10,
-                algorithmTip: 'Ebeveyn kitlesi sabah 09:30-11:00 ve akşam 20:00’de en aktiftir. Çok sık post atılması sayfa kalite puanını ve akış dağıtımını düşürür.',
+                algorithmTip: 'Ebeveyn kitlesi sabah ve akşam saatlerinde en aktiftir. Günde 3 Reels/post sayfa etkileşimini zirvede tutar.',
                 bestDays: [1, 2, 3, 4, 5, 6, 7]
             ),
 
@@ -88,15 +88,15 @@ class AlgorithmicGrowthSchedulerService
                 platformCode: 'x',
                 platformName: 'X (Twitter)',
                 icon: 'heroicon-o-chat-bubble-bottom-center-text',
-                peakSlotsWeekday: ['09:00', '13:15', '17:30', '21:45'],
-                peakSlotsWeekend: ['10:30', '14:00', '18:30', '22:00'],
+                peakSlotsWeekday: ['09:30', '12:45', '16:15', '19:15', '22:00'],
+                peakSlotsWeekend: ['10:30', '13:15', '16:30', '19:45', '22:30'],
                 minCooldownMinutes: 90, // 1.5 saat
-                maxRecommendedDailyPosts: 4,
+                maxRecommendedDailyPosts: 5,
                 staggerPriority: 5,
                 staggerDelayMinutes: 28,
                 jitterMinMinutes: 3,
                 jitterMaxMinutes: 8,
-                algorithmTip: 'X anlık tüketim mecrasıdır. Gündem ve iş çıkışı saatlerinde organik görünürlük zirve yapar.',
+                algorithmTip: 'X anlık tüketim mecrasıdır. Günde 5 tweete kadar kaldırır; gündem ve akşam zirvelerinde erişim katlanır.',
                 bestDays: [1, 2, 3, 4, 5, 6, 7]
             ),
 
@@ -166,29 +166,110 @@ class AlgorithmicGrowthSchedulerService
     /**
      * Algoritmik Keşfet modunda gün içi ana tetikleyici saatleri döndürür
      *
-     * @param string $strategy 'conservative' (1-2 post), 'balanced' (2-3 post), 'aggressive' (3-4 post)
-     * @return array<string> ['12:15', '17:45', '21:10'] gibi
+     * @param string $strategy 'max_capacity' (5 dalga - tüm haklar), 'balanced' (3 dalga), 'conservative' (2 dalga)
+     * @return array<string> ['09:30', '12:45', '16:15', '19:15', '22:00'] gibi
      */
-    public function getAlgorithmicRunTimes(string $strategy = 'balanced', ?Carbon $date = null): array
+    public function getAlgorithmicRunTimes(string $strategy = 'max_capacity', ?Carbon $date = null): array
     {
         $date = $date ?: now();
         $isWeekend = $date->isWeekend();
 
-        // Stratejiye göre günlük kaç ana algoritmik dalga üretilecek
-        $slotCount = match ($strategy) {
-            'conservative' => 2, // Günde 2 kez (Öğle ve Akşam zirvesi)
-            'aggressive' => 4,   // Günde 4 kez (Sabah, Öğle, Akşam, Gece)
-            default => 3,        // 'balanced' (Öğle, İkindi/İş Çıkışı, Akşam Prime)
-        };
-
-        // Instagram ve TikTok gibi ana video platformlarının ortak en güçlü keşfet kesişimleri
-        if ($isWeekend) {
-            $masterSlots = ['11:30', '15:30', '19:30', '22:15'];
-        } else {
-            $masterSlots = ['12:15', '17:45', '20:45', '22:30'];
+        // 1. Maksimum Güç & Tam Kapasite: Her platformun maksimum hakkını sonuna kadar kullanan 5 dalga
+        if ($strategy === 'max_capacity' || $strategy === 'aggressive') {
+            return $isWeekend
+                ? ['10:30', '13:15', '16:30', '19:45', '22:30']
+                : ['09:30', '12:45', '16:15', '19:15', '22:00'];
         }
 
-        return array_slice($masterSlots, 0, $slotCount);
+        // 2. Hafif / Güvenli Mod: 2 dalga
+        if ($strategy === 'conservative') {
+            return $isWeekend
+                ? ['12:00', '19:30']
+                : ['12:15', '19:15'];
+        }
+
+        // 3. Dengeli Mod: 3 dalga
+        return $isWeekend
+            ? ['11:30', '16:30', '20:45']
+            : ['12:15', '17:45', '21:10'];
+    }
+
+    /**
+     * Bir sosyal hesabın bu dalga zamanında paylaşım yapmaya uygun olup olmadığını denetler.
+     * Platformun günlük maksimum hak sınırını, haftanın gününü ve minimum soğuma süresini korur.
+     */
+    public function isAccountEligibleForWave(
+        SocialAccount $account,
+        Carbon $targetTime,
+        string $strategy = 'max_capacity'
+    ): bool {
+        $code = $account->platform?->code?->value ?? (string) $account->platform?->code;
+        $profile = $this->getProfile($code);
+
+        // 1. Gün kontrolü (Örn: LinkedIn sadece hafta içi iş günleri yayın yapar)
+        $dayOfWeekIso = $targetTime->dayOfWeekIso; // 1 = Pazartesi, 7 = Pazar
+        if (! in_array($dayOfWeekIso, $profile->bestDays, true)) {
+            return false;
+        }
+
+        // 2. Bugün bu hesap için kaç gönderi planlandı / yayınlandı?
+        $todayPostsCount = ScheduledPostTarget::where('social_account_id', $account->id)
+            ->whereDate('scheduled_at', $targetTime->toDateString())
+            ->whereIn('status', [
+                \App\Enums\PublishStatus::SCHEDULED,
+                \App\Enums\PublishStatus::QUEUED,
+                \App\Enums\PublishStatus::PROCESSING,
+                \App\Enums\PublishStatus::PUBLISHED
+            ])
+            ->count();
+
+        // Stratejiye göre izin verilen günlük tavan
+        $maxDaily = $profile->maxRecommendedDailyPosts;
+        if ($strategy === 'conservative') {
+            $maxDaily = min($maxDaily, 2);
+        } elseif ($strategy === 'balanced') {
+            $maxDaily = min($maxDaily, 3);
+        }
+
+        // Maksimum günlük limit dolduysa bu dalgada atla (başka platformlar devam eder)
+        if ($todayPostsCount >= $maxDaily) {
+            return false;
+        }
+
+        // 3. Minimum soğuma kontrolü (son gönderiden bu yana yeterli süre geçti mi?)
+        $lastTarget = ScheduledPostTarget::where('social_account_id', $account->id)
+            ->whereNotNull('scheduled_at')
+            ->where('scheduled_at', '<', $targetTime)
+            ->whereIn('status', [
+                \App\Enums\PublishStatus::SCHEDULED,
+                \App\Enums\PublishStatus::QUEUED,
+                \App\Enums\PublishStatus::PROCESSING,
+                \App\Enums\PublishStatus::PUBLISHED
+            ])
+            ->orderBy('scheduled_at', 'desc')
+            ->first();
+
+        if ($lastTarget && $lastTarget->scheduled_at) {
+            $diffMinutes = $lastTarget->scheduled_at->diffInMinutes($targetTime, false);
+            // Soğuma süresi henüz dolmadıysa bu dalgada dinlendir (15 dk tolerans)
+            if ($diffMinutes < ($profile->minCooldownMinutes - 15)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Verilen hesap listesinden bu dalga için kotaları ve soğuma süresi uygun olanları filtreler
+     */
+    public function filterEligibleAccounts(iterable $accounts, Carbon $targetTime, string $strategy = 'max_capacity'): Collection
+    {
+        $collection = $accounts instanceof Collection ? $accounts : collect($accounts);
+
+        return $collection->filter(function (SocialAccount $account) use ($targetTime, $strategy) {
+            return $this->isAccountEligibleForWave($account, $targetTime, $strategy);
+        })->values();
     }
 
     /**

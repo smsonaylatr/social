@@ -50,10 +50,21 @@ class SchedulingService
             $schedule = $scheduleId ? \App\Models\Schedule::find($scheduleId) : null;
             $isAlgo = ($schedule && $schedule->schedule_type === 'algorithmic_growth') || $useAlgorithmicTiming;
 
+            /** @var \App\Services\Scheduling\AlgorithmicGrowthSchedulerService $algoService */
+            $algoService = app(\App\Services\Scheduling\AlgorithmicGrowthSchedulerService::class);
+
+            // Algoritmik modda her platformun günlük maksimum haklarını ve soğuma süresini denetle
+            if ($isAlgo && $schedule) {
+                $strategy = $schedule->growth_strategy ?: 'max_capacity';
+                $eligibleAccounts = $algoService->filterEligibleAccounts($accounts, $scheduledAt, $strategy);
+
+                if ($eligibleAccounts->isNotEmpty()) {
+                    $accounts = $eligibleAccounts;
+                }
+            }
+
             $staggeredTimes = [];
             if ($isAlgo || ($schedule && $schedule->anti_spam_shield)) {
-                /** @var \App\Services\Scheduling\AlgorithmicGrowthSchedulerService $algoService */
-                $algoService = app(\App\Services\Scheduling\AlgorithmicGrowthSchedulerService::class);
                 $staggeredTimes = $algoService->generateStaggeredTargetTimes(
                     accounts: $accounts,
                     baseTime: $scheduledAt,

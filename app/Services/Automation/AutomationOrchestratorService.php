@@ -30,8 +30,8 @@ class AutomationOrchestratorService
             return null;
         }
 
-        // Daily limit check (only if max_posts_per_day is set and greater than 0)
-        if ($schedule->max_posts_per_day && $schedule->max_posts_per_day > 0) {
+        // Daily limit check (only if max_posts_per_day is set and not algorithmic_growth mode)
+        if ($schedule->schedule_type !== 'algorithmic_growth' && $schedule->max_posts_per_day && $schedule->max_posts_per_day > 0) {
             $todayPostsCount = ScheduledPost::where('schedule_id', $schedule->id)
                 ->whereDate('scheduled_at', Carbon::today())
                 ->count();

@@ -76,11 +76,11 @@ class ScheduleResource extends Resource
                                 Select::make('growth_strategy')
                                     ->label('Büyüme & Dalga Stratejisi')
                                     ->options([
-                                        'conservative' => '🛡️ Hafif & Güvenli (Günde 2 Dalga / Öğle ve Akşam Zirvesi - Yeni Hesaplar İçin)',
-                                        'balanced' => '⚡ Dengeli Organik Keşfet (Günde 3 Dalga / Öğle, İkindi ve Akşam Prime - Tavsiye Edilen)',
-                                        'aggressive' => '🔥 Hızlı & Agresif Viral Büyüme (Günde 4 Dalga / Sabah, Öğle, Akşam, Gece)',
+                                        'max_capacity' => '🔥 Maksimum Güç & Tam Kapasite (Günde 5 Dalga / Platformların TÜM Günlük Haklarını Kullan)',
+                                        'balanced' => '⚡ Dengeli Organik Keşfet (Günde 3 Dalga / Öğle, İkindi ve Akşam Prime)',
+                                        'conservative' => '🛡️ Hafif & Güvenli (Günde 2 Dalga / Öğle ve Akşam Zirvesi)',
                                     ])
-                                    ->default('balanced')
+                                    ->default('max_capacity')
                                     ->required(fn (Get $get): bool => $get('schedule_type') === 'algorithmic_growth'),
 
                                 Grid::make(3)
@@ -104,14 +104,17 @@ class ScheduleResource extends Resource
                                 Placeholder::make('algo_guide')
                                     ->label('Platform Algoritma Kılavuzu & Zirve Keşfet Saatleri')
                                     ->content(new HtmlString(
+                                        '<div class="mb-3 p-3 rounded-lg border border-emerald-500/40 bg-emerald-950/20 text-emerald-300 text-xs leading-relaxed">' .
+                                        '<strong>💡 Maksimum Güç & Akıllı Hak Dağıtımı:</strong> Tek bir kural oluşturduğunuzda sistem günde 5 algoritmik dalga çalıştırır. Her platform kendi maksimum günlük hakkı kadar içeriğe dahil edilir. Örneğin TikTok günde 4-5 video yayınlarken, YouTube Shorts algoritması spam cezası vermemesi için günde 2 Shorts yayınlar. Böylece tüm platformların günlük hakları sıfır spam riskiyle sonuna kadar tüketilir!' .
+                                        '</div>' .
                                         '<div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs mt-2">' .
-                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-pink-400">📸 Instagram Reels:</strong> 12:15 • 17:45 • 21:10<br><span class="text-gray-400">İlk 45 dk tamamlama oranı testi. Min 3 saat soğuma kuralı.</span></div>' .
-                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-cyan-400">🎵 TikTok FYP:</strong> 13:00 • 16:30 • 20:15 • 22:30<br><span class="text-gray-400">300 kişilik batch testi. Min 2 saat ara (0-view jail koruması).</span></div>' .
-                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-red-400">▶️ YouTube Shorts:</strong> 14:30 • 18:30 • 21:15<br><span class="text-gray-400">Shorts rafına 4-6 saatte girer. Günde max 2 paylaşım idealdir.</span></div>' .
-                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-blue-400">👥 Facebook Reels:</strong> 09:45 • 14:00 • 20:00<br><span class="text-gray-400">Ebeveyn etkileşimi. Günde 1-2 paylaşım sayfa kalitesini korur.</span></div>' .
-                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-gray-300">🐦 X (Twitter):</strong> 09:00 • 13:15 • 17:30 • 21:45<br><span class="text-gray-400">Gündem ve akşam sohbet saatleri. Min 90 dk aralık.</span></div>' .
-                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-red-500">📌 Pinterest:</strong> 15:30 • 20:30 • 22:45<br><span class="text-gray-400">Görsel arama motoru. Akşam pin kaydetme zirve yapar.</span></div>' .
-                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60 col-span-full"><strong class="text-blue-500">💼 LinkedIn:</strong> 08:30 • 12:30 • 17:00 (Sadece Hafta İçi)<br><span class="text-gray-400">İş saatleri akışı. Hafta sonu paylaşım yapılmaz, günde max 1 post.</span></div>' .
+                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-pink-400">📸 Instagram Reels (Günde 3 Video):</strong> 12:45 • 19:15 • 22:00<br><span class="text-gray-400">İlk 45 dk tamamlama oranı testi. Min 3 saat soğuma kuralı.</span></div>' .
+                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-cyan-400">🎵 TikTok FYP (Günde 4-5 Video):</strong> 09:30 • 12:45 • 16:15 • 19:15 • 22:00<br><span class="text-gray-400">300 kişilik batch testi. Min 2 saat ara (0-view jail koruması).</span></div>' .
+                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-red-400">▶️ YouTube Shorts (Günde 2 Video):</strong> 12:45 • 19:15<br><span class="text-gray-400">Shorts rafına 4-6 saatte girer. Günde max 2 paylaşım duplicate ve spam cezasını önler.</span></div>' .
+                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-blue-400">👥 Facebook Reels (Günde 3 Video):</strong> 09:30 • 12:45 • 19:15<br><span class="text-gray-400">Ebeveyn etkileşimi. Günde 3 paylaşım sayfa kalitesini korur.</span></div>' .
+                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-gray-300">🐦 X (Twitter) (Günde 5 Tweet):</strong> 09:30 • 12:45 • 16:15 • 19:15 • 22:00<br><span class="text-gray-400">Gündem ve akşam sohbet saatleri. Min 90 dk aralık.</span></div>' .
+                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60"><strong class="text-red-500">📌 Pinterest (Günde 3 Pin):</strong> 16:15 • 19:15 • 22:00<br><span class="text-gray-400">Görsel arama motoru. Akşam pin kaydetme zirve yapar.</span></div>' .
+                                        '<div class="p-3 rounded-lg border border-gray-700 bg-gray-900/60 col-span-full"><strong class="text-blue-500">💼 LinkedIn (Günde 1 Post):</strong> 09:30 (Sadece Hafta İçi İş Günleri)<br><span class="text-gray-400">Mesai başı iş akışı. Hafta sonu paylaşım yapılmaz, günde max 1 post kuralı esastır.</span></div>' .
                                         '</div>'
                                     ))
                                     ->columnSpanFull(),
@@ -285,9 +288,9 @@ class ScheduleResource extends Resource
                         $count = count($times);
                         if ($record->schedule_type === 'algorithmic_growth') {
                             $strategyLabel = match ($record->growth_strategy) {
-                                'conservative' => 'Hafif (1-2 Dalga)',
-                                'aggressive' => 'Agresif (4 Dalga)',
-                                default => 'Dengeli (3 Dalga)',
+                                'conservative' => 'Hafif (2 Dalga)',
+                                'balanced' => 'Dengeli (3 Dalga)',
+                                default => 'Maksimum Güç (5 Dalga)',
                             };
                             return "🚀 Keşfet ({$strategyLabel}) • " . implode(' • ', $times);
                         }

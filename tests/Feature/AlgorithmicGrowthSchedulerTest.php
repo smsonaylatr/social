@@ -165,12 +165,18 @@ class AlgorithmicGrowthSchedulerTest extends TestCase
         $times = $schedule->getDailyRunTimes();
         $this->assertCount(3, $times, 'Balanced growth strategy should generate 3 peak waves');
 
-        // Test conservative strategy
-        $schedule->update(['growth_strategy' => 'conservative']);
-        // Reset memoized
+        // Test max_capacity strategy (5 waves)
+        $schedule->update(['growth_strategy' => 'max_capacity']);
         $reflector = new \ReflectionClass($schedule);
         $property = $reflector->getProperty('memoizedRunTimes');
         $property->setAccessible(true);
+        $property->setValue($schedule, null);
+
+        $timesMax = $schedule->getDailyRunTimes();
+        $this->assertCount(5, $timesMax, 'Max capacity strategy should generate 5 peak waves to fully utilize all daily quotas');
+
+        // Test conservative strategy
+        $schedule->update(['growth_strategy' => 'conservative']);
         $property->setValue($schedule, null);
 
         $timesConservative = $schedule->getDailyRunTimes();
@@ -208,5 +214,39 @@ class AlgorithmicGrowthSchedulerTest extends TestCase
         $this->assertNotNull($target1->scheduled_at);
         $this->assertNotNull($target2->scheduled_at);
         $this->assertNotEquals($target1->scheduled_at->toDateTimeString(), $target2->scheduled_at->toDateTimeString(), 'Targets must not have identical timestamps due to anti-spam stagger');
+    }
+
+    public function test_filter_eligible_accounts_protects_daily_quotas(): void
+    {
+        $service = app(AlgorithmicGrowthSchedulerService::class);
+        $accounts = collect([$this->igAccount, $this->ytAccount]);
+
+        // Simüle et: YouTube hesabı bugün 2 gönderi kotasını doldurmuş olsun
+        for ($i = 0; $i < 2; $i++) {
+            $post = ScheduledPost::create([
+                'workspace_id' => $this->workspace->id,
+                'brand_id' => $this->brand->id,
+                'video_id' => $this->video->id,
+                'scheduled_at' => now()->subHours(8 - ($i * 4)),
+                'status' => PublishStatus::PUBLISHED,
+            ]);
+
+            ScheduledPostTarget::create([
+                'scheduled_post_id' => $post->id,
+                'social_account_id' => $this->ytAccount->id,
+                'platform_code' => 'youtube',
+                'scheduled_at' => now()->subHours(8 - ($i * 4)),
+                'correlation_id' => 'yt_quota_test_' . $i,
+                'idempotency_key' => 'yt_quota_key_' . $i,
+                'status' => PublishStatus::PUBLISHED,
+            ]);
+        }
+
+        // Instagram ise henüz 0 gönderi yapmış olsun
+        $eligible = $service->filterEligibleAccounts($accounts, now(), 'max_capacity');
+
+        // YouTube kotasını doldurduğu için bu dalgada filtrelenmeli, sadece Instagram katılmalı!
+        $this->assertCount(1, $eligible);
+        $this->assertEquals($this->igAccount->id, $eligible->first()->id);
     }
 }
