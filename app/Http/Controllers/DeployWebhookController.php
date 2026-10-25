@@ -61,12 +61,13 @@ class DeployWebhookController extends Controller
             }
         } else {
             try {
-                $gitProcess = Process::fromShellCommandline('git pull origin main', $workDir);
+                $pullCmd = 'git fetch origin main && git reset --hard origin/main';
+                $gitProcess = Process::fromShellCommandline($pullCmd, $workDir);
                 $gitProcess->setTimeout(120);
                 $gitProcess->run();
-                $outputs[] = "GIT PULL: " . trim($gitProcess->getOutput());
+                $outputs[] = "GIT SYNC: " . trim($gitProcess->getOutput());
                 if ($gitProcess->getErrorOutput()) {
-                    $outputs[] = "GIT PULL MSG: " . trim($gitProcess->getErrorOutput());
+                    $outputs[] = "GIT SYNC MSG: " . trim($gitProcess->getErrorOutput());
                 }
             } catch (\Throwable $e) {
                 $errors[] = "GIT PULL EXCEPTION: " . $e->getMessage();
