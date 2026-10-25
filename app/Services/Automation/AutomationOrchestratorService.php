@@ -136,21 +136,89 @@ class AutomationOrchestratorService
         }
 
         $createdCount = 0;
+
+        // Eğer intervalMinutes 0 ise, günde 5 algoritmik keşfet dalgasına otomatik yerleştir
+        $isAlgorithmic = ($intervalMinutes === 0);
+        $algoService = app(\App\Services\Scheduling\AlgorithmicGrowthSchedulerService::class);
+        $waveSlots = $isAlgorithmic ? $algoService->generateUpcomingWaveSlots($startAt, $videos->count(), 'max_capacity') : [];
+
         $currentTime = $startAt->copy();
 
-        foreach ($videos as $video) {
+        foreach ($videos as $index => $video) {
+            $postTime = $isAlgorithmic ? ($waveSlots[$index] ?? $currentTime->copy()) : $currentTime->copy();
+
             $this->schedulingService->createScheduledPost(
                 video: $video,
-                scheduledAt: $currentTime->copy(),
+                scheduledAt: $postTime,
                 socialAccountIds: $socialAccountIds,
-                playlistId: $playlistId
+                playlistId: $playlistId,
+                useAlgorithmicTiming: $isAlgorithmic
             );
 
-            $currentTime->addMinutes($intervalMinutes);
+            if (! $isAlgorithmic) {
+                $currentTime->addMinutes($intervalMinutes);
+            }
             $createdCount++;
         }
 
         return $createdCount;
+    }
+
+    /**
+     * Henüz yayınlanmamış tüm planlı gönderileri (scheduled / queued)
+     * günde 5 dalga halindeki algoritmik keşfet saatlerine göre yeniden takvimler.
+     */
+    public function reschedulePendingPostsToAlgorithmicWaves(string $strategy = 'max_capacity'): int
+    {
+        $pendingPosts = ScheduledPost::whereIn('status', [
+            PublishStatus::SCHEDULED,
+            PublishStatus::QUEUED
+        ])
+        ->orderBy('id', 'asc')
+        ->get();
+
+        if ($pendingPosts->isEmpty()) {
+            return 0;
+        }
+
+        /** @var \App\Services\Scheduling\AlgorithmicGrowthSchedulerService $algoService */
+        $algoService = app(\App\Services\Scheduling\AlgorithmicGrowthSchedulerService::class);
+
+        $waveSlots = $algoService->generateUpcomingWaveSlots(now(), $pendingPosts->count(), $strategy);
+
+        $rescheduledCount = 0;
+
+        foreach ($pendingPosts as $index => $post) {
+            $newTime = $waveSlots[$index] ?? now()->addHours($index * 3);
+
+            $post->update([
+                'scheduled_at' => $newTime,
+                'status' => PublishStatus::SCHEDULED,
+            ]);
+
+            // Hedef platformların zamanlarını da kademeli ve jitterlı olarak güncelle
+            $targets = $post->targets()->with('socialAccount.platform')->get();
+            $accounts = $targets->pluck('socialAccount')->filter()->values();
+
+            $staggeredTimes = $algoService->generateStaggeredTargetTimes(
+                accounts: $accounts,
+                baseTime: $newTime,
+                enableJitter: true,
+                enableStagger: true
+            );
+
+            foreach ($targets as $target) {
+                $targetTime = $staggeredTimes[$target->social_account_id] ?? $newTime;
+                $target->update([
+                    'scheduled_at' => $targetTime,
+                    'status' => PublishStatus::SCHEDULED,
+                ]);
+            }
+
+            $rescheduledCount++;
+        }
+
+        return $rescheduledCount;
     }
 
     /**

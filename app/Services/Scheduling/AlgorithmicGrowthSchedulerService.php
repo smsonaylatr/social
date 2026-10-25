@@ -273,6 +273,41 @@ class AlgorithmicGrowthSchedulerService
     }
 
     /**
+     * Başlangıç tarihinden itibaren geleceğe doğru N adet algoritmik dalga zamanı üretir.
+     *
+     * @return array<Carbon>
+     */
+    public function generateUpcomingWaveSlots(Carbon $startDate, int $count, string $strategy = 'max_capacity'): array
+    {
+        $slots = [];
+        $currentDate = $startDate->copy()->startOfDay();
+        $now = $startDate->copy();
+
+        while (count($slots) < $count) {
+            $dailyTimes = $this->getAlgorithmicRunTimes($strategy, $currentDate);
+
+            foreach ($dailyTimes as $timeStr) {
+                $slotTime = $currentDate->copy()->setTimeFromTimeString($timeStr);
+
+                // Eğer başlangıç anından önceyse atla
+                if ($slotTime->lessThan($now)) {
+                    continue;
+                }
+
+                $slots[] = $slotTime;
+
+                if (count($slots) >= $count) {
+                    break;
+                }
+            }
+
+            $currentDate->addDay();
+        }
+
+        return $slots;
+    }
+
+    /**
      * Bir gönderinin hedef hesapları için her platforma özel kademeli (staggered)
      * ve rastgele organik sapmalı (smart jitter) yayın zamanlarını hesaplar.
      *

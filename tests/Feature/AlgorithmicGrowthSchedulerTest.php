@@ -249,4 +249,43 @@ class AlgorithmicGrowthSchedulerTest extends TestCase
         $this->assertCount(1, $eligible);
         $this->assertEquals($this->igAccount->id, $eligible->first()->id);
     }
+
+    public function test_reschedule_pending_posts_to_algorithmic_waves(): void
+    {
+        $orchestrator = app(\App\Services\Automation\AutomationOrchestratorService::class);
+
+        // 3 adet 5 dakikalık aralıklı eski tarz post oluşturalım
+        for ($i = 0; $i < 3; $i++) {
+            $post = ScheduledPost::create([
+                'workspace_id' => $this->workspace->id,
+                'brand_id' => $this->brand->id,
+                'video_id' => $this->video->id,
+                'scheduled_at' => now()->addMinutes(5 * ($i + 1)),
+                'status' => PublishStatus::SCHEDULED,
+            ]);
+
+            ScheduledPostTarget::create([
+                'scheduled_post_id' => $post->id,
+                'social_account_id' => $this->igAccount->id,
+                'platform_code' => 'instagram',
+                'correlation_id' => 'resched_test_' . $i,
+                'idempotency_key' => 'resched_key_' . $i,
+                'status' => PublishStatus::SCHEDULED,
+            ]);
+        }
+
+        $rescheduledCount = $orchestrator->reschedulePendingPostsToAlgorithmicWaves(now()->startOfDay());
+
+        $this->assertEquals(3, $rescheduledCount);
+
+        $posts = ScheduledPost::where('status', PublishStatus::SCHEDULED)->orderBy('scheduled_at')->get();
+
+        // Gönderilerin her birinin farklı dalga saatlerine dağıldığını ve hedef scheduled_at'nin set edildiğini doğrula
+        $this->assertCount(3, $posts);
+        $hours = $posts->map(fn ($p) => (int) $p->scheduled_at->format('H'))->toArray();
+        $this->assertNotEquals($hours[0], $hours[1], 'Posts should be distributed into different wave hours');
+        
+        $firstTarget = $posts->first()->targets->first();
+        $this->assertNotNull($firstTarget->scheduled_at, 'Target scheduled_at should be populated with staggered time');
+    }
 }

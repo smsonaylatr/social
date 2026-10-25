@@ -99,6 +99,20 @@ class ScheduledPostResource extends Resource
                 TextColumn::make('scheduled_at')
                     ->label('Planlanan Zaman')
                     ->dateTime('d.m.Y H:i')
+                    ->description(function (ScheduledPost $record): ?string {
+                        if (! $record->scheduled_at) {
+                            return null;
+                        }
+                        $hour = (int) $record->scheduled_at->format('H');
+                        return match (true) {
+                            $hour >= 8 && $hour <= 10 => '🌅 Dalga 1: Sabah Zirvesi',
+                            $hour >= 12 && $hour <= 14 => '☀️ Dalga 2: Öğle Molası',
+                            $hour >= 15 && $hour <= 17 => '☕ Dalga 3: İkindi / Çıkış',
+                            $hour >= 18 && $hour <= 20 => '🔥 Dalga 4: Prime Keşfet',
+                            $hour >= 21 && $hour <= 23 => '🌙 Dalga 5: Gece Rahatlama',
+                            default => '⏱️ Özel Saat',
+                        };
+                    })
                     ->visibleFrom('md')
                     ->sortable(),
 

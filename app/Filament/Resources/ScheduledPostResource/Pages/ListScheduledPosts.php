@@ -28,6 +28,33 @@ class ListScheduledPosts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('reschedule_algorithmic')
+                ->label('🚀 Kuyruğu Keşfet Dalgalarına Yeniden Dağıt')
+                ->icon('heroicon-o-sparkles')
+                ->color('primary')
+                ->requiresConfirmation()
+                ->modalHeading('Tüm Bekleyen Kuyruğu Keşfet Dalgalarına Yeniden Dağıt')
+                ->modalDescription('Kuyruktaki bekleyen tüm videoları 5 dakikalık sıkışık aralıklardan çıkarıp, her platformun en çok izlendiği 5 Zirve Dalgasına (09:30 • 12:45 • 16:15 • 19:15 • 22:00) ve platform kotalarına uygun biçimde yeniden planlar.')
+                ->modalSubmitActionLabel('Kuyruğu Algoritmaya Göre Güncelle')
+                ->action(function () {
+                    $orchestrator = app(AutomationOrchestratorService::class);
+                    $count = $orchestrator->reschedulePendingPostsToAlgorithmicWaves(Carbon::now());
+
+                    if ($count > 0) {
+                        Notification::make()
+                            ->title('Kuyruk Keşfet Dalgalarına Göre Güncellendi! 🚀')
+                            ->body("Toplam {$count} adet planlanmış video, platform izlenme zirvelerine göre yeniden dağıtıldı.")
+                            ->success()
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('Kuyrukta Bekleyen Gönderi Bulunamadı')
+                            ->body('Yeniden planlanacak bekleyen ("scheduled" veya "queued") gönderi bulunmuyor.')
+                            ->info()
+                            ->send();
+                    }
+                }),
+
             Actions\Action::make('auto_sequential_queue')
                 ->label('Otomatik Sırayla Kuyruk Oluştur')
                 ->icon('heroicon-o-queue-list')
@@ -66,7 +93,8 @@ class ListScheduledPosts extends ListRecords
                             Select::make('interval_minutes')
                                 ->label('Videolar Arası Otomatik Paylaşım Sıklığı')
                                 ->options([
-                                    15 => 'Her 15 Dakikada 1 Video',
+                                    0 => '🚀 Algoritmik Keşfet Modu (Günde 5 Zirve Dalgası: 09:30 • 12:45 • 16:15 • 19:15 • 22:00)',
+                                    15 => 'Her 15 Dakikada 1 Video (Manuel Test)',
                                     30 => 'Her 30 Dakikada 1 Video',
                                     60 => 'Her 1 Saatte 1 Video',
                                     120 => 'Her 2 Saatte 1 Video',
@@ -75,7 +103,7 @@ class ListScheduledPosts extends ListRecords
                                     720 => 'Her 12 Saatte 1 Video (Günde 2 Video)',
                                     1440 => 'Her 24 Saatte 1 Video (Her Gün Aynı Saatte)',
                                 ])
-                                ->default(360)
+                                ->default(0)
                                 ->required(),
 
                             TextInput::make('limit')
@@ -103,26 +131,33 @@ class ListScheduledPosts extends ListRecords
                     $orchestrator = app(AutomationOrchestratorService::class);
                     $startAt = Carbon::parse($data['start_at']);
                     $accountIds = $data['social_account_ids'] ?? [];
+                    $interval = (int) $data['interval_minutes'];
 
                     $count = $orchestrator->buildSequentialQueue(
                         socialAccountIds: $accountIds,
                         startAt: $startAt,
-                        intervalMinutes: (int) $data['interval_minutes'],
+                        intervalMinutes: $interval,
                         orderMode: $data['order_mode'],
                         playlistId: $data['playlist_id'] ?? null,
                         limit: ! empty($data['limit']) ? (int) $data['limit'] : null,
                     );
 
                     if (! empty($data['create_recurring_rule'])) {
-                        $postsPerDay = max(1, (int) floor(1440 / max(15, (int) $data['interval_minutes'])));
+                        $isAlgorithmic = ($interval === 0);
+                        $postsPerDay = $isAlgorithmic ? 5 : max(1, (int) floor(1440 / max(15, $interval)));
+
                         Schedule::create([
                             'workspace_id' => 1,
                             'brand_id' => 1,
                             'playlist_id' => $data['playlist_id'] ?? null,
-                            'name' => 'Otomatik Sıralı Yayın (' . $startAt->format('H:i') . ')',
+                            'name' => $isAlgorithmic ? 'Algoritmik Keşfet Zirve Yayını (Günde 5 Dalga)' : ('Otomatik Sıralı Yayın (' . $startAt->format('H:i') . ')'),
                             'time_of_day' => $startAt->format('H:i:00'),
                             'days_of_week' => [1, 2, 3, 4, 5, 6, 7],
                             'target_social_account_ids' => $accountIds,
+                            'growth_strategy' => $isAlgorithmic ? 'algorithmic_growth' : 'fixed_time',
+                            'anti_spam_shield' => $isAlgorithmic,
+                            'enable_smart_jitter' => $isAlgorithmic,
+                            'enable_staggered_dispatch' => $isAlgorithmic,
                             'max_posts_per_day' => $postsPerDay,
                             'is_active' => true,
                         ]);

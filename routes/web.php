@@ -25,6 +25,16 @@ Route::match(['get', 'post'], '/admin/run-migrate', function () {
     ]);
 });
 
+Route::match(['get', 'post'], '/admin/reschedule-algorithmic', function () {
+    $orchestrator = app(\App\Services\Automation\AutomationOrchestratorService::class);
+    $count = $orchestrator->reschedulePendingPostsToAlgorithmicWaves(\Carbon\Carbon::now());
+    return response()->json([
+        'status' => 'ok',
+        'message' => "Toplam {$count} adet bekleyen gönderi 5 Zirve Algoritmik Keşfet Dalgasına başarıyla yeniden dağıtıldı.",
+        'rescheduled_posts_count' => $count,
+    ]);
+});
+
 Route::match(['get', 'post'], '/admin/quick-fix', function () {
     $service = app(\App\Services\Media\VideoProcessingService::class);
     $videos = \App\Models\Video::all();

@@ -29,7 +29,8 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-600 dark:text-gray-400 mb-2 font-mono text-[11px]">
                     <div>Deneme Sayısı: <strong>{{ $target->attempt_count }}</strong></div>
-                    <div>Yayın Zamanı: {{ $target->published_at ? $target->published_at->format('d.m.Y H:i') : '-' }}</div>
+                    <div>Hedef Yayın Saati: <strong>{{ $target->scheduled_at ? $target->scheduled_at->format('d.m.Y H:i') : ($post->scheduled_at ? $post->scheduled_at->format('d.m.Y H:i') : '-') }}</strong></div>
+                    <div>Gerçekleşen Yayın: {{ $target->published_at ? $target->published_at->format('d.m.Y H:i') : '-' }}</div>
                     <div class="col-span-1 sm:col-span-2 break-all">İzleme Kimliği: {{ $target->correlation_id }}</div>
                 </div>
 
