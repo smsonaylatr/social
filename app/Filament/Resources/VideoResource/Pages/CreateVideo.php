@@ -59,10 +59,14 @@ class CreateVideo extends CreateRecord
                 continue;
             }
 
-            // Naming: Sequential name "X. Video" if filename is a random hash
+            // Naming: Sequential name "X. Video" if filename is a random hash, numeric ID or phone capture
             $rawFilename = pathinfo($filePath, PATHINFO_FILENAME);
-            $isHash = (strlen($rawFilename) >= 20 && ! str_contains($rawFilename, ' '));
-            if ($isHash) {
+            $isHashOrId = ctype_digit($rawFilename)
+                || (strlen($rawFilename) >= 15 && ! str_contains($rawFilename, ' '))
+                || preg_match('/^(vid|img|pxl|mov|rec|screen|wp|tiktok)[-_0-9]/i', $rawFilename)
+                || preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i', $rawFilename);
+
+            if ($isHashOrId) {
                 $cleanTitle = "{$counter}. Video";
             } else {
                 $clean = trim(Str::title(str_replace(['_', '-'], ' ', $rawFilename)));

@@ -80,11 +80,17 @@ class ListVideos extends ListRecords
                         }
                     }
 
-                    // Rename sequential if titles are hashes
+                    // Rename sequential if titles are hashes or numeric IDs
                     $orderedVideos = \App\Models\Video::orderBy('created_at', 'asc')->orderBy('id', 'asc')->get();
                     $seq = 1;
                     foreach ($orderedVideos as $v) {
-                        if (strlen($v->title) > 20 && ! str_contains($v->title, ' ')) {
+                        $title = trim($v->title);
+                        $isHashOrId = ctype_digit($title)
+                            || (strlen($title) >= 15 && ! str_contains($title, ' '))
+                            || preg_match('/^(vid|img|pxl|mov|rec|screen|wp|tiktok)[-_0-9]/i', $title)
+                            || preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i', $title);
+
+                        if ($isHashOrId) {
                             $v->update(['title' => "{$seq}. Video"]);
                         }
                         $seq++;

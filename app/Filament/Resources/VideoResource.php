@@ -123,6 +123,27 @@ class VideoResource extends Resource
                     ->modalCancelAction(false)
                     ->modalFooterActions([]),
 
+                Action::make('edit_title')
+                    ->label('Başlığı Düzenle')
+                    ->icon('heroicon-o-pencil-square')
+                    ->iconButton()
+                    ->tooltip('Başlığı Düzenle')
+                    ->form([
+                        TextInput::make('title')
+                            ->label('Video Başlığı')
+                            ->required(),
+                    ])
+                    ->fillForm(fn (Video $record): array => [
+                        'title' => $record->title,
+                    ])
+                    ->action(function (Video $record, array $data): void {
+                        $record->update(['title' => $data['title']]);
+                        Notification::make()
+                            ->title('Video başlığı güncellendi.')
+                            ->success()
+                            ->send();
+                    }),
+
                 Tables\Actions\DeleteAction::make()
                     ->label('Sil')
                     ->iconButton()
@@ -150,6 +171,22 @@ class VideoResource extends Resource
                             } catch (\Throwable $e) {
                                 // continue
                             }
+                        }
+
+                        // Rename sequential if titles are hashes or numeric IDs
+                        $orderedVideos = Video::orderBy('created_at', 'asc')->orderBy('id', 'asc')->get();
+                        $seq = 1;
+                        foreach ($orderedVideos as $v) {
+                            $title = trim($v->title);
+                            $isHashOrId = ctype_digit($title)
+                                || (strlen($title) >= 15 && ! str_contains($title, ' '))
+                                || preg_match('/^(vid|img|pxl|mov|rec|screen|wp|tiktok)[-_0-9]/i', $title)
+                                || preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i', $title);
+
+                            if ($isHashOrId) {
+                                $v->update(['title' => "{$seq}. Video"]);
+                            }
+                            $seq++;
                         }
                         Notification::make()
                             ->title("{$count} video başarıyla yeniden analiz edildi.")
