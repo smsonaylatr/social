@@ -206,6 +206,27 @@ class ScheduledPostResource extends Resource
                     ->modalHeading('Yayın Hedefleri ve Detayları')
                     ->modalContent(fn (ScheduledPost $record) => view('filament.modals.scheduled-post-details', ['post' => $record])),
 
+                Action::make('requeue_failed_targets')
+                    ->label('Kuyruğa Al')
+                    ->icon('heroicon-o-arrow-path')
+                    ->iconButton()
+                    ->size('sm')
+                    ->color('warning')
+                    ->tooltip('Bu videodaki başarısız hedefleri (örn: YouTube) yeniden kuyruğa alır.')
+                    ->visible(fn (ScheduledPost $record): bool => $record->targets()->where('status', PublishStatus::FAILED)->exists())
+                    ->requiresConfirmation()
+                    ->modalHeading('Başarısız Hedefleri Yeniden Kuyruğa Al')
+                    ->modalDescription('Bu gönderideki başarısız platform hedefleri (YouTube vb.) sıfırlanıp yeniden kuyruğa alınacaktır. Gönderi statüsü güncellenecektir.')
+                    ->action(function (ScheduledPost $record) {
+                        $requeued = app(\App\Services\Publisher\SchedulingService::class)->requeueFailedTargets($record->id);
+
+                        Notification::make()
+                            ->title("{$requeued} Hedef Yeniden Kuyruğa Alındı!")
+                            ->body('Başarısız hedefler sıfırlandı ve gönderi durumu güncellendi.')
+                            ->success()
+                            ->send();
+                    }),
+
                 Tables\Actions\DeleteAction::make()
                     ->iconButton()
                     ->size('sm'),

@@ -25,6 +25,16 @@ Route::match(['get', 'post'], '/admin/run-migrate', function () {
     ]);
 });
 
+Route::match(['get', 'post'], '/admin/requeue-failed', function () {
+    $service = app(\App\Services\Publisher\SchedulingService::class);
+    $requeued = $service->requeueFailedTargets();
+    return response()->json([
+        'status' => 'ok',
+        'message' => "Toplam {$requeued} adet başarısız hedef (YouTube vb.) yeniden kuyruğa alındı ve gönderi durumları güncellendi.",
+        'requeued_count' => $requeued,
+    ]);
+});
+
 Route::match(['get', 'post'], '/admin/setup-platform-rules', function () {
     $orchestrator = app(\App\Services\Automation\AutomationOrchestratorService::class);
     $rules = $orchestrator->setupDefaultPlatformSpecificRules();

@@ -44,8 +44,22 @@
                 @endif
 
                 @if($target->error_message)
-                    <div class="mt-2 p-2 rounded bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 break-words">
-                        <strong>Hata:</strong> {{ $target->error_message }}
+                    @php
+                        $msg = $target->error_message;
+                        $isUploadLimit = str_contains($msg, 'uploadLimitExceeded') || str_contains($msg, 'exceeded the number of videos');
+                    @endphp
+                    <div class="mt-2 p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 break-words leading-relaxed text-[11px]">
+                        @if($isUploadLimit)
+                            <div class="flex items-start gap-1.5 font-sans">
+                                <span class="text-amber-500 font-bold text-xs shrink-0">⚠️</span>
+                                <div>
+                                    <strong class="font-semibold text-rose-800 dark:text-rose-200">YouTube Kanal Yükleme Limiti Aşıldı (uploadLimitExceeded):</strong><br>
+                                    <span>YouTube kanallarında 24 saatlik güvenlik yükleme kotası dolduğunda bu durum oluşur. "Başarısızları Kuyruğa Al" butonuna basarak bu hedefi yeniden kuyruğa alabilirsiniz; kota yenilendiğinde otomatik olarak yayınlanacaktır.</span>
+                                </div>
+                            </div>
+                        @else
+                            <strong>Hata:</strong> {{ $msg }}
+                        @endif
                     </div>
                 @endif
             </div>

@@ -292,37 +292,37 @@ class AutomationOrchestratorService
 
         $platformConfigs = [
             'instagram' => [
-                'name' => '📸 Instagram Reels Keşfet Kuralı (Günde 5 Dalga)',
+                'name' => '📸 Instagram Reels',
                 'times' => ['09:30', '12:45', '16:15', '19:15', '22:00'],
                 'max_posts' => 5,
             ],
             'tiktok' => [
-                'name' => '🎵 TikTok FYP Viral Kuralı (Günde 5 Dalga)',
+                'name' => '🎵 TikTok',
                 'times' => ['10:00', '13:00', '16:30', '19:45', '22:15'],
                 'max_posts' => 5,
             ],
             'youtube' => [
-                'name' => '▶️ YouTube Shorts Algoritma Kuralı (Günde 5 Dalga)',
+                'name' => '▶️ YouTube Shorts',
                 'times' => ['09:45', '12:30', '16:00', '19:00', '21:45'],
                 'max_posts' => 5,
             ],
             'facebook' => [
-                'name' => '👥 Facebook Reels & Akış Kuralı (Günde 5 Dalga)',
+                'name' => '👥 Facebook',
                 'times' => ['10:15', '13:15', '16:45', '19:30', '22:00'],
                 'max_posts' => 5,
             ],
             'x' => [
-                'name' => '🐦 X (Twitter) Zirve Etkileşim Kuralı (Günde 5 Dalga)',
+                'name' => '🪶 X (Twitter)',
                 'times' => ['09:15', '12:15', '15:45', '18:45', '21:30'],
                 'max_posts' => 5,
             ],
             'linkedin' => [
-                'name' => '💼 LinkedIn Profesyonel Ağ Kuralı (Günde 4 Dalga)',
+                'name' => '💼 LinkedIn',
                 'times' => ['09:00', '12:30', '16:45', '19:30'],
                 'max_posts' => 4,
             ],
             'pinterest' => [
-                'name' => '📌 Pinterest Pin & Keşfet Kuralı (Günde 4 Dalga)',
+                'name' => '📌 Pinterest',
                 'times' => ['13:00', '16:30', '19:30', '22:00'],
                 'max_posts' => 4,
             ],

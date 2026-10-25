@@ -28,6 +28,34 @@ class ListScheduledPosts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('requeue_all_failed')
+                ->label('Başarısızları Kuyruğa Al')
+                ->icon('heroicon-o-arrow-path')
+                ->color('warning')
+                ->size('sm')
+                ->tooltip('Kısmen başarılı olan gönderilerdeki YouTube vb. başarısız hedefleri yeniden kuyruğa alır.')
+                ->requiresConfirmation()
+                ->modalHeading('Tüm Başarısız Platform Hedeflerini Kuyruğa Al')
+                ->modalDescription('Günlük yükleme kotası (uploadLimitExceeded) veya geçici API hataları nedeniyle başarısız olmuş YouTube ve diğer platform hedeflerini yeniden kuyruğa alır. Gönderilerin statüleri "Kuyrukta" olarak düzeltilir.')
+                ->modalSubmitActionLabel('Başarısızları Kuyruğa Ekle')
+                ->action(function () {
+                    $requeued = app(\App\Services\Publisher\SchedulingService::class)->requeueFailedTargets();
+
+                    if ($requeued > 0) {
+                        Notification::make()
+                            ->title("{$requeued} Başarısız Hedef Yeniden Kuyruğa Alındı! 🚀")
+                            ->body('Başarısız YouTube ve diğer platform hedefleri kuyruğa eklendi, gönderi statüleri güncellendi.')
+                            ->success()
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('Başarısız Hedef Bulunamadı')
+                            ->body('Kuyruğa alınacak başarısız hedef bulunmuyor.')
+                            ->info()
+                            ->send();
+                    }
+                }),
+
             Actions\Action::make('reschedule_algorithmic')
                 ->label('Keşfete Dağıt')
                 ->icon('heroicon-o-sparkles')

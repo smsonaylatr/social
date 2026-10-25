@@ -259,18 +259,49 @@ class ScheduleResource extends Resource
             ]);
     }
 
+    public static function formatPlatformName(string $name): string
+    {
+        $lower = mb_strtolower($name);
+        if (str_contains($lower, 'instagram')) {
+            return '📸 Instagram Reels';
+        }
+        if (str_contains($lower, 'youtube')) {
+            return '▶️ YouTube Shorts';
+        }
+        if (str_contains($lower, 'tiktok')) {
+            return '🎵 TikTok';
+        }
+        if (str_contains($lower, 'facebook')) {
+            return '👥 Facebook';
+        }
+        if (str_contains($lower, 'twitter') || str_contains($lower, ' x ') || str_contains($lower, 'x (') || str_starts_with($lower, 'x ') || str_contains($name, '🪶') || str_contains($name, '🐦')) {
+            return '🪶 X (Twitter)';
+        }
+        if (str_contains($lower, 'linkedin')) {
+            return '💼 LinkedIn';
+        }
+        if (str_contains($lower, 'pinterest')) {
+            return '📌 Pinterest';
+        }
+
+        $clean = preg_replace('/\s*\(Günde\s*\d+\s*Dalga\)/iu', '', $name);
+        $clean = preg_replace('/\s*(Keşfet|Algoritma|Zirve Etkileşim|Profesyonel Ağ|Pin & Keşfet|Reels & Akış|FYP Viral)\s*Kuralı/iu', '', $clean);
+        return trim($clean) ?: $name;
+    }
+
     public static function table(Table $table): Table
     {
         return $table
             ->modifyQueryUsing(fn ($query) => $query->with(['playlist']))
             ->columns([
                 TextColumn::make('name')
-                    ->label('Kural Adı')
+                    ->label('Platform')
                     ->searchable()
                     ->sortable()
-                    ->wrap()
+                    ->wrap(false)
                     ->weight('bold')
-                    ->size(TextColumnSize::Small),
+                    ->size(TextColumnSize::Small)
+                    ->formatStateUsing(fn (string $state): string => static::formatPlatformName($state)),
 
                 TextColumn::make('playlist.name')
                     ->label('Kaynak')

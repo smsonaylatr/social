@@ -210,4 +210,50 @@ class SchedulingService
             $lock->release();
         }
     }
+
+    /**
+     * Kısmen başarılı veya başarısız olan gönderilerdeki başarısız platform hedeflerini
+     * (örn: YouTube uploadLimitExceeded) yeniden kuyruğa alır ve ana gönderi statüsünü günceller.
+     */
+    public function requeueFailedTargets(?int $scheduledPostId = null, ?string $platformCode = null): int
+    {
+        $query = ScheduledPostTarget::where('status', PublishStatus::FAILED);
+
+        if ($scheduledPostId) {
+            $query->where('scheduled_post_id', $scheduledPostId);
+        }
+
+        if ($platformCode) {
+            $query->where('platform_code', $platformCode);
+        }
+
+        $failedTargets = $query->with('scheduledPost')->get();
+        if ($failedTargets->isEmpty()) {
+            return 0;
+        }
+
+        $requeuedCount = 0;
+        $affectedPosts = collect();
+
+        foreach ($failedTargets as $target) {
+            $target->update([
+                'status' => PublishStatus::QUEUED,
+                'attempt_count' => 0,
+                'error_message' => $target->error_message ? "Yeniden kuyruğa alındı (Önceki durum: {$target->error_message})" : null,
+            ]);
+
+            $requeuedCount++;
+
+            if ($target->scheduledPost) {
+                $affectedPosts->push($target->scheduledPost);
+            }
+        }
+
+        // Ana gönderilerin statülerini güncelle (Örn: 'Kısmen Başarılı' -> 'Kuyrukta')
+        foreach ($affectedPosts->unique('id') as $parentPost) {
+            $parentPost->updateStatusBasedOnTargets();
+        }
+
+        return $requeuedCount;
+    }
 }

@@ -122,17 +122,6 @@ class DispatchPlatformPostJob implements ShouldQueue
 
     protected function updateParentPostStatus(ScheduledPost $parentPost): void
     {
-        $targets = $parentPost->targets()->get();
-        $total = $targets->count();
-        $published = $targets->where('status', PublishStatus::PUBLISHED)->count();
-        $failed = $targets->where('status', PublishStatus::FAILED)->count();
-
-        if ($published === $total) {
-            $parentPost->update(['status' => PublishStatus::PUBLISHED]);
-        } elseif ($published > 0 && ($published + $failed === $total)) {
-            $parentPost->update(['status' => PublishStatus::PARTIALLY_PUBLISHED]);
-        } elseif ($failed === $total) {
-            $parentPost->update(['status' => PublishStatus::FAILED]);
-        }
+        $parentPost->updateStatusBasedOnTargets();
     }
 }
