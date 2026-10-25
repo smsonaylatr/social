@@ -13,8 +13,6 @@ use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\View\PanelsRenderHook;
 use Filament\Widgets;
-use Hydrat\TableLayoutToggle\Persisters\CachePersister;
-use Hydrat\TableLayoutToggle\TableLayoutTogglePlugin;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -86,16 +84,6 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Pages\Dashboard::class,
             ])
-            ->plugin(
-                TableLayoutTogglePlugin::make()
-                    ->setDefaultLayout('grid')
-                    ->persistLayoutUsing(CachePersister::class)
-                    ->shareLayoutBetweenPages(false)
-                    ->displayToggleAction()
-                    ->toggleActionHook('tables::toolbar.search.after')
-                    ->listLayoutButtonIcon('heroicon-o-bars-3-bottom-left')
-                    ->gridLayoutButtonIcon('heroicon-o-squares-2x2')
-            )
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 \App\Filament\Widgets\StatsOverviewWidget::class,

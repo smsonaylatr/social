@@ -5,22 +5,29 @@ namespace App\Filament\Resources\VideoResource\Pages;
 use App\Filament\Resources\VideoResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
-use Hydrat\TableLayoutToggle\Concerns\HasToggleableTable;
 
 class ListVideos extends ListRecords
 {
-    use HasToggleableTable;
+    public string $layoutView = 'grid';
 
-    public function booted(): void
+    public function changeLayoutView(): void
     {
-        if ($this->layoutView === null) {
-            $this->layoutView = $this->getLayoutView();
-        }
+        $this->layoutView = $this->isListLayout() ? 'grid' : 'list';
     }
 
-    public function getDefaultLayoutView(): string
+    public function isGridLayout(): bool
     {
-        return 'grid';
+        return $this->layoutView === 'grid';
+    }
+
+    public function isListLayout(): bool
+    {
+        return $this->layoutView === 'list';
+    }
+
+    public function getLayoutView(): string
+    {
+        return $this->layoutView;
     }
 
     protected static string $resource = VideoResource::class;
@@ -29,6 +36,11 @@ class ListVideos extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('toggle_layout')
+                ->label(fn () => $this->isGridLayout() ? 'Liste Görünümü' : 'Izgara Görünümü')
+                ->icon(fn () => $this->isGridLayout() ? 'heroicon-o-bars-3-bottom-left' : 'heroicon-o-squares-2x2')
+                ->color('gray')
+                ->action(fn () => $this->changeLayoutView()),
             Actions\Action::make('reanalyze_all')
                 ->label('Yeniden Analiz Et & Onar')
                 ->icon('heroicon-o-arrow-path')
