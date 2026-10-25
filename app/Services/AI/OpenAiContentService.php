@@ -422,35 +422,106 @@ KRİTİK EMOJİ VE MASAÜSTÜ UYUMLULUK KURALLARI (HAYATİ ÖNEM TAŞIR!):
   ✨, 🔥, ⚡, 🎁, 👟, 🚚, 🛍️, 🌐, 📸, 📲, 👉, 👇, 🛒, 🌟, 🚀, 💬, 💖, ⭐, 🎉, 💯
 
 ══════════════════════════════════════════════════════════════════════════════════
-İÇERİK ŞABLON YAPISI (ÖRNEK KÜTÜPHANEYE BİREBİR UYGUN):
+İÇERİK ŞABLON YAPISI (DÜZ PARAGRAF KESİNLİKLE YASAKTIR!):
 ══════════════════════════════════════════════════════════════════════════════════
-İçeriklerin gövdesi şu 5 aşamalı dönüşüm şablonunu takip etmelidir:
-1) Vurucu Kanca (1. satır, sonu ✨, 🔥, ⚡ veya 🎁 emojisiyle biten merak uyandırıcı soru/cümle)
-2) Gövde Metni (2-3 cümlelik samimi ve spor ayakkabı + paten konforunu anlatan kısa paragraf)
-3) 4 Maddelik Vurgu Listesi:
-   ✨ Dikkat çeken modern tasarımlar
-   👟 Ayakkabı + paten deneyimi bir arada
-   🎁 Doğum günü ve özel günler için farklı bir hediye
+Tüm platformlar için üretilen "caption" metinleri kesinlikle tek parça düz metin veya düz cümleler olamaz!
+Aşağıdaki gibi boş satırlarla (\n\n) ayrılmış, satır satır, maddeli ve emojili görsel şablon bloklarından oluşmak ZORUNDADIR:
+
+1) Vurucu Kanca (1. satır, sonu ✨, 🔥, ⚡ veya 🎁 emojisiyle biten merak uyandırıcı cümle)
+2) Boş satır (\n\n)
+3) 3-4 Maddelik Vurgu Listesi (Satır başlarında mutlaka ✨, 👟, 🎁, 🚚 emojileri olmalı):
+   ✨ Dikkat çeken modern patenli ayakkabı tasarımları
+   👟 Günlük ayakkabı konforu + paten eğlencesi bir arada
+   🎁 Çocuklar ve gençler için unutulmaz bir hediye
    🚚 Hızlı kargo • Güvenli alışveriş
-4) Eylem Çağrısı (CTA) & Yönlendirme:
-   Çocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️
+4) Boş satır (\n\n)
+5) Eylem Çağrısı (CTA) & Yönlendirme:
+   👉 Modelleri ve fiyatları hemen keşfet:
    🌐 patenliayakkabilar.com
    📸 @patenliayakkabilar
-5) En Etkili 5 SEO Hashtag (DİKKAT: Hashtag'leri caption metninin sonuna YAZMA, yalnızca "hashtags" dizisinde döndür; yayınlanırken sistem otomatik birleştirir):
-   ["PatenliAyakkabı", "PatenliAyakkabılar", "ÇocukPatenliAyakkabı", "TekerlekliAyakkabı", "RollerShoes"]
 
-* X (Twitter) için bu metni 280 karakter limitine sığacak şekilde özetle (ana kanca + ayakkabı deneyimi + site linki + 2 ana hashtag).
+══════════════════════════════════════════════════════════════════════════════════
+X (TWITTER) İÇİN ZORUNLU MADDELİ ŞABLON (KESİNLİKLE DÜZ YAZI YAZMA!):
+══════════════════════════════════════════════════════════════════════════════════
+X için üretilen caption metni KESİNLİKLE düz 2 cümle olmayacaktır! X'te de yukarıdaki gibi satır satır, boşluklu ve maddeli şablon kullanılacaktır (Max 240 karakter):
+
+Örnek X Metni:
+Adım at, topuğa bas ve kaymaya başla! 🚀
+
+✨ Tek hareketle patene dönüşen ayakkabı
+👟 Çocuk & yetişkin patenli ayakkabılar
+🚚 Hızlı kargo • Güvenli alışveriş
+
+🛍️ Hemen sipariş verin:
+🌐 https://patenliayakkabilar.com
+
 * YouTube başlığı: Max 100 karakter, dikkat çekici, başında/sonunda masaüstü uyumlu emoji (örn: ✨ Onun Yeni Favori Ayakkabısı Olmaya Hazır! 🎁 #patenliayakkabı).
 
-Çıktıyı kesinlikle aşağıdaki JSON şemasına uygun tek bir JSON objesi olarak üret:
+Çıktıyı kesinlikle aşağıdaki JSON şemasına uygun tek bir JSON objesi olarak üret. Caption alanlarında satır sonları için mutlaka "\n\n" ve "\n" karakterlerini kullan:
 {
-  "instagram": { "title": null, "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
-  "facebook": { "title": "...", "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
-  "youtube": { "title": "...", "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
-  "x": { "title": null, "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
-  "pinterest": { "title": "...", "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
-  "tiktok": { "title": null, "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." },
-  "linkedin": { "title": null, "hook_sentence": "...", "caption": "...", "hashtags": ["..."], "seo_keywords": ["..."], "call_to_action": "...", "suggested_product_url": "..." }
+  "instagram": {
+    "title": null,
+    "hook_sentence": "Adım at, topuğa bas ve kaymaya başla! 🚀",
+    "caption": "Adım at, topuğa bas ve kaymaya başla! 🚀\n\nHem şık bir spor ayakkabı hem tek hareketle eğlenceli bir paten! Çocuk patenli ayakkabı modellerimizle hareket dolu bir deneyim.\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten deneyimi bir arada\n🎁 Doğum günü için harika bir hediye\n🚚 Hızlı kargo • Güvenli alışveriş\n\n👉 Detaylı bilgi ve sipariş için:\n🌐 https://patenliayakkabilar.com\n📸 @patenliayakkabilar",
+    "hashtags": ["PatenliAyakkabı", "PatenliAyakkabılar", "ÇocukPatenliAyakkabı", "TekerlekliAyakkabı", "RollerShoes"],
+    "seo_keywords": ["patenli ayakkabı", "çocuk patenli ayakkabı"],
+    "call_to_action": "Profildeki linkten hemen sipariş verin! 🛍️",
+    "suggested_product_url": "https://patenliayakkabilar.com"
+  },
+  "facebook": {
+    "title": "✨ Patenli Ayakkabı Modelleri | Patenli Ayakkabılar",
+    "hook_sentence": "Yürümek güzel ama kayarak ilerlemek çok daha eğlenceli! 🔥",
+    "caption": "Yürümek güzel ama kayarak ilerlemek çok daha eğlenceli! 🔥\n\nHem günlük kullanıma uygun spor ayakkabı hem de tek hareketle paten!\n\n✨ Dikkat çeken modern tasarımlar\n👟 Rahat spor ayakkabı konforu\n🚚 Hızlı kargo • Güvenli alışveriş\n\n👉 Detaylı bilgi ve sipariş için:\n🌐 https://patenliayakkabilar.com",
+    "hashtags": ["PatenliAyakkabı", "PatenliAyakkabılar", "TekerlekliAyakkabı"],
+    "seo_keywords": ["patenli ayakkabı"],
+    "call_to_action": "Detaylı bilgi ve sipariş için tıklayın",
+    "suggested_product_url": "https://patenliayakkabilar.com"
+  },
+  "youtube": {
+    "title": "✨ Tek Hareketle Patene Dönüşen Efsane Patenli Ayakkabı! 🎁 #patenliayakkabı",
+    "hook_sentence": "Tek hareketle patene dönüşen ayakkabıyı gördünüz mü? ⚡",
+    "caption": "Tek hareketle patene dönüşen ayakkabıyı gördünüz mü? ⚡\n\nGünlük spor ayakkabıyı tek hareketle patene dönüştürün!\n\n✨ Modern ve dayanıklı tasarım\n👟 Gizli tekerlek mekanizması\n🚚 Hızlı kargo • Güvenli alışveriş\n\n🌐 Resmi Web Sitesi: https://patenliayakkabilar.com\n📸 @patenliayakkabilar",
+    "hashtags": ["Shorts", "PatenliAyakkabı", "PatenliAyakkabılar", "TekerlekliAyakkabı"],
+    "seo_keywords": ["patenli ayakkabı"],
+    "call_to_action": "Kanalımıza abone olun ve yeni modelleri keşfedin!",
+    "suggested_product_url": "https://patenliayakkabilar.com"
+  },
+  "x": {
+    "title": null,
+    "hook_sentence": "Adım at, topuğa bas ve kaymaya başla! 🚀",
+    "caption": "Adım at, topuğa bas ve kaymaya başla! 🚀\n\n✨ Tek hareketle patene dönüşen ayakkabı\n👟 Çocuk & yetişkin patenli ayakkabılar\n🚚 Hızlı kargo • Güvenli alışveriş\n\n🛍️ Hemen sipariş verin:\n🌐 https://patenliayakkabilar.com",
+    "hashtags": ["PatenliAyakkabı", "TekerlekliAyakkabı"],
+    "seo_keywords": ["patenli ayakkabı"],
+    "call_to_action": "Hemen tıkla!",
+    "suggested_product_url": "https://patenliayakkabilar.com"
+  },
+  "pinterest": {
+    "title": "✨ Çocuk Patenli Ayakkabı Modelleri & Tekerlekli Spor Ayakkabı",
+    "hook_sentence": "Çocuklar için en havalı patenli ayakkabılar! 🎁",
+    "caption": "Çocuklar için en havalı patenli ayakkabılar! 🎁\n\n✨ Dikkat çeken modern tasarımlar\n👟 Ayakkabı + paten bir arada\n🚚 Hızlı kargo • Güvenli alışveriş\n\n🌐 https://patenliayakkabilar.com",
+    "hashtags": ["PatenliAyakkabı", "ÇocukHediyesi"],
+    "seo_keywords": ["patenli ayakkabı"],
+    "call_to_action": "Ürünü İncele ve Satın Al",
+    "suggested_product_url": "https://patenliayakkabilar.com"
+  },
+  "tiktok": {
+    "title": null,
+    "hook_sentence": "Kaymayı sevenler buraya! 🔥",
+    "caption": "Kaymayı sevenler buraya! 🔥\n\n✨ Tek tıkla patene dönüşen ayakkabı\n👟 Çocuk ve yetişkin modelleri\n🚚 Hızlı teslimat\n\n🌐 https://patenliayakkabilar.com",
+    "hashtags": ["PatenliAyakkabı", "RollerShoes", "fyp", "kesfet"],
+    "seo_keywords": ["patenli ayakkabı"],
+    "call_to_action": "Takip etmeyi ve videoyu kaydetmeyi unutma!",
+    "suggested_product_url": "https://patenliayakkabilar.com"
+  },
+  "linkedin": {
+    "title": null,
+    "hook_sentence": "Yenilikçi ayakkabı ve mobilite konsepti: Patenli Ayakkabılar 🚀",
+    "caption": "Yenilikçi ayakkabı ve mobilite konsepti: Patenli Ayakkabılar 🚀\n\nŞehir hayatında eğlence ve fonksiyonelliği bir araya getiren tekerlekli spor ayakkabı teknolojisi.\n\n✨ İnovatif tasarım ve mühendislik\n👟 Günlük konfor ve gizli mekanizma\n🚚 Güvenli e-ticaret altyapısı\n\n🌐 https://patenliayakkabilar.com",
+    "hashtags": ["İnovasyon", "PatenliAyakkabı", "Girişimcilik", "E-Ticaret"],
+    "seo_keywords": ["patenli ayakkabı"],
+    "call_to_action": "Koleksiyonu inceleyin",
+    "suggested_product_url": "https://patenliayakkabilar.com"
+  }
 }
 PROMPT;
     }

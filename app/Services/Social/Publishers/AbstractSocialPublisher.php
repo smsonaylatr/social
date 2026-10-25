@@ -122,16 +122,35 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
         $caption = trim((string) ($target->caption ?: ''));
         $video = $target->scheduledPost?->video;
         $brand = $video?->brand ?: \App\Models\Brand::first();
+        $rawProductUrl = $target->product_url ?: ($video?->product_url ?: ($brand?->website ?? 'https://patenliayakkabilar.com'));
 
         // 0. Güvenlik Bariyeri: Gönderi metni kesinlikle boş veya sadece sistem etiketi olamaz!
         if ($caption === '' || preg_match('/^\d+[\.\s\-]+video$/i', $caption)) {
             $caption = $video?->custom_caption
                 ?: ($video?->title && ! preg_match('/^\d+[\.\s\-]+video/i', $video->title) ? $video->title : '')
-                ?: 'Patenli ayakkabı modelleri ile yürümek artık çok daha eğlenceli! ✨ Hem şık bir spor ayakkabı hem tek hareketle paten! 🚀';
+                ?: "Adım at, topuğa bas ve kaymaya başla! 🚀\n\n✨ Spor ayakkabı + paten konforu bir arada\n👟 Çocuk ve yetişkin modelleri\n🚚 Hızlı kargo • Güvenli alışveriş";
         }
 
-        // 1. Only append product_url if neither the full URL nor its bare domain is already in the caption
-        $rawProductUrl = $target->product_url ?: ($video?->product_url ?: ($brand?->website ?? 'https://patenliayakkabilar.com'));
+        // 1. Şablon Güvencesi: Eğer metin tek satır/düz paragrafsa ve maddeli şablon içermiyorsa, estetik şablon yapısını uygula
+        if (! str_contains($caption, "\n") || (! str_contains($caption, '✨') && ! str_contains($caption, '👟') && ! str_contains($caption, '•'))) {
+            // Metin içine düz girmiş link ve hashtag kalıntılarını temizle (ayrı blok olarak eklenecek)
+            $cleanHook = preg_replace('/https?:\/\/\S+/i', '', $caption);
+            $cleanHook = preg_replace('/\bpatenliayakkabilar\.com\S*/i', '', $cleanHook);
+            $cleanHook = preg_replace('/#[^\s#]+/u', '', $cleanHook);
+            $cleanHook = preg_replace('/\b(?:hızlı kargo ile güvenli alışveriş için:?|sipariş için:?)\s*$/iu', '', trim($cleanHook));
+            $cleanHook = trim($cleanHook);
+
+            if (empty($cleanHook)) {
+                $cleanHook = 'Adım at, topuğa bas ve kaymaya başla! 🚀';
+            } elseif (! preg_match('/[✨🔥⚡🎁🌟🚀]$/u', $cleanHook)) {
+                $cleanHook .= ' 🔥';
+            }
+
+            $bullets = "✨ Tek hareketle patene dönüşen spor ayakkabı\n👟 Çocuk & yetişkin patenli ayakkabı modelleri\n🚚 Hızlı kargo • Güvenli alışveriş";
+            $caption = "{$cleanHook}\n\n{$bullets}";
+        }
+
+        // 2. Only append product_url if neither the full URL nor its bare domain is already in the caption
         if (! empty($rawProductUrl)) {
             $productUrl = trim((string) $rawProductUrl);
             $host = parse_url($productUrl, PHP_URL_HOST) ?: $productUrl;
@@ -145,7 +164,7 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
             }
         }
 
-        // 2. Only append hashtags that are not already written inside the caption
+        // 3. Only append hashtags that are not already written inside the caption
         $targetHashtags = (! empty($target->hashtags) && is_array($target->hashtags))
             ? $target->hashtags
             : ['PatenliAyakkabı', 'TekerlekliAyakkabı', 'PatenliAyakkabılar'];
