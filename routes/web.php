@@ -12,6 +12,10 @@ Route::get('/', function () {
 });
 
 // Legal Pages for OAuth & API Verification (Publicly accessible)
+Route::get('/tiktok-developers-site-verification.txt', function () {
+    return response('tiktok-developers-site-verification=7ohyfCDIRy2UtuKp9g9A4V9kEd0Dd1EV', 200)
+        ->header('Content-Type', 'text/plain');
+});
 Route::get('/privacy-policy', fn () => view('legal.privacy'))->name('privacy.policy');
 Route::get('/privacy', fn () => redirect()->route('privacy.policy'));
 Route::get('/terms-of-service', fn () => view('legal.terms'))->name('terms.service');

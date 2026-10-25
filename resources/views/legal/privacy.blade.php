@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="tiktok-developers-site-verification" content="7ohyfCDIRy2UtuKp9g9A4V9kEd0Dd1EV" />
     <title>Privacy Policy - {{ config('app.name', 'SocialFlow AI') }}</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700" rel="stylesheet" />
