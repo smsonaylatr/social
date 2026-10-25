@@ -39,31 +39,55 @@ class DeployWebhookController extends Controller
 
         Log::info('Deploy webhook triggered: executing deployment script...');
 
-        $scriptPath = base_path('deploy.sh');
-        if (file_exists($scriptPath)) {
-            $process = new Process(['bash', $scriptPath], base_path());
-            $process->setTimeout(300);
-            $process->run();
+        $outputs = [];
+        $errors = [];
 
-            $output = $process->getOutput();
-            $errorOutput = $process->getErrorOutput();
-
-            Log::info('Deploy webhook output', [
-                'output' => $output,
-                'error' => $errorOutput,
-                'exit_code' => $process->getExitCode(),
-            ]);
-
-            return response()->json([
-                'success' => $process->isSuccessful(),
-                'exit_code' => $process->getExitCode(),
-                'message' => 'Deployment executed successfully',
-            ]);
+        // 1. Run git pull origin main
+        try {
+            $gitProcess = Process::fromShellCommandline('git pull origin main', base_path());
+            $gitProcess->setTimeout(120);
+            $gitProcess->run();
+            $outputs[] = "GIT: " . trim($gitProcess->getOutput());
+            if ($gitProcess->getErrorOutput()) {
+                $errors[] = "GIT ERR: " . trim($gitProcess->getErrorOutput());
+            }
+        } catch (\Throwable $e) {
+            $errors[] = "GIT EXCEPTION: " . $e->getMessage();
         }
 
+        // 2. Clear & optimize Laravel caches
+        try {
+            \Illuminate\Support\Facades\Artisan::call('optimize:clear');
+            $outputs[] = "ARTISAN: optimize:clear OK";
+        } catch (\Throwable $e) {
+            $errors[] = "OPTIMIZE ERR: " . $e->getMessage();
+        }
+
+        try {
+            \Illuminate\Support\Facades\Artisan::call('view:clear');
+            $outputs[] = "ARTISAN: view:clear OK";
+        } catch (\Throwable $e) {
+            $errors[] = "VIEW ERR: " . $e->getMessage();
+        }
+
+        // 3. Migrate if needed
+        try {
+            \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+            $outputs[] = "ARTISAN: migrate OK";
+        } catch (\Throwable $e) {
+            $errors[] = "MIGRATE ERR: " . $e->getMessage();
+        }
+
+        Log::info('Deploy webhook executed', [
+            'outputs' => $outputs,
+            'errors' => $errors,
+        ]);
+
         return response()->json([
-            'success' => false,
-            'message' => 'deploy.sh script not found',
-        ], 404);
+            'success' => empty($errors),
+            'message' => 'Deployment executed',
+            'outputs' => $outputs,
+            'errors' => $errors,
+        ]);
     }
 }
