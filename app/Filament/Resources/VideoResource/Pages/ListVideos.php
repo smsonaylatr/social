@@ -102,6 +102,8 @@ class ListVideos extends ListRecords
                         'description' => "{$count} video başarıyla yeniden analiz edildi.",
                     ]);
 
+                    $this->dispatch('sf:sync-thumbnails', force: true);
+
                     \Filament\Notifications\Notification::make()
                         ->title("{$count} video başarıyla yeniden analiz edildi.")
                         ->success()

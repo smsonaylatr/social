@@ -349,8 +349,8 @@ class VideoProcessingService
             @mkdir($thumbnailDir, 0775, true);
         }
 
-        // Seek to 0.5s or 1.0s to avoid 0s black opening frame
-        $seekSecond = $durationSeconds > 1 ? min(1.0, max(0.5, round($durationSeconds / 3, 1))) : 0.5;
+        // Seek to 1.0s - 2.0s to avoid 0s black opening frame / fade-in
+        $seekSecond = $durationSeconds > 1 ? min(2.0, max(0.8, round($durationSeconds * 0.15, 1))) : 0.5;
 
         // Try FFmpeg if shell_exec is allowed
         $disabledFunctions = array_map('trim', explode(',', (string) ini_get('disable_functions')));

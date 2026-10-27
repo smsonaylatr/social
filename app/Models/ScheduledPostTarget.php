@@ -54,4 +54,14 @@ class ScheduledPostTarget extends Model
     {
         return $this->hasMany(PublicationAttempt::class);
     }
+
+    /**
+     * Hedefe ait nihai / geçerli açıklama metni
+     */
+    public function getEffectiveCaptionAttribute(): ?string
+    {
+        return ! empty(trim((string) $this->caption))
+            ? $this->caption
+            : ($this->scheduledPost?->video?->custom_caption ?: ($this->scheduledPost?->video?->description ?: null));
+    }
 }

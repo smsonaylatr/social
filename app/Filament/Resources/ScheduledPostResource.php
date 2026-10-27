@@ -108,7 +108,7 @@ class ScheduledPostResource extends Resource
         };
 
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['video', 'playlist', 'targets']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['video', 'playlist', 'targets.socialAccount']))
             ->emptyStateHeading('Henüz Planlanmış veya Sıralı Kuyruk Yok')
             ->emptyStateDescription('Sağ üstteki yeşil "Otomatik Sırayla Kuyruk Oluştur" butonuna tıklayarak Video Havuzundaki tüm videolarınızı seçtiğiniz saat aralıklarıyla otomatik olarak sıraya dizebilirsiniz.')
             ->defaultSort('scheduled_at', 'asc')
@@ -130,6 +130,24 @@ class ScheduledPostResource extends Resource
                     ->wrap()
                     ->weight('bold')
                     ->description(fn (ScheduledPost $record): string => ($record->playlist?->name ? $record->playlist->name . ' • ' : '') . $record->scheduled_at->diffForHumans()),
+
+                TextColumn::make('caption')
+                    ->label('Açıklama')
+                    ->getStateUsing(fn (ScheduledPost $record): string => $record->caption ?: '—')
+                    ->limit(80)
+                    ->tooltip(function (ScheduledPost $record): ?string {
+                        $caption = $record->caption;
+                        return ($caption && mb_strlen($caption) > 80) ? $caption : null;
+                    })
+                    ->wrap()
+                    ->copyable()
+                    ->copyMessage('Açıklama panoya kopyalandı')
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->where(function ($q) use ($search) {
+                            $q->whereHas('targets', fn ($tq) => $tq->where('caption', 'like', "%{$search}%"))
+                                ->orWhereHas('video', fn ($vq) => $vq->where('custom_caption', 'like', "%{$search}%")->orWhere('description', 'like', "%{$search}%"));
+                        });
+                    }),
 
                 TextColumn::make('scheduled_at')
                     ->label('Planlanan Zaman')
@@ -275,17 +293,25 @@ class ScheduledPostResource extends Resource
                     ->action(fn (Action $action) => $setPlatformFilter($action, [])),
 
                 Action::make('sync_thumbnails')
-                    ->label('Önizlemeleri Senkronize Et')
+                    ->label('Önizlemeleri Senkronize Et & Onar')
                     ->icon('heroicon-o-arrow-path')
                     ->color('gray')
-                    ->tooltip('Eksik video önizleme görsellerini senkronize et')
-                    ->action(function () {
+                    ->tooltip('Eksik veya bozuk video önizleme görsellerini onar ve senkronize et')
+                    ->action(function (\Livewire\Component $livewire) {
                         $service = app(\App\Services\Media\VideoProcessingService::class);
                         $videos = Video::all();
                         $fixed = 0;
                         foreach ($videos as $video) {
                             $disk = \Illuminate\Support\Facades\Storage::disk($video->disk ?? 'public');
                             $hasThumb = ! empty($video->thumbnail_path) && $disk->exists($video->thumbnail_path);
+
+                            // 0 bayt veya bozuk dosyaları temizle
+                            if ($hasThumb && @filesize($disk->path($video->thumbnail_path)) < 500) {
+                                @$disk->delete($video->thumbnail_path);
+                                $video->update(['thumbnail_path' => null]);
+                                $hasThumb = false;
+                            }
+
                             if (! $hasThumb && ! empty($video->storage_path) && $disk->exists($video->storage_path)) {
                                 $newThumb = $service->generateThumbnail($video->storage_path, $video->duration_seconds);
                                 if ($newThumb) {
@@ -295,9 +321,11 @@ class ScheduledPostResource extends Resource
                             }
                         }
 
+                        $livewire->dispatch('sf:sync-thumbnails', force: true);
+
                         Notification::make()
-                            ->title('Önizleme Senkronizasyonu Tamamlandı')
-                            ->body($fixed > 0 ? "{$fixed} videonun eksik kapak görseli başarıyla senkronize edildi." : 'Tüm videoların görselleri güncel.')
+                            ->title('Önizleme Onarımı ve Senkronizasyonu Başlatıldı')
+                            ->body('Tüm videolar taranıyor; eksik ve hatalı görseller arka planda otomatik olarak düzeltiliyor.')
                             ->success()
                             ->send();
                     }),
@@ -391,8 +419,9 @@ class ScheduledPostResource extends Resource
                     ->icon('heroicon-o-eye')
                     ->iconButton()
                     ->size('sm')
-                    ->tooltip('Detayları Gör')
-                    ->modalHeading('Yayın Hedefleri ve Detayları')
+                    ->tooltip('Detayları & Açıklamayı Gör')
+                    ->modalHeading(fn (ScheduledPost $record) => ($record->video?->title ?? 'Gönderi') . ' - Paylaşım ve Açıklama Detayları')
+                    ->modalWidth(MaxWidth::ThreeExtraLarge)
                     ->modalContent(fn (ScheduledPost $record) => view('filament.modals.scheduled-post-details', ['post' => $record])),
 
                 Action::make('requeue_failed_targets')

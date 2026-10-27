@@ -180,7 +180,11 @@ Route::get('/storage/{path}', function (string $path) {
     if (! $disk->exists($path)) {
         abort(404);
     }
-    return response()->file($disk->path($path));
+    return response()->file($disk->path($path), [
+        'Access-Control-Allow-Origin' => '*',
+        'Access-Control-Allow-Methods' => 'GET, HEAD, OPTIONS',
+        'Cache-Control' => 'public, max-age=604800',
+    ]);
 })->where('path', '.*')->name('storage.file');
 
 // Background automation heartbeat & web-cron endpoint (Optimized & Throttled)

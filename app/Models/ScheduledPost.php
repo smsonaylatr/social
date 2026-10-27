@@ -60,6 +60,16 @@ class ScheduledPost extends Model
     }
 
     /**
+     * Gönderinin paylaşılan / planlanan açıklama metnini döner
+     */
+    public function getCaptionAttribute(): ?string
+    {
+        $target = $this->targets->first(fn ($t) => ! empty(trim((string) $t->caption)));
+        return $target?->caption
+            ?: ($this->video?->custom_caption ?: ($this->video?->description ?: null));
+    }
+
+    /**
      * Hedeflerin son durumlarına göre ana gönderi statüsünü otomatik günceller
      */
     public function updateStatusBasedOnTargets(): void

@@ -47,6 +47,7 @@ class UpcomingScheduledPostsWidget extends BaseWidget
                 TextColumn::make('video.title')
                     ->label('Video Başlığı')
                     ->description(fn (ScheduledPost $record): string => $record->brand?->name ?? 'Varsayılan Marka')
+                    ->tooltip(fn (ScheduledPost $record): ?string => $record->caption)
                     ->searchable()
                     ->limit(35),
 
