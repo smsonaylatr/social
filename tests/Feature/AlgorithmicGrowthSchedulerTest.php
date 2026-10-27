@@ -221,13 +221,15 @@ class AlgorithmicGrowthSchedulerTest extends TestCase
         $service = app(AlgorithmicGrowthSchedulerService::class);
         $accounts = collect([$this->igAccount, $this->ytAccount]);
 
+        $targetTime = now()->startOfDay()->addHours(14);
+
         // Simüle et: YouTube hesabı bugün 5 gönderi kotasını doldurmuş olsun
         for ($i = 0; $i < 5; $i++) {
             $post = ScheduledPost::create([
                 'workspace_id' => $this->workspace->id,
                 'brand_id' => $this->brand->id,
                 'video_id' => $this->video->id,
-                'scheduled_at' => now()->subHours(12 - ($i * 2)),
+                'scheduled_at' => $targetTime->copy()->subMinutes(60 * ($i + 1)),
                 'status' => PublishStatus::PUBLISHED,
             ]);
 
@@ -235,7 +237,7 @@ class AlgorithmicGrowthSchedulerTest extends TestCase
                 'scheduled_post_id' => $post->id,
                 'social_account_id' => $this->ytAccount->id,
                 'platform_code' => 'youtube',
-                'scheduled_at' => now()->subHours(12 - ($i * 2)),
+                'scheduled_at' => $targetTime->copy()->subMinutes(60 * ($i + 1)),
                 'correlation_id' => 'yt_quota_test_' . $i,
                 'idempotency_key' => 'yt_quota_key_' . $i,
                 'status' => PublishStatus::PUBLISHED,
@@ -243,7 +245,7 @@ class AlgorithmicGrowthSchedulerTest extends TestCase
         }
 
         // Instagram ise henüz 0 gönderi yapmış olsun
-        $eligible = $service->filterEligibleAccounts($accounts, now(), 'max_capacity');
+        $eligible = $service->filterEligibleAccounts($accounts, $targetTime, 'max_capacity');
 
         // YouTube kotasını doldurduğu için bu dalgada filtrelenmeli, sadece Instagram katılmalı!
         $this->assertCount(1, $eligible);
@@ -398,5 +400,73 @@ class AlgorithmicGrowthSchedulerTest extends TestCase
         $this->assertNotContains('04:00', $defaultSlots);
         $this->assertNotContains('18:30', $defaultSlots);
         $this->assertNotContains('21:30', $defaultSlots);
+    }
+
+    public function test_each_platform_maintains_independent_sequential_queue(): void
+    {
+        $orchestrator = app(\App\Services\Automation\AutomationOrchestratorService::class);
+
+        // Önceki videoları temizleyip temiz 1..5 havuz kuralım
+        Video::query()->delete();
+
+        $videos = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $videos[$i] = Video::create([
+                'workspace_id' => $this->workspace->id,
+                'brand_id' => $this->brand->id,
+                'title' => "{$i}. Video",
+                'original_filename' => "video_{$i}.mp4",
+                'storage_path' => "videos/video_{$i}.mp4",
+                'file_size' => 1500000,
+                'aspect_ratio' => '9:16',
+                'status' => \App\Enums\VideoStatus::READY,
+                'file_hash' => 'hash_indep_' . $i,
+                'duration_seconds' => 30,
+            ]);
+        }
+
+        // Instagram kuralı
+        $igSchedule = Schedule::create([
+            'workspace_id' => $this->workspace->id,
+            'brand_id' => $this->brand->id,
+            'name' => 'Instagram Reels',
+            'schedule_type' => 'algorithmic_growth',
+            'growth_strategy' => 'max_capacity',
+            'time_of_day' => '10:00:00',
+            'target_social_account_ids' => [$this->igAccount->id],
+            'is_active' => true,
+        ]);
+
+        // YouTube kuralı
+        $ytSchedule = Schedule::create([
+            'workspace_id' => $this->workspace->id,
+            'brand_id' => $this->brand->id,
+            'name' => 'YouTube Shorts',
+            'schedule_type' => 'algorithmic_growth',
+            'growth_strategy' => 'max_capacity',
+            'time_of_day' => '10:00:00',
+            'target_social_account_ids' => [$this->ytAccount->id],
+            'is_active' => true,
+        ]);
+
+        // 1. Adım: Instagram çalışır -> 1. Videoyu almalı
+        $postIg1 = $orchestrator->runSchedule($igSchedule);
+        $this->assertEquals($videos[1]->id, $postIg1->video_id, 'Instagram 1. videodan başlamalı');
+        $this->assertEquals($videos[1]->id, $igSchedule->fresh()->last_video_id);
+
+        // 2. Adım: YouTube çalışır -> Instagram'ın 1'i almış olması YouTube'u 2'ye atlatmamalı! YouTube da kendi sırasındaki 1. videoyu almalı!
+        $postYt1 = $orchestrator->runSchedule($ytSchedule);
+        $this->assertEquals($videos[1]->id, $postYt1->video_id, 'YouTube da kendi sırasından (1. video) başlamalı');
+        $this->assertEquals($videos[1]->id, $ytSchedule->fresh()->last_video_id);
+
+        // 3. Adım: Instagram tekrar çalışır -> 2. Videoyu almalı (YouTube'un çalışması Instagram'ı etkilememeli!)
+        $postIg2 = $orchestrator->runSchedule($igSchedule);
+        $this->assertEquals($videos[2]->id, $postIg2->video_id, 'Instagram sıradaki 2. videoyu almalı');
+        $this->assertEquals($videos[2]->id, $igSchedule->fresh()->last_video_id);
+
+        // 4. Adım: YouTube tekrar çalışır -> 2. Videoyu almalı
+        $postYt2 = $orchestrator->runSchedule($ytSchedule);
+        $this->assertEquals($videos[2]->id, $postYt2->video_id, 'YouTube sıradaki 2. videoyu almalı');
+        $this->assertEquals($videos[2]->id, $ytSchedule->fresh()->last_video_id);
     }
 }

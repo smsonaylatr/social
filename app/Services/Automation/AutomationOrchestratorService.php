@@ -48,30 +48,20 @@ class AutomationOrchestratorService
             return null;
         }
 
-        // 1. Pick the next eligible video: Sabit Kural — Her zaman ana Video Havuzundan sırayla (1 -> 2 -> ... -> 20 -> 21) seçilir
-        $lastScheduledVideoId = ScheduledPost::whereNotNull('video_id')->orderBy('id', 'desc')->value('video_id') ?? 0;
-
-        // Kural: Son paylaşılan video ID'sinden sonrakini al (20 ise 21). Tüm havuz bitene kadar asla başa dönme!
-        $video = Video::whereIn('status', ['ready', 'active', 'published'])
-            ->where(function ($q) {
-                $q->where('is_reusable', true)->orWhereNull('is_reusable');
-            })
-            ->orderByRaw('id > ? DESC, id ASC', [$lastScheduledVideoId])
-            ->first();
-
-        // Fallback: havuzdaki sıralı video
-        if (! $video) {
-            $video = Video::orderByRaw('id > ? DESC, id ASC', [$lastScheduledVideoId])->first();
-        }
+        // 1. Pick the next eligible video: Her platform/kural kendi bağımsız sıralamasını takip eder!
+        $video = $schedule->getNextVideo();
 
         if (! $video) {
-            Log::info("Schedule #{$schedule->id} has no eligible video right now (pool empty or cooldown active).");
+            Log::info("Schedule #{$schedule->id} ({$schedule->name}) has no eligible video right now (pool empty).");
             return null;
         }
 
-        // Mark last_used_at and schedule last_run_at immediately to prevent race conditions
+        // Bu platformun imlecini (cursor) ve çalışma zamanını güncelle
         $video->update(['last_used_at' => now()]);
-        $schedule->update(['last_run_at' => now()]);
+        $schedule->update([
+            'last_video_id' => $video->id,
+            'last_run_at' => now(),
+        ]);
 
         // 2. Create the scheduled post and dispatch targets
         $scheduledPost = $this->schedulingService->createScheduledPost(
@@ -115,7 +105,11 @@ class AutomationOrchestratorService
             $query = Video::where('status', 'ready');
 
             if ($orderMode === 'sequential') {
-                $lastScheduledVideoId = ScheduledPost::whereNotNull('video_id')->orderBy('id', 'desc')->value('video_id') ?? 0;
+                $lastScheduledVideoId = ScheduledPostTarget::join('scheduled_posts', 'scheduled_post_targets.scheduled_post_id', '=', 'scheduled_posts.id')
+                    ->whereIn('scheduled_post_targets.social_account_id', $socialAccountIds)
+                    ->whereNotNull('scheduled_posts.video_id')
+                    ->orderBy('scheduled_post_targets.id', 'desc')
+                    ->value('scheduled_posts.video_id') ?? 0;
                 $query->orderByRaw('id > ? DESC, id ASC', [$lastScheduledVideoId]);
             } elseif ($orderMode === 'id_asc') {
                 $query->orderBy('id', 'asc');

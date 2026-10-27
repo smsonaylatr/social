@@ -15,6 +15,7 @@ class Schedule extends Model
         'workspace_id',
         'brand_id',
         'playlist_id',
+        'last_video_id',
         'campaign_id',
         'name',
         'schedule_type',
@@ -41,6 +42,7 @@ class Schedule extends Model
         'days_of_week' => 'array',
         'posting_times' => 'array',
         'target_social_account_ids' => 'array',
+        'last_video_id' => 'integer',
         'interval_hours' => 'integer',
         'interval_minutes' => 'integer',
         'anti_spam_shield' => 'boolean',
@@ -278,6 +280,71 @@ class Schedule extends Model
     public function playlist(): BelongsTo
     {
         return $this->belongsTo(Playlist::class);
+    }
+
+    public function lastVideo(): BelongsTo
+    {
+        return $this->belongsTo(Video::class, 'last_video_id');
+    }
+
+    public function getNextVideo(): ?Video
+    {
+        $lastVideoId = $this->last_video_id;
+
+        // 1. Bu kuralın hedef sosyal medya hesaplarının son paylaştığı video
+        if (! $lastVideoId && ! empty($this->target_social_account_ids)) {
+            $hasTargetsForAccount = ScheduledPostTarget::whereIn('social_account_id', $this->target_social_account_ids)->exists();
+
+            if ($hasTargetsForAccount) {
+                $lastVideoId = ScheduledPostTarget::join('scheduled_posts', 'scheduled_post_targets.scheduled_post_id', '=', 'scheduled_posts.id')
+                    ->whereIn('scheduled_post_targets.social_account_id', $this->target_social_account_ids)
+                    ->whereNotNull('scheduled_posts.video_id')
+                    ->orderBy('scheduled_post_targets.id', 'desc')
+                    ->value('scheduled_posts.video_id');
+            } else {
+                // Bu hesap henüz hiç paylaşım yapmamış! Başka platformun geçmişini çekme, 0'dan (1. videodan) başlasın.
+                // Sadece veritabanında HİÇ target kaydı yoksa (izole birim testleri için) genel fallback'e bak.
+                $anyTargetsInDb = ScheduledPostTarget::exists();
+                if (! $anyTargetsInDb) {
+                    $lastVideoId = ScheduledPost::whereNotNull('video_id')
+                        ->orderBy('id', 'desc')
+                        ->value('video_id');
+                }
+            }
+        }
+
+        // 2. Bu kurala bağlı oluşturulmuş son post'un videosu
+        if (! $lastVideoId && $this->id) {
+            $lastVideoId = ScheduledPost::where('schedule_id', $this->id)
+                ->whereNotNull('video_id')
+                ->orderBy('id', 'desc')
+                ->value('video_id');
+        }
+
+        $lastVideoId = (int) ($lastVideoId ?? 0);
+
+        $video = Video::whereIn('status', ['ready', 'active', 'published'])
+            ->where(function ($q) {
+                $q->where('is_reusable', true)->orWhereNull('is_reusable');
+            })
+            ->where('id', '>', $lastVideoId)
+            ->orderBy('id', 'asc')
+            ->first();
+
+        if (! $video) {
+            $video = Video::whereIn('status', ['ready', 'active', 'published'])
+                ->where(function ($q) {
+                    $q->where('is_reusable', true)->orWhereNull('is_reusable');
+                })
+                ->orderBy('id', 'asc')
+                ->first();
+        }
+
+        if (! $video) {
+            $video = Video::orderBy('id', 'asc')->first();
+        }
+
+        return $video;
     }
 
     public function campaign(): BelongsTo

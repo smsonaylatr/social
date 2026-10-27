@@ -324,6 +324,15 @@ class ScheduleResource extends Resource
                             ->columns(2)
                             ->columnSpanFull(),
 
+                        Select::make('last_video_id')
+                            ->label('Son Paylaşılan Video (Sıradaki Video Bunun Sonrasından Seçilir)')
+                            ->relationship('lastVideo', 'title')
+                            ->placeholder('Henüz paylaşım yapılmadı (1. Videodan başlar)')
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Bu kural/platform için bağımsız video imleci. Boş bırakırsanız havuzun ilk videosundan başlar.')
+                            ->columnSpanFull(),
+
                         Toggle::make('is_active')
                             ->label('Otomasyonu Etkinleştir')
                             ->helperText('Etkinleştirildiğinde zamanı gelen paylaşımlar otomatik olarak kuyruğa aktarılır.')
@@ -460,6 +469,23 @@ class ScheduleResource extends Resource
                         return new HtmlString(implode($separator, $renderedTimes));
                     }),
 
+                TextColumn::make('next_video')
+                    ->label('Sıradaki Video')
+                    ->badge()
+                    ->color('warning')
+                    ->size(TextColumnSize::ExtraSmall)
+                    ->getStateUsing(function (Schedule $record): string {
+                        $next = $record->getNextVideo();
+                        return $next ? "🎬 {$next->title}" : '—';
+                    })
+                    ->description(function (Schedule $record): ?string {
+                        if ($record->last_video_id) {
+                            $last = $record->lastVideo;
+                            return $last ? "Son: {$last->title}" : null;
+                        }
+                        return null;
+                    }),
+
                 TextColumn::make('last_run_at')
                     ->label('Son Çalışma')
                     ->dateTime('d.m.Y H:i')
@@ -472,6 +498,57 @@ class ScheduleResource extends Resource
             ])
             ->actionsColumnLabel('İşlemler')
             ->actions([
+                Tables\Actions\Action::make('set_next_video')
+                    ->label('Sıradaki Videoyu Seç')
+                    ->icon('heroicon-o-queue-list')
+                    ->iconButton()
+                    ->size('sm')
+                    ->color('info')
+                    ->tooltip('Bu Platform İçin Sıradaki Videoyu Değiştir / Başa Sar')
+                    ->modalHeading(fn (Schedule $record) => "{$record->name} — Sıradaki Videoyu Belirle")
+                    ->modalDescription('Bu platformun bağımsız video paylaşım sırasında sıradaki videoyu belirleyin veya 1. videodan baştan başlatın.')
+                    ->modalSubmitActionLabel('Sırayı Güncelle')
+                    ->form([
+                        \Filament\Forms\Components\Select::make('video_choice')
+                            ->label('Sıradaki Paylaşılacak Video')
+                            ->options(function () {
+                                $options = [
+                                    0 => '⏮️ 1. Videodan Başla (Havuzu Başa Sar)',
+                                ];
+                                $videos = \App\Models\Video::whereIn('status', ['ready', 'active', 'published'])
+                                    ->orderBy('id', 'asc')
+                                    ->get();
+                                foreach ($videos as $v) {
+                                    $options[$v->id] = "🎬 {$v->title} (ID: {$v->id})";
+                                }
+                                return $options;
+                            })
+                            ->default(function (Schedule $record) {
+                                $next = $record->getNextVideo();
+                                return $next ? $next->id : 0;
+                            })
+                            ->required(),
+                    ])
+                    ->action(function (Schedule $record, array $data) {
+                        $choice = (int) $data['video_choice'];
+                        if ($choice === 0) {
+                            $record->update(['last_video_id' => null]);
+                        } else {
+                            $prevVideo = \App\Models\Video::whereIn('status', ['ready', 'active', 'published'])
+                                ->where('id', '<', $choice)
+                                ->orderBy('id', 'desc')
+                                ->first();
+                            $record->update(['last_video_id' => $prevVideo ? $prevVideo->id : null]);
+                        }
+
+                        $next = $record->fresh()->getNextVideo();
+                        \Filament\Notifications\Notification::make()
+                            ->title('Paylaşım Sırası Güncellendi')
+                            ->body("{$record->name} için sıradaki video: " . ($next ? $next->title : '1. Video'))
+                            ->success()
+                            ->send();
+                    }),
+
                 Tables\Actions\Action::make('run_now')
                     ->label('Şimdi Paylaş')
                     ->icon('heroicon-o-play')
