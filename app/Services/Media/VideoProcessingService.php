@@ -18,8 +18,63 @@ class VideoProcessingService
     public function __construct(string $disk = 'public')
     {
         $this->disk = $disk;
-        $this->ffmpegPath = Setting::get('ffmpeg_binary_path', 'ffmpeg');
-        $this->ffprobePath = Setting::get('ffprobe_binary_path', 'ffprobe');
+        $this->ffmpegPath = $this->resolveBinary('ffmpeg');
+        $this->ffprobePath = $this->resolveBinary('ffprobe');
+    }
+
+    /**
+     * Intelligently resolve the binary path across system environments (Linux, Windows, Plesk, cPanel)
+     */
+    public function resolveBinary(string $binary): string
+    {
+        // 1. Check custom setting from database
+        try {
+            $custom = Setting::get("{$binary}_binary_path");
+            if (! empty($custom) && @file_exists($custom)) {
+                return $custom;
+            }
+        } catch (\Throwable $e) {}
+
+        // 2. Direct check if binary is already callable in system PATH
+        if (function_exists('shell_exec')) {
+            $testOutput = @shell_exec("{$binary} -version 2>&1");
+            if ($testOutput && str_contains(strtolower($testOutput), "{$binary} version")) {
+                return $binary;
+            }
+        }
+
+        // 3. Common Unix/Linux paths (Ubuntu, Debian, CentOS, AlmaLinux, Plesk, cPanel)
+        $commonPaths = [
+            "/usr/bin/{$binary}",
+            "/usr/local/bin/{$binary}",
+            "/bin/{$binary}",
+            "/snap/bin/{$binary}",
+            "/opt/ffmpeg/bin/{$binary}",
+            "/usr/local/cpanel/3rdparty/bin/{$binary}",
+            "C:\\ffmpeg\\bin\\{$binary}.exe",
+            "C:\\Program Files\\ffmpeg\\bin\\{$binary}.exe",
+        ];
+
+        foreach ($commonPaths as $path) {
+            if (@file_exists($path)) {
+                return $path;
+            }
+        }
+
+        // 4. System PATH lookup via which/where
+        if (function_exists('shell_exec')) {
+            $cmd = DIRECTORY_SEPARATOR === '\\' ? "where {$binary} 2>nul" : "which {$binary} 2>/dev/null";
+            $res = trim((string) @shell_exec($cmd));
+            if (! empty($res)) {
+                $lines = explode("\n", $res);
+                $first = trim($lines[0]);
+                if (! empty($first) && @file_exists($first)) {
+                    return $first;
+                }
+            }
+        }
+
+        return $binary;
     }
 
     /**
@@ -294,22 +349,50 @@ class VideoProcessingService
             @mkdir($thumbnailDir, 0775, true);
         }
 
-        $seekSecond = min(1, max(0, (int) floor($durationSeconds / 2)));
+        // Seek to 0.5s or 1.0s to avoid 0s black opening frame
+        $seekSecond = $durationSeconds > 1 ? min(1.0, max(0.5, round($durationSeconds / 3, 1))) : 0.5;
 
         // Try FFmpeg if shell_exec is allowed
         $disabledFunctions = array_map('trim', explode(',', (string) ini_get('disable_functions')));
         if (function_exists('shell_exec') && ! in_array('shell_exec', $disabledFunctions, true)) {
-            $ffmpegCmd = sprintf(
-                '%s -y -ss %d -i %s -vframes 1 -q:v 2 %s 2>&1',
+            // Strategy 1: Accurate seek with scale filter for crisp & lightweight thumbnail
+            $cmd1 = sprintf(
+                '%s -y -ss %s -i %s -vframes 1 -vf "scale=480:-2" -q:v 2 %s 2>&1',
                 escapeshellcmd($this->ffmpegPath),
-                $seekSecond,
+                escapeshellarg((string) $seekSecond),
                 escapeshellarg($absoluteVideoPath),
                 escapeshellarg($absoluteThumbnailPath)
             );
+            @shell_exec($cmd1);
 
-            @shell_exec($ffmpegCmd);
+            if (file_exists($absoluteThumbnailPath) && filesize($absoluteThumbnailPath) > 500) {
+                return $thumbnailRelativePath;
+            }
 
-            if (file_exists($absoluteThumbnailPath) && filesize($absoluteThumbnailPath) > 0) {
+            // Strategy 2: Input seek fallback
+            $cmd2 = sprintf(
+                '%s -y -i %s -ss %s -vframes 1 -vf "scale=480:-2" -q:v 2 %s 2>&1',
+                escapeshellcmd($this->ffmpegPath),
+                escapeshellarg($absoluteVideoPath),
+                escapeshellarg((string) $seekSecond),
+                escapeshellarg($absoluteThumbnailPath)
+            );
+            @shell_exec($cmd2);
+
+            if (file_exists($absoluteThumbnailPath) && filesize($absoluteThumbnailPath) > 500) {
+                return $thumbnailRelativePath;
+            }
+
+            // Strategy 3: Direct first frame
+            $cmd3 = sprintf(
+                '%s -y -i %s -vframes 1 -vf "scale=480:-2" -q:v 2 %s 2>&1',
+                escapeshellcmd($this->ffmpegPath),
+                escapeshellarg($absoluteVideoPath),
+                escapeshellarg($absoluteThumbnailPath)
+            );
+            @shell_exec($cmd3);
+
+            if (file_exists($absoluteThumbnailPath) && filesize($absoluteThumbnailPath) > 500) {
                 return $thumbnailRelativePath;
             }
         }

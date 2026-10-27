@@ -10,6 +10,7 @@ use App\Models\SocialAccount;
 use App\Models\Video;
 use App\Services\Publisher\SchedulingService;
 use Carbon\Carbon;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -19,11 +20,14 @@ use Filament\Resources\Resource;
 use Filament\Support\Enums\MaxWidth;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class ScheduledPostResource extends Resource
 {
@@ -72,20 +76,14 @@ class ScheduledPostResource extends Resource
             ->emptyStateDescription('Sağ üstteki yeşil "Otomatik Sırayla Kuyruk Oluştur" butonuna tıklayarak Video Havuzundaki tüm videolarınızı seçtiğiniz saat aralıklarıyla otomatik olarak sıraya dizebilirsiniz.')
             ->defaultSort('scheduled_at', 'asc')
             ->columns([
-                ImageColumn::make('video.thumbnail_path')
+                ViewColumn::make('preview')
                     ->label('Önizleme')
-                    ->disk('public')
-                    ->width(70)
-                    ->height(105)
-                    ->extraImgAttributes([
-                        'class' => 'rounded-xl object-cover shadow-md border border-slate-700/60 transition-transform duration-200 hover:scale-105 cursor-pointer shrink-0',
-                        'style' => 'width: 70px !important; height: 105px !important; min-width: 70px; min-height: 105px; object-fit: cover; border-radius: 12px;',
-                    ])
-                    ->defaultImageUrl(url('/images/video-placeholder.png'))
+                    ->view('filament.tables.columns.scheduled-post-preview')
+                    ->grow(false)
                     ->action(
                         Action::make('preview_video_modal')
                             ->modalHeading(fn (ScheduledPost $record) => $record->video?->title ?? 'Video Önizleme')
-                            ->modalWidth(\Filament\Support\Enums\MaxWidth::Small)
+                            ->modalWidth(MaxWidth::Small)
                             ->modalContent(fn (ScheduledPost $record) => view('filament.modals.video-player-modal', ['video' => $record->video]))
                     ),
 
@@ -136,7 +134,253 @@ class ScheduledPostResource extends Resource
                     ->color(fn (PublishStatus $state): string => $state->color())
                     ->formatStateUsing(fn (PublishStatus $state): string => $state->label()),
             ])
+            ->headerActions([
+                ActionGroup::make([
+                    Action::make('clear_platform')
+                        ->label('🌐 Tüm Platformlar (Filtreyi Temizle)')
+                        ->action(function ($livewire) {
+                            $filters = $livewire->tableFilters ?? [];
+                            $filters['platform']['values'] = [];
+                            $filters['platform']['value'] = null;
+                            $livewire->tableFilters = $filters;
+                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
+                            $livewire->resetPage();
+                        }),
+                    Action::make('filter_instagram')
+                        ->label('📸 Instagram')
+                        ->action(function ($livewire) {
+                            $filters = $livewire->tableFilters ?? [];
+                            $filters['platform']['values'] = ['instagram'];
+                            $filters['platform']['value'] = null;
+                            $livewire->tableFilters = $filters;
+                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
+                            $livewire->resetPage();
+                        }),
+                    Action::make('filter_youtube')
+                        ->label('▶️ YouTube')
+                        ->action(function ($livewire) {
+                            $filters = $livewire->tableFilters ?? [];
+                            $filters['platform']['values'] = ['youtube'];
+                            $filters['platform']['value'] = null;
+                            $livewire->tableFilters = $filters;
+                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
+                            $livewire->resetPage();
+                        }),
+                    Action::make('filter_tiktok')
+                        ->label('🎵 TikTok')
+                        ->action(function ($livewire) {
+                            $filters = $livewire->tableFilters ?? [];
+                            $filters['platform']['values'] = ['tiktok'];
+                            $filters['platform']['value'] = null;
+                            $livewire->tableFilters = $filters;
+                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
+                            $livewire->resetPage();
+                        }),
+                    Action::make('filter_facebook')
+                        ->label('👥 Facebook')
+                        ->action(function ($livewire) {
+                            $filters = $livewire->tableFilters ?? [];
+                            $filters['platform']['values'] = ['facebook'];
+                            $filters['platform']['value'] = null;
+                            $livewire->tableFilters = $filters;
+                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
+                            $livewire->resetPage();
+                        }),
+                    Action::make('filter_linkedin')
+                        ->label('💼 LinkedIn')
+                        ->action(function ($livewire) {
+                            $filters = $livewire->tableFilters ?? [];
+                            $filters['platform']['values'] = ['linkedin'];
+                            $filters['platform']['value'] = null;
+                            $livewire->tableFilters = $filters;
+                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
+                            $livewire->resetPage();
+                        }),
+                    Action::make('filter_x')
+                        ->label('𝕏 X (Twitter)')
+                        ->action(function ($livewire) {
+                            $filters = $livewire->tableFilters ?? [];
+                            $filters['platform']['values'] = ['x'];
+                            $filters['platform']['value'] = null;
+                            $livewire->tableFilters = $filters;
+                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
+                            $livewire->resetPage();
+                        }),
+                    Action::make('filter_pinterest')
+                        ->label('📌 Pinterest')
+                        ->action(function ($livewire) {
+                            $filters = $livewire->tableFilters ?? [];
+                            $filters['platform']['values'] = ['pinterest'];
+                            $filters['platform']['value'] = null;
+                            $livewire->tableFilters = $filters;
+                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
+                            $livewire->resetPage();
+                        }),
+                    Action::make('multi_platform_modal')
+                        ->label('⚙️ Çoklu Platform Filtrele...')
+                        ->modalHeading('Platformlara Göre Filtrele')
+                        ->modalDescription('Paylaşım takviminde listelemek istediğiniz platformları seçin.')
+                        ->modalSubmitActionLabel('Filtreyi Uygula')
+                        ->modalWidth(MaxWidth::Small)
+                        ->form([
+                            CheckboxList::make('selected_platforms')
+                                ->label('Platformlar')
+                                ->options([
+                                    'instagram' => '📸 Instagram',
+                                    'youtube' => '▶️ YouTube',
+                                    'tiktok' => '🎵 TikTok',
+                                    'facebook' => '👥 Facebook',
+                                    'linkedin' => '💼 LinkedIn',
+                                    'x' => '𝕏 X (Twitter)',
+                                    'pinterest' => '📌 Pinterest',
+                                ])
+                                ->columns(2)
+                                ->bulkToggleable()
+                                ->default(function ($livewire) {
+                                    $values = $livewire->tableFilters['platform']['values'] ?? [];
+                                    if (empty($values) && ! empty($livewire->tableFilters['platform']['value'])) {
+                                        $values = [$livewire->tableFilters['platform']['value']];
+                                    }
+                                    return $values;
+                                }),
+                        ])
+                        ->action(function ($livewire, array $data) {
+                            $selected = $data['selected_platforms'] ?? [];
+                            $filters = $livewire->tableFilters ?? [];
+                            $filters['platform']['values'] = $selected;
+                            $filters['platform']['value'] = null;
+                            $livewire->tableFilters = $filters;
+                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
+                            $livewire->resetPage();
+                        }),
+                ])
+                ->label(function ($livewire) {
+                    $values = $livewire->tableFilters['platform']['values'] ?? [];
+                    if (empty($values) && ! empty($livewire->tableFilters['platform']['value'])) {
+                        $values = [$livewire->tableFilters['platform']['value']];
+                    }
+                    if (empty($values)) {
+                        return 'Platformlar';
+                    }
+                    if (count($values) === 1) {
+                        return match ($values[0]) {
+                            'instagram' => 'Platform: Instagram',
+                            'youtube' => 'Platform: YouTube',
+                            'tiktok' => 'Platform: TikTok',
+                            'facebook' => 'Platform: Facebook',
+                            'linkedin' => 'Platform: LinkedIn',
+                            'x' => 'Platform: X',
+                            'pinterest' => 'Platform: Pinterest',
+                            default => 'Platform: ' . ucfirst($values[0]),
+                        };
+                    }
+                    return 'Platformlar (' . count($values) . ')';
+                })
+                ->icon(function ($livewire) {
+                    $values = $livewire->tableFilters['platform']['values'] ?? [];
+                    if (empty($values) && ! empty($livewire->tableFilters['platform']['value'])) {
+                        $values = [$livewire->tableFilters['platform']['value']];
+                    }
+                    if (count($values) === 1) {
+                        return match ($values[0]) {
+                            'instagram' => 'heroicon-m-camera',
+                            'youtube' => 'heroicon-m-play-circle',
+                            'tiktok' => 'heroicon-m-musical-note',
+                            'facebook' => 'heroicon-m-user-group',
+                            'linkedin' => 'heroicon-m-briefcase',
+                            'x' => 'heroicon-m-hashtag',
+                            'pinterest' => 'heroicon-m-bookmark',
+                            default => 'heroicon-m-share',
+                        };
+                    }
+                    return ! empty($values) ? 'heroicon-m-funnel' : 'heroicon-m-squares-2x2';
+                })
+                ->color(function ($livewire) {
+                    $values = $livewire->tableFilters['platform']['values'] ?? [];
+                    if (empty($values) && ! empty($livewire->tableFilters['platform']['value'])) {
+                        $values = [$livewire->tableFilters['platform']['value']];
+                    }
+                    return ! empty($values) ? 'primary' : 'gray';
+                })
+                ->button()
+                ->size('sm')
+                ->tooltip('Platform Seç ve Filtrele'),
+
+                Action::make('clear_platform_badge')
+                    ->label('')
+                    ->icon('heroicon-m-x-mark')
+                    ->iconButton()
+                    ->size('sm')
+                    ->color('danger')
+                    ->tooltip('Platform filtresini temizle')
+                    ->visible(function ($livewire) {
+                        $values = $livewire->tableFilters['platform']['values'] ?? [];
+                        if (empty($values) && ! empty($livewire->tableFilters['platform']['value'])) {
+                            $values = [$livewire->tableFilters['platform']['value']];
+                        }
+                        return ! empty($values);
+                    })
+                    ->action(function ($livewire) {
+                        $filters = $livewire->tableFilters ?? [];
+                        $filters['platform']['values'] = [];
+                        $filters['platform']['value'] = null;
+                        $livewire->tableFilters = $filters;
+                        $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
+                        $livewire->resetPage();
+                    }),
+
+                Action::make('sync_thumbnails')
+                    ->label('Önizlemeleri Senkronize Et')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('gray')
+                    ->tooltip('Eksik video önizleme görsellerini senkronize et')
+                    ->action(function () {
+                        $service = app(\App\Services\Media\VideoProcessingService::class);
+                        $videos = Video::all();
+                        $fixed = 0;
+                        foreach ($videos as $video) {
+                            $disk = \Illuminate\Support\Facades\Storage::disk($video->disk ?? 'public');
+                            $hasThumb = ! empty($video->thumbnail_path) && $disk->exists($video->thumbnail_path);
+                            if (! $hasThumb && ! empty($video->storage_path) && $disk->exists($video->storage_path)) {
+                                $newThumb = $service->generateThumbnail($video->storage_path, $video->duration_seconds);
+                                if ($newThumb) {
+                                    $video->update(['thumbnail_path' => $newThumb]);
+                                    $fixed++;
+                                }
+                            }
+                        }
+
+                        Notification::make()
+                            ->title('Önizleme Senkronizasyonu Tamamlandı')
+                            ->body($fixed > 0 ? "{$fixed} videonun eksik kapak görseli başarıyla senkronize edildi." : 'Tüm videoların görselleri güncel.')
+                            ->success()
+                            ->send();
+                    }),
+            ])
             ->filters([
+                SelectFilter::make('platform')
+                    ->label('Platform')
+                    ->multiple()
+                    ->options([
+                        'instagram' => 'Instagram',
+                        'youtube' => 'YouTube',
+                        'tiktok' => 'TikTok',
+                        'facebook' => 'Facebook',
+                        'linkedin' => 'LinkedIn',
+                        'x' => 'X (Twitter)',
+                        'pinterest' => 'Pinterest',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        $values = [];
+                        if (! empty($data['values'])) {
+                            $values = (array) $data['values'];
+                        } elseif (! empty($data['value'])) {
+                            $values = [$data['value']];
+                        }
+                        if (! empty($values)) {
+                            $query->whereHas('targets', fn ($q) => $q->whereIn('platform_code', $values));
+                        }
+                    }),
                 SelectFilter::make('status')
                     ->label('Yayın Durumu')
                     ->options(collect(PublishStatus::cases())->mapWithKeys(fn ($c) => [$c->value => $c->label()])),

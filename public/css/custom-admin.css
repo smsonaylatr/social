@@ -2931,11 +2931,38 @@ html, body {
 }
 
 /* Remove default divide borders and paddings from inner stacked header and toolbar */
+.fi-ta-header-ctn .fi-ta-filters-above-content-ctn {
+    order: 1 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    flex: 0 0 auto !important;
+}
+
 .fi-ta-header-ctn .fi-ta-header {
+    order: 2 !important;
     border: none !important;
     padding: 0 !important;
     margin: 0 !important;
     flex: 0 0 auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+}
+
+.fi-ta-header-ctn .fi-ta-header .fi-ta-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+}
+
+.fi-ta-header-ctn:has(.fi-ta-filters:not([style*="display: none"])) .fi-ta-filters-above-content-ctn {
+    width: 100% !important;
+    order: 10 !important;
+    margin-top: 0.75rem !important;
+    padding-top: 0.75rem !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 .fi-ta-header-ctn .fi-ta-header-toolbar {
@@ -2947,6 +2974,7 @@ html, body {
     align-items: center !important;
     justify-content: flex-end !important;
     gap: 0.65rem !important;
+    order: 3 !important;
 }
 
 /* Ensure inner toolbar items are neatly aligned on the same row with exact order */

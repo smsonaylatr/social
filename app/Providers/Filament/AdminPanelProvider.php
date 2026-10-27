@@ -45,7 +45,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => '<link rel="stylesheet" href="' . asset('css/custom-admin.css') . '?v=4.2">'
+                fn (): string => '<link rel="stylesheet" href="' . asset('css/custom-admin.css') . '?v=4.3">'
             )
             ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_AFTER,
@@ -57,7 +57,7 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn (): string => '<script>(function(){try{var k="sf_last_cron_ts";var last=parseInt(localStorage.getItem(k)||"0",10);var now=Date.now();if(now-last>180000){localStorage.setItem(k,now);setTimeout(function(){fetch("/cron/process",{method:"POST",headers:{"X-Requested-With":"XMLHttpRequest"}}).catch(function(){});},4000);}}catch(e){}})();</script>'
+                fn (): string => '<script src="' . asset('js/video-thumbnail-capture.js') . '?v=1.1"></script><script>(function(){try{var k="sf_last_cron_ts";var last=parseInt(localStorage.getItem(k)||"0",10);var now=Date.now();if(now-last>180000){localStorage.setItem(k,now);setTimeout(function(){fetch("/cron/process",{method:"POST",headers:{"X-Requested-With":"XMLHttpRequest"}}).catch(function(){});},4000);}}catch(e){}})();</script>'
             )
             ->navigationGroups([
                 NavigationGroup::make()

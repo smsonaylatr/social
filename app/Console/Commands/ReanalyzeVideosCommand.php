@@ -29,6 +29,19 @@ class ReanalyzeVideosCommand extends Command
         }
 
         $videos = $query->get();
+
+        // Also check if any existing video's thumbnail file is missing on disk
+        if (! $force && ! $id) {
+            $allVideos = Video::whereNotNull('thumbnail_path')->get();
+            foreach ($allVideos as $v) {
+                if (! Storage::disk($v->disk ?? 'public')->exists($v->thumbnail_path)) {
+                    if (! $videos->contains('id', $v->id)) {
+                        $videos->push($v);
+                    }
+                }
+            }
+        }
+
         $this->info("Toplam {$videos->count()} video analiz edilecek...");
 
         $success = 0;
@@ -50,7 +63,11 @@ class ReanalyzeVideosCommand extends Command
 
             try {
                 $metadata = $service->analyzeVideo($video->storage_path);
-                $video->update($metadata->toArray());
+                $data = $metadata->toArray();
+                if (empty($data['thumbnail_path']) || ! $disk->exists($data['thumbnail_path'])) {
+                    $data['thumbnail_path'] = null;
+                }
+                $video->update($data);
                 $this->info("✓ Video #{$video->id} ({$video->title}) başarıyla analiz edildi. Süre: {$video->duration_seconds}s, Çözünürlük: {$video->width}x{$video->height}");
                 $success++;
             } catch (\Throwable $e) {

@@ -70,11 +70,11 @@ Route::match(['get', 'post'], '/admin/quick-fix', function () {
         @\Illuminate\Support\Facades\Artisan::call('storage:link');
     }
 
-    // Clean old broken GD thumbnails from storage/app/public/thumbnails
+    // Clean only empty/corrupted 0-byte thumbnail files
     $thumbnailFiles = \Illuminate\Support\Facades\Storage::disk('public')->files('thumbnails');
     foreach ($thumbnailFiles as $file) {
         $size = \Illuminate\Support\Facades\Storage::disk('public')->size($file);
-        if ($size < 25000) {
+        if ($size === 0) {
             \Illuminate\Support\Facades\Storage::disk('public')->delete($file);
         }
     }
@@ -124,14 +124,13 @@ Route::post('/admin/videos/{id}/save-thumbnail', function (\Illuminate\Http\Requ
     }
 
     $dataUrl = $request->input('thumbnail');
-    if ($dataUrl && str_starts_with($dataUrl, 'data:image/jpeg;base64,')) {
-        $base64 = substr($dataUrl, strlen('data:image/jpeg;base64,'));
-        $imageContent = base64_decode($base64);
-
-        $thumbnailRelPath = 'thumbnails/' . pathinfo($video->storage_path, PATHINFO_FILENAME) . '.jpg';
-        \Illuminate\Support\Facades\Storage::disk($video->disk ?? 'public')->put($thumbnailRelPath, $imageContent);
-
-        $video->thumbnail_path = $thumbnailRelPath;
+    if ($dataUrl && preg_match('/^data:image\/(jpeg|jpg|png|webp);base64,(.+)$/', $dataUrl, $matches)) {
+        $imageContent = base64_decode($matches[2]);
+        if (strlen($imageContent) > 100) {
+            $thumbnailRelPath = 'thumbnails/' . pathinfo($video->storage_path, PATHINFO_FILENAME) . '.jpg';
+            \Illuminate\Support\Facades\Storage::disk($video->disk ?? 'public')->put($thumbnailRelPath, $imageContent);
+            $video->thumbnail_path = $thumbnailRelPath;
+        }
     }
 
     $duration = (int) $request->input('duration');
@@ -153,6 +152,7 @@ Route::post('/admin/videos/{id}/save-thumbnail', function (\Illuminate\Http\Requ
         'success' => true,
         'id' => $video->id,
         'thumbnail_path' => $video->thumbnail_path,
+        'thumbnail_url' => asset('storage/' . ltrim($video->thumbnail_path, '/')),
         'duration' => $video->duration_seconds,
     ]);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);

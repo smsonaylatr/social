@@ -64,7 +64,17 @@ class ItemsRelationManager extends RelationManager
                     ->label('Önizleme')
                     ->disk('public')
                     ->square()
-                    ->defaultImageUrl(url('/images/video-placeholder.png')),
+                    ->defaultImageUrl(url('/images/video-placeholder.png'))
+                    ->state(function ($record): ?string {
+                        $video = $record->video;
+                        if (! $video || empty($video->thumbnail_path)) {
+                            return null;
+                        }
+                        if (! \Illuminate\Support\Facades\Storage::disk($video->disk ?? 'public')->exists($video->thumbnail_path)) {
+                            return null;
+                        }
+                        return $video->thumbnail_path;
+                    }),
 
                 TextColumn::make('video.title')
                     ->label('Video Başlığı')
