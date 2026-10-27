@@ -3298,10 +3298,12 @@ td.fi-ta-cell:first-child:has(input[type="checkbox"]) {
 }
 
 /* ==========================================================================
-   Desktop Fixed / Sticky Sidebar & Navigation
-   Keeps the left menu permanently stationary while page body scrolls smoothly
+   Desktop Fixed / Sticky Sidebar & Navigation Perfection
+   Keeps the left menu permanently stationary while page body scrolls smoothly.
+   Hides all scrollbars while keeping full mouse wheel scrolling & compact fits.
    ========================================================================== */
-/* Completely remove / hide scrollbars on the left menu (sidebar) across all screens */
+
+/* Completely hide all scrollbars on the left sidebar */
 aside.fi-sidebar,
 aside.fi-sidebar *,
 .fi-main-sidebar,
@@ -3323,6 +3325,46 @@ aside.fi-sidebar *::-webkit-scrollbar,
     background: transparent !important;
 }
 
+/* Compact spacing so all navigation groups fit cleanly on standard screens */
+.fi-sidebar-nav {
+    padding: 0.75rem 0.75rem 1.75rem 0.75rem !important;
+    gap: 0.35rem !important;
+}
+
+.fi-sidebar-nav-groups {
+    gap: 0.35rem !important;
+}
+
+.fi-sidebar-group {
+    gap: 0.15rem !important;
+    margin-bottom: 0.15rem !important;
+}
+
+.fi-sidebar-group-button {
+    padding: 0.35rem 0.6rem !important;
+    min-height: 2.1rem !important;
+}
+
+.fi-sidebar-group-label {
+    font-size: 0.825rem !important;
+    font-weight: 600 !important;
+    line-height: 1.25rem !important;
+}
+
+.fi-sidebar-group-items {
+    gap: 0.15rem !important;
+}
+
+.fi-sidebar-item-button {
+    padding: 0.3rem 0.6rem !important;
+    min-height: 1.95rem !important;
+    font-size: 0.8rem !important;
+}
+
+.fi-sidebar-item-label {
+    font-size: 0.8rem !important;
+}
+
 @media (min-width: 1024px) {
     html, body {
         overflow-x: clip !important;
@@ -3333,7 +3375,6 @@ aside.fi-sidebar *::-webkit-scrollbar,
     .fi-main-sidebar {
         position: sticky !important;
         top: 0 !important;
-        bottom: 0 !important;
         height: 100vh !important;
         max-height: 100vh !important;
         align-self: flex-start !important;
@@ -3343,31 +3384,19 @@ aside.fi-sidebar *::-webkit-scrollbar,
         overflow: hidden !important;
     }
 
-    /* Ensure internal menu can scroll smoothly without any visible scrollbar */
+    .fi-sidebar-header {
+        height: 3.75rem !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Inner navigation container scrolls smoothly if screen is very short */
     aside.fi-sidebar .fi-sidebar-nav,
-    .fi-main-sidebar .fi-sidebar-nav,
-    aside.fi-sidebar,
-    .fi-main-sidebar {
+    .fi-main-sidebar .fi-sidebar-nav {
         flex: 1 1 0% !important;
+        min-height: 0 !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
         overscroll-behavior: contain !important;
-        scrollbar-width: none !important;
-        scrollbar-gutter: auto !important;
-        -ms-overflow-style: none !important;
-    }
-
-    /* Completely hide scrollbars on the left sidebar */
-    aside.fi-sidebar::-webkit-scrollbar,
-    aside.fi-sidebar *::-webkit-scrollbar,
-    .fi-main-sidebar::-webkit-scrollbar,
-    .fi-main-sidebar *::-webkit-scrollbar,
-    aside.fi-sidebar .fi-sidebar-nav::-webkit-scrollbar,
-    .fi-sidebar-nav::-webkit-scrollbar {
-        display: none !important;
-        width: 0 !important;
-        height: 0 !important;
-        background: transparent !important;
     }
 
     /* Keep topbar header fixed/sticky at the top */
