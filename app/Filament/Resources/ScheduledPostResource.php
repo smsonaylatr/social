@@ -70,6 +70,43 @@ class ScheduledPostResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $getPlatformFilter = function ($component): array {
+            try {
+                $livewire = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
+                if (! $livewire && method_exists($component, 'getTable')) {
+                    $livewire = $component->getTable()->getLivewire();
+                }
+                if (! $livewire) {
+                    return [];
+                }
+                $values = $livewire->tableFilters['platform']['values'] ?? [];
+                if (empty($values) && ! empty($livewire->tableFilters['platform']['value'])) {
+                    $values = [$livewire->tableFilters['platform']['value']];
+                }
+                return (array) $values;
+            } catch (\Throwable) {
+                return [];
+            }
+        };
+
+        $setPlatformFilter = function ($component, array $values = []): void {
+            try {
+                $livewire = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
+                if (! $livewire && method_exists($component, 'getTable')) {
+                    $livewire = $component->getTable()->getLivewire();
+                }
+                if (! $livewire) {
+                    return;
+                }
+                $filters = $livewire->tableFilters ?? [];
+                $filters['platform']['values'] = $values;
+                $filters['platform']['value'] = null;
+                $livewire->tableFilters = $filters;
+                $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
+                $livewire->resetPage();
+            } catch (\Throwable) {}
+        };
+
         return $table
             ->modifyQueryUsing(fn ($query) => $query->with(['video', 'playlist', 'targets']))
             ->emptyStateHeading('Henüz Planlanmış veya Sıralı Kuyruk Yok')
@@ -138,84 +175,28 @@ class ScheduledPostResource extends Resource
                 ActionGroup::make([
                     Action::make('clear_platform')
                         ->label('🌐 Tüm Platformlar (Filtreyi Temizle)')
-                        ->action(function ($livewire) {
-                            $filters = $livewire->tableFilters ?? [];
-                            $filters['platform']['values'] = [];
-                            $filters['platform']['value'] = null;
-                            $livewire->tableFilters = $filters;
-                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
-                            $livewire->resetPage();
-                        }),
+                        ->action(fn (Action $action) => $setPlatformFilter($action, [])),
                     Action::make('filter_instagram')
                         ->label('📸 Instagram')
-                        ->action(function ($livewire) {
-                            $filters = $livewire->tableFilters ?? [];
-                            $filters['platform']['values'] = ['instagram'];
-                            $filters['platform']['value'] = null;
-                            $livewire->tableFilters = $filters;
-                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
-                            $livewire->resetPage();
-                        }),
+                        ->action(fn (Action $action) => $setPlatformFilter($action, ['instagram'])),
                     Action::make('filter_youtube')
                         ->label('▶️ YouTube')
-                        ->action(function ($livewire) {
-                            $filters = $livewire->tableFilters ?? [];
-                            $filters['platform']['values'] = ['youtube'];
-                            $filters['platform']['value'] = null;
-                            $livewire->tableFilters = $filters;
-                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
-                            $livewire->resetPage();
-                        }),
+                        ->action(fn (Action $action) => $setPlatformFilter($action, ['youtube'])),
                     Action::make('filter_tiktok')
                         ->label('🎵 TikTok')
-                        ->action(function ($livewire) {
-                            $filters = $livewire->tableFilters ?? [];
-                            $filters['platform']['values'] = ['tiktok'];
-                            $filters['platform']['value'] = null;
-                            $livewire->tableFilters = $filters;
-                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
-                            $livewire->resetPage();
-                        }),
+                        ->action(fn (Action $action) => $setPlatformFilter($action, ['tiktok'])),
                     Action::make('filter_facebook')
                         ->label('👥 Facebook')
-                        ->action(function ($livewire) {
-                            $filters = $livewire->tableFilters ?? [];
-                            $filters['platform']['values'] = ['facebook'];
-                            $filters['platform']['value'] = null;
-                            $livewire->tableFilters = $filters;
-                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
-                            $livewire->resetPage();
-                        }),
+                        ->action(fn (Action $action) => $setPlatformFilter($action, ['facebook'])),
                     Action::make('filter_linkedin')
                         ->label('💼 LinkedIn')
-                        ->action(function ($livewire) {
-                            $filters = $livewire->tableFilters ?? [];
-                            $filters['platform']['values'] = ['linkedin'];
-                            $filters['platform']['value'] = null;
-                            $livewire->tableFilters = $filters;
-                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
-                            $livewire->resetPage();
-                        }),
+                        ->action(fn (Action $action) => $setPlatformFilter($action, ['linkedin'])),
                     Action::make('filter_x')
                         ->label('𝕏 X (Twitter)')
-                        ->action(function ($livewire) {
-                            $filters = $livewire->tableFilters ?? [];
-                            $filters['platform']['values'] = ['x'];
-                            $filters['platform']['value'] = null;
-                            $livewire->tableFilters = $filters;
-                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
-                            $livewire->resetPage();
-                        }),
+                        ->action(fn (Action $action) => $setPlatformFilter($action, ['x'])),
                     Action::make('filter_pinterest')
                         ->label('📌 Pinterest')
-                        ->action(function ($livewire) {
-                            $filters = $livewire->tableFilters ?? [];
-                            $filters['platform']['values'] = ['pinterest'];
-                            $filters['platform']['value'] = null;
-                            $livewire->tableFilters = $filters;
-                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
-                            $livewire->resetPage();
-                        }),
+                        ->action(fn (Action $action) => $setPlatformFilter($action, ['pinterest'])),
                     Action::make('multi_platform_modal')
                         ->label('⚙️ Çoklu Platform Filtrele...')
                         ->modalHeading('Platformlara Göre Filtrele')
@@ -236,29 +217,12 @@ class ScheduledPostResource extends Resource
                                 ])
                                 ->columns(2)
                                 ->bulkToggleable()
-                                ->default(function ($livewire) {
-                                    $values = $livewire->tableFilters['platform']['values'] ?? [];
-                                    if (empty($values) && ! empty($livewire->tableFilters['platform']['value'])) {
-                                        $values = [$livewire->tableFilters['platform']['value']];
-                                    }
-                                    return $values;
-                                }),
+                                ->default(fn (Action $action) => $getPlatformFilter($action)),
                         ])
-                        ->action(function ($livewire, array $data) {
-                            $selected = $data['selected_platforms'] ?? [];
-                            $filters = $livewire->tableFilters ?? [];
-                            $filters['platform']['values'] = $selected;
-                            $filters['platform']['value'] = null;
-                            $livewire->tableFilters = $filters;
-                            $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
-                            $livewire->resetPage();
-                        }),
+                        ->action(fn (Action $action, array $data) => $setPlatformFilter($action, $data['selected_platforms'] ?? [])),
                 ])
-                ->label(function ($livewire) {
-                    $values = $livewire->tableFilters['platform']['values'] ?? [];
-                    if (empty($values) && ! empty($livewire->tableFilters['platform']['value'])) {
-                        $values = [$livewire->tableFilters['platform']['value']];
-                    }
+                ->label(function (ActionGroup $group) use ($getPlatformFilter) {
+                    $values = $getPlatformFilter($group);
                     if (empty($values)) {
                         return 'Platformlar';
                     }
@@ -276,11 +240,8 @@ class ScheduledPostResource extends Resource
                     }
                     return 'Platformlar (' . count($values) . ')';
                 })
-                ->icon(function ($livewire) {
-                    $values = $livewire->tableFilters['platform']['values'] ?? [];
-                    if (empty($values) && ! empty($livewire->tableFilters['platform']['value'])) {
-                        $values = [$livewire->tableFilters['platform']['value']];
-                    }
+                ->icon(function (ActionGroup $group) use ($getPlatformFilter) {
+                    $values = $getPlatformFilter($group);
                     if (count($values) === 1) {
                         return match ($values[0]) {
                             'instagram' => 'heroicon-m-camera',
@@ -295,11 +256,8 @@ class ScheduledPostResource extends Resource
                     }
                     return ! empty($values) ? 'heroicon-m-funnel' : 'heroicon-m-squares-2x2';
                 })
-                ->color(function ($livewire) {
-                    $values = $livewire->tableFilters['platform']['values'] ?? [];
-                    if (empty($values) && ! empty($livewire->tableFilters['platform']['value'])) {
-                        $values = [$livewire->tableFilters['platform']['value']];
-                    }
+                ->color(function (ActionGroup $group) use ($getPlatformFilter) {
+                    $values = $getPlatformFilter($group);
                     return ! empty($values) ? 'primary' : 'gray';
                 })
                 ->button()
@@ -313,21 +271,8 @@ class ScheduledPostResource extends Resource
                     ->size('sm')
                     ->color('danger')
                     ->tooltip('Platform filtresini temizle')
-                    ->visible(function ($livewire) {
-                        $values = $livewire->tableFilters['platform']['values'] ?? [];
-                        if (empty($values) && ! empty($livewire->tableFilters['platform']['value'])) {
-                            $values = [$livewire->tableFilters['platform']['value']];
-                        }
-                        return ! empty($values);
-                    })
-                    ->action(function ($livewire) {
-                        $filters = $livewire->tableFilters ?? [];
-                        $filters['platform']['values'] = [];
-                        $filters['platform']['value'] = null;
-                        $livewire->tableFilters = $filters;
-                        $livewire->getTableFiltersForm()->fill($livewire->tableFilters);
-                        $livewire->resetPage();
-                    }),
+                    ->visible(fn (Action $action) => ! empty($getPlatformFilter($action)))
+                    ->action(fn (Action $action) => $setPlatformFilter($action, [])),
 
                 Action::make('sync_thumbnails')
                     ->label('Önizlemeleri Senkronize Et')
