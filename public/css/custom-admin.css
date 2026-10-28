@@ -2137,18 +2137,24 @@ html, body {
 
     /* 4. Modals Mobile Optimization */
     .fi-modal-window:not(.fi-modal-slide-over-window) {
-        margin: 0.5rem auto 1.5rem auto !important;
-        max-width: calc(100vw - 1rem) !important;
+        margin: auto !important;
+        max-width: calc(100vw - 1.25rem) !important;
         width: 100% !important;
+        max-height: calc(100dvh - 1.5rem) !important;
         border-radius: 1rem !important;
-        max-height: none !important;
-        overflow: visible !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
     }
 
     .fi-modal-content {
-        padding: 0.85rem !important;
+        padding: 0.85rem 1rem !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
         max-height: none !important;
-        overflow: visible !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
     }
 
     /* 5. AI Studio 2.0 Mobile Optimization */
@@ -2367,9 +2373,16 @@ html, body {
     }
 
     /* Form ve Modal Altındaki Aksiyon Butonları (Kaydet, Vazgeç, Onayla) */
-    .fi-modal-footer-actions,
-    .fi-form-actions,
     .fi-modal-footer {
+        padding: 0.75rem 1rem !important;
+        position: relative !important;
+        bottom: auto !important;
+        flex: 0 0 auto !important;
+        width: 100% !important;
+    }
+
+    .fi-modal-footer-actions,
+    .fi-form-actions {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: wrap !important;
@@ -2377,9 +2390,7 @@ html, body {
         align-items: center !important;
         gap: 0.5rem !important;
         width: 100% !important;
-        padding: 0.75rem !important;
-        position: static !important;
-        bottom: auto !important;
+        padding: 0 !important;
     }
 
     .fi-modal-footer-actions > *,
@@ -3247,32 +3258,16 @@ td.fi-ta-cell:first-child:has(input[type="checkbox"]) {
 
 /* 6. Form Fields & Modals Compactness & Smooth Scrolling (Desktop) */
 @media (min-width: 769px) {
-    .fi-modal-window {
+    .fi-modal-window:not(.fi-modal-slide-over-window) {
         border-radius: 0.875rem !important;
         max-height: 88vh !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        -webkit-overflow-scrolling: touch !important;
-    }
-
-    .fi-modal-window::-webkit-scrollbar {
-        width: 6px !important;
-    }
-
-    .fi-modal-window::-webkit-scrollbar-track {
-        background: transparent !important;
-    }
-
-    .fi-modal-window::-webkit-scrollbar-thumb {
-        background: rgba(156, 163, 175, 0.4) !important;
-        border-radius: 3px !important;
-    }
-
-    .dark .fi-modal-window::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.25) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
     }
 
     .fi-modal-header {
+        flex: 0 0 auto !important;
         padding: 0.875rem 1.25rem !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
     }
@@ -3283,10 +3278,16 @@ td.fi-ta-cell:first-child:has(input[type="checkbox"]) {
     }
 
     .fi-modal-content {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
         padding: 1rem 1.25rem !important;
     }
 
     .fi-modal-footer {
+        flex: 0 0 auto !important;
         padding: 0.875rem 1.25rem !important;
         border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
     }
@@ -3520,55 +3521,58 @@ aside.fi-sidebar *::-webkit-scrollbar,
 
     /* ==========================================================================
        3. POP-UP & MODAL FULL RESPONSIVE PERFECTION
-       All Filament Modals, Windows, Slide-overs & Dropdowns
+       All Filament Modals, Windows, Slide-overs, Manychat Modals & Dropdowns
+       Guaranteed Viewport Centering + Smooth Inner Touch Scrolling
        ========================================================================== */
 
-    /* Modal Overlay & Outer Centering: Full smooth touch scrollable layer */
-    .fi-modal {
-        padding: 0 !important;
+    /* Ensure modal backdrop & fixed viewport wrapper are NEVER overridden to relative */
+    .fi-modal-close-overlay {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 40 !important;
     }
 
-    .fi-modal div[role="dialog"] > div.overflow-y-auto,
-    .fi-modal [role="dialog"] .fixed.inset-0.overflow-y-auto,
+    .fi-modal [role="dialog"] > div.fixed,
     .fi-modal-close-overlay + div {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 40 !important;
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch !important;
-        overscroll-behavior-y: contain !important;
-        padding: 0.5rem 0.5rem 3rem 0.5rem !important;
     }
 
     .fi-modal [x-ref="modalContainer"] {
-        padding: 0.25rem 0.25rem 2.5rem 0.25rem !important;
+        display: grid !important;
         min-height: 100% !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: flex-start !important;
+        grid-template-rows: 1fr auto 1fr !important;
+        justify-items: center !important;
         align-items: center !important;
+        padding: 0.75rem !important;
     }
 
-    /* Modal Main Window: Full-width friendly, safe-area bounds, natural growth */
-    .fi-modal-window,
-    div[x-ref="window"],
-    .fi-modal > div > div:has(.fi-modal-header) {
+    /* Modal Main Window: Centered in viewport, constrained to screen height, flex column */
+    .fi-modal-window:not(.fi-modal-slide-over-window),
+    div[x-ref="window"]:not(.fi-modal-slide-over-window) {
+        grid-row-start: 2 !important;
         width: 100% !important;
-        max-width: calc(100vw - 1rem) !important;
+        max-width: calc(100vw - 1.25rem) !important;
         min-width: 0 !important;
-        margin: 0.5rem auto 1.5rem auto !important;
-        max-height: none !important;
+        margin: auto !important;
+        max-height: calc(100dvh - 1.5rem) !important;
         height: auto !important;
         border-radius: 1rem !important;
         display: flex !important;
         flex-direction: column !important;
-        overflow: visible !important;
-        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.45) !important;
+        overflow: hidden !important;
+        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55) !important;
         position: relative !important;
     }
 
-    /* Modal Header */
+    /* Modal Header: Pinned at top of modal */
     .fi-modal-header {
         padding: 0.85rem 1rem !important;
-        flex-shrink: 0 !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+        flex: 0 0 auto !important;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.15) !important;
         gap: 0.5rem !important;
         position: relative !important;
     }
@@ -3580,8 +3584,9 @@ aside.fi-sidebar *::-webkit-scrollbar,
     }
 
     .fi-modal-description {
-        font-size: 0.75rem !important;
-        margin-top: 0.15rem !important;
+        font-size: 0.78rem !important;
+        line-height: 1.25rem !important;
+        margin-top: 0.2rem !important;
     }
 
     .fi-modal-close-btn,
@@ -3592,31 +3597,49 @@ aside.fi-sidebar *::-webkit-scrollbar,
         border-radius: 0.5rem !important;
     }
 
-    /* Modal Content / Body: Full natural flow, never cuts off sections or inputs */
+    /* Modal Content / Body: Single scrollable region with min-height: 0 so nothing is cut off */
     .fi-modal-content {
-        padding: 0.85rem 1rem !important;
-        flex: none !important;
+        padding: 0.9rem 1rem !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
         max-height: none !important;
-        overflow: visible !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain !important;
     }
 
-    /* Modal Footer & Action Buttons: Placed cleanly under form content, never overlaps */
-    .fi-modal-footer,
-    .fi-modal-footer-actions {
+    .fi-modal-content::-webkit-scrollbar {
+        width: 5px !important;
+    }
+
+    .fi-modal-content::-webkit-scrollbar-thumb {
+        background: rgba(156, 163, 175, 0.4) !important;
+        border-radius: 3px !important;
+    }
+
+    /* Modal Footer: Pinned at bottom of modal flex column, never overlaps content */
+    .fi-modal-footer {
         padding: 0.75rem 1rem !important;
-        flex-shrink: 0 !important;
+        flex: 0 0 auto !important;
+        border-top: 1px solid rgba(128, 128, 128, 0.15) !important;
+        width: 100% !important;
+        position: relative !important;
+        bottom: auto !important;
+        margin-top: 0 !important;
+    }
+
+    .fi-modal-footer-actions {
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: wrap !important;
         justify-content: flex-end !important;
         align-items: center !important;
         gap: 0.5rem !important;
-        border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
         width: 100% !important;
-        position: static !important;
-        bottom: auto !important;
-        background: transparent !important;
-        margin-top: 0.5rem !important;
     }
 
     .fi-modal-footer-actions > *,
@@ -3625,6 +3648,7 @@ aside.fi-sidebar *::-webkit-scrollbar,
     .fi-modal-footer button {
         flex: 1 1 calc(50% - 0.25rem) !important;
         width: auto !important;
+        min-width: 100px !important;
         min-height: 42px !important;
         font-size: 0.85rem !important;
         font-weight: 600 !important;
@@ -3639,15 +3663,69 @@ aside.fi-sidebar *::-webkit-scrollbar,
         flex: 1 1 100% !important;
     }
 
+    /* Custom Social Channels Modals (.mc-modal-*) Mobile Perfection */
+    .mc-modal-overlay {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 9999 !important;
+        padding: 0.75rem !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .mc-modal-window {
+        width: 100% !important;
+        max-width: calc(100vw - 1.25rem) !important;
+        max-height: calc(100dvh - 1.5rem) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        border-radius: 1rem !important;
+        margin: auto !important;
+    }
+
+    .mc-modal-header {
+        flex: 0 0 auto !important;
+        padding: 0.85rem 1rem !important;
+    }
+
+    .mc-modal-body {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding: 1rem !important;
+    }
+
+    .mc-modal-footer {
+        flex: 0 0 auto !important;
+        padding: 0.75rem 1rem !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
+    }
+
+    .mc-modal-footer button,
+    .mc-modal-footer a {
+        flex: 1 1 calc(50% - 0.25rem) !important;
+        min-height: 42px !important;
+    }
+
     /* Checkbox list on mobile (Days of week, social accounts) */
     .fi-fo-checkbox-list {
-        gap: 0.4rem !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 0.5rem 0.75rem !important;
+        margin-top: 0 !important;
+        columns: unset !important;
     }
 
     .fi-fo-checkbox-list > div {
-        display: flex !important;
-        flex-wrap: wrap !important;
-        gap: 0.35rem 0.65rem !important;
+        padding-top: 0 !important;
+        margin: 0 !important;
+        break-inside: auto !important;
     }
 
     /* Slide-over Modals (Full screen on mobile) */
@@ -3692,6 +3770,33 @@ aside.fi-sidebar *::-webkit-scrollbar,
         overflow: hidden !important;
     }
 
+    /* Table Header Container: Stack title/actions and search/toolbar cleanly on mobile */
+    .fi-ta-header-ctn {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.55rem !important;
+        padding: 0.65rem 0.75rem !important;
+    }
+
+    .fi-ta-header-ctn .fi-ta-header {
+        width: 100% !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        gap: 0.5rem !important;
+    }
+
+    .fi-ta-header-ctn .fi-ta-header-toolbar {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.5rem !important;
+        padding: 0 !important;
+    }
+
     /* Table Content Scrollable Area: Super Smooth Horizontal Touch Scrolling */
     .fi-ta-content {
         width: 100% !important;
@@ -3725,14 +3830,14 @@ aside.fi-sidebar *::-webkit-scrollbar,
 
     /* Table Header Toolbar & Search Bar */
     .fi-ta-header {
-        padding: 0.65rem 0.75rem !important;
+        padding: 0.5rem 0.65rem !important;
     }
 
     .fi-ta-header-toolbar {
         display: flex !important;
         flex-direction: column !important;
-        gap: 0.55rem !important;
-        padding: 0.55rem 0.65rem !important;
+        gap: 0.5rem !important;
+        padding: 0.5rem 0.65rem !important;
         align-items: stretch !important;
     }
 
@@ -4112,12 +4217,12 @@ aside.fi-sidebar *::-webkit-scrollbar,
         grid-template-columns: 1fr !important;
     }
 
-    .fi-modal-window,
-    div[x-ref="window"] {
-        width: calc(100vw - 0.5rem) !important;
-        max-width: calc(100vw - 0.5rem) !important;
-        margin: 0.25rem auto !important;
-        border-radius: 0.75rem !important;
+    .fi-modal-window:not(.fi-modal-slide-over-window),
+    div[x-ref="window"]:not(.fi-modal-slide-over-window) {
+        width: calc(100vw - 0.75rem) !important;
+        max-width: calc(100vw - 0.75rem) !important;
+        margin: auto !important;
+        border-radius: 0.875rem !important;
     }
 
     .fi-modal-content {
