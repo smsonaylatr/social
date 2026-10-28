@@ -298,12 +298,11 @@ class LiveStreamService
         $bitrate = max(2250, min(8000, (int) ($stream->bitrate_kbps ?: $defaultBitrate)));
 
         $vf = sprintf(
-            'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=%d,setpts=N/%d/TB,format=yuv420p',
+            'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=%d,format=yuv420p',
             $targetW,
             $targetH,
             $targetW,
             $targetH,
-            $fps,
             $fps
         );
 
@@ -326,12 +325,12 @@ class LiveStreamService
         if ($audioMode === 'mix_bg_music' && $musicFileExists) {
             // Mikser Modu: Orijinal Ses + Fon Müziği
             // Girdi formatı mono/stereo veya 8kHz/48kHz olsa dahi kesin olarak 44.1kHz Stereo'ya normalize edilir.
-            // asetpts=N/SR/TB ile zamanda geriye düşme (non-monotonic DTS) tamamen imkansız kılınır.
+            // aresample=async=1 ile ses ve görüntü zaman damgaları kesinlikle senkron ve tekdüze kalır.
             $origVol = max(0.0, min(1.0, ($stream->original_audio_volume ?? 100) / 100));
             $bgVol = max(0.05, min(1.0, ($stream->bg_music_volume ?? 30) / 100));
 
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1000:first_pts=0,volume=%.2f[a0];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1000:first_pts=0,volume=%.2f[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2,aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100,asetpts=N/SR/TB[aout]',
+                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0,volume=%.2f[a0];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0,volume=%.2f[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2,aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0[aout]',
                 $vf,
                 $origVol,
                 $bgVol
@@ -343,11 +342,11 @@ class LiveStreamService
             );
         } elseif ($audioMode === 'replace_bg_music' && $musicFileExists) {
             // Telif Koruması Modu: Orijinal Sesi Kapat, Yalnızca Telifsiz Fon Müziği Çal
-            // asetpts=N/SR/TB ile döngü wrap-around anlarında zaman damgaları kesinlikle pürüzsüz artar.
+            // Video havuzundaki sesleri tamamen yok sayar, aresample ile sürekli ve pürüzsüz akış sağlar.
             $bgVol = max(0.05, min(1.5, ($stream->bg_music_volume ?? 100) / 100));
 
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0,volume=%.2f,asetpts=N/SR/TB[aout]',
+                '[0:v]%s[vout];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0,volume=%.2f[aout]',
                 $vf,
                 $bgVol
             );
@@ -366,7 +365,7 @@ class LiveStreamService
         } else {
             // Orijinal Ses Modu
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1000:first_pts=0,asetpts=N/SR/TB[aout]',
+                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0[aout]',
                 $vf
             );
             $filterAndMapArgs = sprintf(
@@ -858,12 +857,34 @@ class LiveStreamService
         // 1. Kullanıcı özel bir MP3/M4A/WAV yüklediyse
         if ($stream->bg_music_source === 'custom' && $stream->bg_music_path) {
             $customDisk = Storage::disk('public');
-            if ($customDisk->exists($stream->bg_music_path)) {
-                return $customDisk->path($stream->bg_music_path);
-            }
-            $abs = storage_path('app/public/' . $stream->bg_music_path);
-            if (file_exists($abs)) {
-                return $abs;
+            $customFile = $customDisk->exists($stream->bg_music_path)
+                ? $customDisk->path($stream->bg_music_path)
+                : storage_path('app/public/' . $stream->bg_music_path);
+
+            if (file_exists($customFile)) {
+                // Eğer ses WAV, mono veya 44.1kHz dışındaysa akıcı döngü ve desync önleme için
+                // 44.1kHz Stereo MP3 formatına normalize edilmiş halini oluştur ve kullan
+                $ext = strtolower(pathinfo($customFile, PATHINFO_EXTENSION));
+                if ($ext !== 'mp3' || filesize($customFile) < 50000) {
+                    $normalizedPath = $dir . '/norm_' . substr(md5($customFile . filemtime($customFile)), 0, 12) . '.mp3';
+                    if (file_exists($normalizedPath) && filesize($normalizedPath) > 5000) {
+                        return $normalizedPath;
+                    }
+                    if ($this->isFfmpegAvailable()) {
+                        $normCmd = sprintf(
+                            '%s -y -i %s -vn -c:a libmp3lame -b:a 192k -ar 44100 -ac 2 %s 2>&1',
+                            escapeshellcmd($this->ffmpegPath),
+                            escapeshellarg($customFile),
+                            escapeshellarg($normalizedPath)
+                        );
+                        @shell_exec($normCmd);
+                        if (file_exists($normalizedPath) && filesize($normalizedPath) > 5000) {
+                            return $normalizedPath;
+                        }
+                    }
+                }
+
+                return $customFile;
             }
         }
 
