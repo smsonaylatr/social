@@ -268,7 +268,7 @@ class LiveStreamTest extends TestCase
         $cmdReplace = $service->buildFfmpegCommand($streamReplace);
 
         $this->assertStringContainsString('custom_beat.mp3', $cmdReplace);
-        $this->assertStringContainsString('-map 0:v:0 -map 1:a:0', $cmdReplace);
+        $this->assertStringContainsString('-map "[vout]" -map "[aout]"', $cmdReplace);
         $this->assertStringContainsString('volume=0.80', $cmdReplace);
 
         // 2. Mix mode with custom audio file

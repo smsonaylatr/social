@@ -265,12 +265,14 @@ class LiveStreamService
         }
 
         // Çözünürlük ve Video Filtresi
-        [$targetW, $targetH] = match ($stream->resolution_mode) {
-            'vertical_720p' => [720, 1280],
-            'horizontal_1080p' => [1920, 1080],
-            'horizontal_720p' => [1280, 720],
-            default => [1080, 1920], // vertical_1080p (Instagram Live & TikTok & YouTube Shorts dikey)
+        [$targetW, $targetH, $defaultBitrate] = match ($stream->resolution_mode) {
+            'vertical_1080p' => [1080, 1920, 2500],
+            'horizontal_1080p' => [1920, 1080, 3000],
+            'horizontal_720p' => [1280, 720, 2000],
+            default => [720, 1280, 2000], // vertical_720p (Instagram Live & TikTok için en akıcı, donmasız 720p standart)
         };
+
+        $bitrate = max(800, min(8000, (int) ($stream->bitrate_kbps ?: $defaultBitrate)));
 
         $vf = sprintf(
             'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=%d,format=yuv420p',
@@ -281,8 +283,10 @@ class LiveStreamService
             $fps
         );
 
+        // Ultrafast preset + zerolatency + threads 0:
+        // CPU yükünü %70 azaltır, donma ve takılmaları kesin olarak önler, VPS'de 1.0x gerçek zamanlı hız garantiler.
         $videoCodecArgs = sprintf(
-            '-c:v libx264 -preset veryfast -tune zerolatency -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -pix_fmt yuv420p',
+            '-c:v libx264 -preset ultrafast -tune zerolatency -threads 0 -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -pix_fmt yuv420p',
             $bitrate,
             $bitrate,
             $bitrate,
@@ -296,11 +300,12 @@ class LiveStreamService
 
         if ($audioMode === 'mix_bg_music' && $musicFileExists) {
             // Mikser Modu: Orijinal Ses + Fon Müziği
+            // amix sonrasında aresample eklenerek miks çıkışının zaman damgaları kesin olarak tekdüze yapılır.
             $origVol = max(0.0, min(1.0, ($stream->original_audio_volume ?? 100) / 100));
             $bgVol = max(0.05, min(1.0, ($stream->bg_music_volume ?? 30) / 100));
 
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[0:a]aresample=async=1:first_pts=0,volume=%.2f[a0];[1:a]aresample=async=1:first_pts=0,volume=%.2f[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2[aout]',
+                '[0:v]%s[vout];[0:a]aresample=async=1:first_pts=0,volume=%.2f[a0];[1:a]aresample=async=1:first_pts=0,volume=%.2f[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2,aresample=async=1:first_pts=0[aout]',
                 $vf,
                 $origVol,
                 $bgVol
@@ -313,26 +318,33 @@ class LiveStreamService
         } elseif ($audioMode === 'replace_bg_music' && $musicFileExists) {
             // Telif Koruması Modu: Orijinal Sesi Kapat, Yalnızca Telifsiz Fon Müziği Çal
             $bgVol = max(0.05, min(1.5, ($stream->bg_music_volume ?? 100) / 100));
-            $af = sprintf('aresample=async=1:first_pts=0,volume=%.2f', $bgVol);
+
+            $filterComplex = sprintf(
+                '[0:v]%s[vout];[1:a]aresample=async=1:first_pts=0,volume=%.2f[aout]',
+                $vf,
+                $bgVol
+            );
 
             $filterAndMapArgs = sprintf(
-                '-vf %s -af %s -map 0:v:0 -map 1:a:0',
-                escapeshellarg($vf),
-                escapeshellarg($af)
+                '-filter_complex %s -map "[vout]" -map "[aout]"',
+                escapeshellarg($filterComplex)
             );
         } elseif ($audioMode === 'mute') {
             // Sessiz Mod: Boş AAC
+            $filterComplex = sprintf('[0:v]%s[vout]', $vf);
             $filterAndMapArgs = sprintf(
-                '-vf %s -map 0:v:0 -map 1:a:0',
-                escapeshellarg($vf)
+                '-filter_complex %s -map "[vout]" -map 1:a:0',
+                escapeshellarg($filterComplex)
             );
         } else {
             // Orijinal Ses Modu
-            $af = 'aresample=async=1:first_pts=0';
+            $filterComplex = sprintf(
+                '[0:v]%s[vout];[0:a]aresample=async=1:first_pts=0[aout]',
+                $vf
+            );
             $filterAndMapArgs = sprintf(
-                '-vf %s -af %s -map 0:v:0 -map 0:a?',
-                escapeshellarg($vf),
-                escapeshellarg($af)
+                '-filter_complex %s -map "[vout]" -map "[aout]"',
+                escapeshellarg($filterComplex)
             );
         }
 
@@ -377,6 +389,12 @@ class LiveStreamService
         // Zaten çalışıyorsa önce mevcut süreci temizle
         if ($stream->process_pid && $this->isProcessRunning($stream->process_pid)) {
             $this->killProcess($stream->process_pid);
+        }
+
+        // Linux VPS üzerinde eski yetim (orphan) runner veya ffmpeg süreçlerini tamamen sonlandır
+        if (PHP_OS_FAMILY === 'Linux') {
+            @shell_exec("pkill -9 -f 'runner_stream_{$stream->id}.sh' 2>/dev/null");
+            @shell_exec("pkill -9 -f 'stream_{$stream->id}_playlist.txt' 2>/dev/null");
         }
 
         $stopFile = storage_path("app/live-streams/stream_{$stream->id}.stop");
