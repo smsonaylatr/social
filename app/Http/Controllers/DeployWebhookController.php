@@ -74,20 +74,18 @@ class DeployWebhookController extends Controller
             }
         }
 
-        // 2. Clear & optimize Laravel caches
+        // 2. Clear caches cleanly
         try {
             \Illuminate\Support\Facades\Artisan::call('optimize:clear');
-            \Illuminate\Support\Facades\Artisan::call('optimize');
-            $outputs[] = "ARTISAN: optimize OK";
+            $outputs[] = "ARTISAN: optimize:clear OK";
         } catch (\Throwable $e) {
             $errors[] = "OPTIMIZE ERR: " . $e->getMessage();
         }
 
-        try {
-            \Illuminate\Support\Facades\Artisan::call('view:clear');
-            $outputs[] = "ARTISAN: view:clear OK";
-        } catch (\Throwable $e) {
-            $errors[] = "VIEW ERR: " . $e->getMessage();
+        // Ensure framework view storage directories exist
+        $viewPath = storage_path('framework/views');
+        if (! is_dir($viewPath)) {
+            @mkdir($viewPath, 0775, true);
         }
 
         // 3. Migrate if needed

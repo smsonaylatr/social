@@ -113,7 +113,7 @@ Route::match(['get', 'post'], '/admin/stream-status-check', function () {
     $service = app(\App\Services\LiveStream\LiveStreamService::class);
     $data = [];
 
-    $ffprobe = app(\App\Services\Media\VideoProcessingService::class)->resolveBinary('ffprobe');
+    $ffmpeg = storage_path('app/bin/ffmpeg');
 
     foreach ($streams as $stream) {
         $logFile = $service->getLogFilePath($stream);
@@ -138,14 +138,14 @@ Route::match(['get', 'post'], '/admin/stream-status-check', function () {
                         'exists' => file_exists($filePath),
                         'size' => file_exists($filePath) ? filesize($filePath) : 0,
                     ];
-                    if ($ffprobe && file_exists($filePath)) {
-                        $cmd = sprintf(
-                            '%s -v error -show_entries format=duration:stream=codec_type,duration,r_frame_rate -of json %s 2>&1',
-                            escapeshellcmd($ffprobe),
-                            escapeshellarg($filePath)
-                        );
-                        $probeJson = @shell_exec($cmd);
-                        $info['probe'] = $probeJson ? json_decode($probeJson, true) : null;
+                    if (file_exists($filePath) && file_exists($ffmpeg)) {
+                        $cmd = sprintf('%s -i %s 2>&1', escapeshellcmd($ffmpeg), escapeshellarg($filePath));
+                        $out = (string) @shell_exec($cmd);
+                        // Extract Duration and Video/Audio stream lines
+                        preg_match('/Duration:\s*([0-9:.]+)/', $out, $durMatch);
+                        preg_match_all('/Stream #0:[0-9].*$/m', $out, $streamMatches);
+                        $info['duration'] = $durMatch[1] ?? 'unknown';
+                        $info['streams'] = $streamMatches[0] ?? [];
                     }
                     $playlistItems[] = $info;
                 }
