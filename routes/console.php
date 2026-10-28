@@ -25,3 +25,4 @@ Artisan::command('socialflow:process-due-posts', function (SchedulingService $sc
 // Laravel Scheduler Registration (Cron)
 Schedule::command('socialflow:check-schedules')->everyMinute()->withoutOverlapping();
 Schedule::command('socialflow:process-due-posts')->everyMinute()->withoutOverlapping();
+Schedule::command('socialflow:live-watchdog')->everyMinute()->withoutOverlapping();

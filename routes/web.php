@@ -11,6 +11,12 @@ Route::get('/', function () {
     return redirect('/admin');
 });
 
+// Hızlı Menü & Yayın Yönlendirmeleri
+Route::get('/admin/yayin-ve-otomasyon', fn () => redirect('/admin/schedules'));
+Route::get('/admin/automation', fn () => redirect('/admin/schedules'));
+Route::get('/admin/canli-yayin', fn () => redirect('/admin/live-streams'));
+Route::get('/admin/live', fn () => redirect('/admin/live-streams'));
+
 // Legal Pages for OAuth & API Verification (Publicly accessible)
 Route::get('/tiktok-developers-site-verification.txt', function () {
     return response('tiktok-developers-site-verification=7ohyfCDIRy2UtuKp9g9A4V9kEd0Dd1EV', 200)
@@ -229,6 +235,11 @@ Route::match(['get', 'post'], '/cron/process', function () {
 
     $schedulesCount = $orchestrator->checkAndRunDueSchedules();
     $dispatchedCount = $schedulingService->dispatchDuePosts();
+
+    $liveWatchdogStats = [];
+    try {
+        $liveWatchdogStats = app(\App\Services\LiveStream\LiveStreamService::class)->checkHealthAndWatchdog();
+    } catch (\Throwable) {}
 
     // Process at most 1 queued job with a strict 2-second timeout to avoid locking the web worker
     if ($dispatchedCount > 0) {

@@ -46,7 +46,7 @@ class LinkedInPublisher extends AbstractSocialPublisher
         $fullText = preg_replace('/https?:\/\/(www\.)?patenliayakkabilar\.com\/?/i', 'patenliayakkabilar.com', $fullText);
 
         $commentary = $this->safeTruncate($fullText, 3000);
-        $productUrl = $target->product_url ?: ($video->product_url ?: 'https://patenliayakkabilar.com');
+        $productUrl = $isTextOnly ? 'patenliayakkabilar.com' : ($target->product_url ?: ($video->product_url ?: 'https://patenliayakkabilar.com'));
         $seoTitle = mb_substr($target->title ?: ($video->title ?: 'Patenli Ayakkabı ve Tekerlekli Spor Ayakkabı Modelleri | Patenli Ayakkabılar'), 0, 200);
 
         if ($isTextOnly) {

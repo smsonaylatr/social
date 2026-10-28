@@ -118,6 +118,28 @@
                     <div>Durum: {{ $healthData['ai']['status'] ? 'OpenAI GPT-4o API aktif.' : 'API anahtarı girildiğinde canlıya geçer.' }}</div>
                 </div>
             </div>
+
+            {{-- 7/24 Canlı Yayın Motoru --}}
+            <div class="system-health-card p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-xs">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="font-bold text-sm text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                        <x-heroicon-m-signal class="w-5 h-5 text-red-500" />
+                        7/24 Canlı Yayın (Band)
+                    </span>
+                    @if(($healthData['live_streams']['running_count'] ?? 0) > 0)
+                        <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400 flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            {{ $healthData['live_streams']['running_count'] }} Canlı
+                        </span>
+                    @else
+                        <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-400">Hazır / Beklemede</span>
+                    @endif
+                </div>
+                <div class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                    <div>Toplam Kanal: <strong>{{ $healthData['live_streams']['total_count'] ?? 0 }}</strong> | Aktif: <strong>{{ $healthData['live_streams']['running_count'] ?? 0 }}</strong></div>
+                    <div>Watchdog: Otomatik kurtarma ve FFmpeg RTMP motoru aktif.</div>
+                </div>
+            </div>
         </div>
 
         {{-- 7 Platform Canlı Entegrasyon Tablosu --}}

@@ -117,7 +117,7 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
     /**
      * Format captions with hashtags and optional product link (with automatic deduplication)
      */
-    protected function buildFullCaption(ScheduledPostTarget $target): string
+    public function buildFullCaption(ScheduledPostTarget $target): string
     {
         $caption = trim((string) ($target->caption ?: ''));
         $video = $target->scheduledPost?->video;
@@ -183,24 +183,50 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
             }
         }
 
-        // 2. Only append product_url if neither the full URL nor its bare domain is already in the caption
-        if (! empty($rawProductUrl)) {
-            $productUrl = trim((string) $rawProductUrl);
-            $host = parse_url($productUrl, PHP_URL_HOST) ?: $productUrl;
-            $bareDomain = preg_replace('/^www\./i', '', (string) $host);
+        // 2. Web Sitesi Bağlantısı (SEO Backlink & Google Indexing Kuralı)
+        // Facebook & X -> Daima 'https://patenliayakkabilar.com'
+        // LinkedIn -> Daima 'patenliayakkabilar.com'
+        $platformCode = $this->getPlatformCode();
+        $targetWebsiteUrl = match ($platformCode) {
+            'linkedin' => 'patenliayakkabilar.com',
+            'x', 'facebook' => 'https://patenliayakkabilar.com',
+            default => 'https://patenliayakkabilar.com',
+        };
 
-            $urlAlreadyInCaption = ($productUrl !== '' && mb_stripos($caption, $productUrl) !== false)
-                || ($bareDomain !== '' && mb_stripos($caption, $bareDomain) !== false);
-
-            if (! $urlAlreadyInCaption) {
-                $caption .= $isTextMode ? "\n\n" . $productUrl : "\n\n🌐 " . $productUrl;
+        // Eğer platform 'x' (Twitter) ise, 280 karakter limitinde linkin kesilmesini önlemek için
+        // gövde metnini linke ve etiketlere yer açacak şekilde önceden sınırla
+        if ($platformCode === 'x' && mb_stripos($caption, 'patenliayakkabilar.com') === false) {
+            $reservedLength = mb_strlen($targetWebsiteUrl, 'UTF-8') + 35; // link + 1-2 hashtag payı
+            $maxBodyForX = max(120, 280 - $reservedLength);
+            if (mb_strlen($caption, 'UTF-8') > $maxBodyForX) {
+                $caption = $this->safeTruncate($caption, $maxBodyForX);
             }
         }
 
-        // 3. Hashtag havuzundan gelen platforma özel dinamik etiketleri ekle (SEO hafızası öncelikli)
+        // Eğer metinde patenliayakkabilar.com zaten geçiyorsa, platform kuralına dönüştür
+        if (mb_stripos($caption, 'patenliayakkabilar.com') !== false) {
+            if ($platformCode === 'linkedin') {
+                $caption = preg_replace('/https?:\/\/(www\.)?patenliayakkabilar\.com\/?/i', 'patenliayakkabilar.com', $caption);
+            } else {
+                // Facebook ve X için https://patenliayakkabilar.com olmasını garanti et
+                $caption = preg_replace('/https?:\/\/(www\.)?patenliayakkabilar\.com/i', 'https://patenliayakkabilar.com', $caption);
+                $caption = preg_replace('/(?<!https:\/\/)(?<!http:\/\/)\b(www\.)?patenliayakkabilar\.com\b/i', 'https://patenliayakkabilar.com', $caption);
+            }
+        } else {
+            // Metinde link yoksa ekle
+            $caption .= $isTextMode ? "\n\n" . $targetWebsiteUrl : "\n\n🌐 " . $targetWebsiteUrl;
+        }
+
+        // 3. Hashtag havuzundan gelen platforma özel dinamik etiketleri ekle (Zengin Hashtag Kullanımı)
         $targetHashtags = (! empty($target->hashtags) && is_array($target->hashtags))
             ? $target->hashtags
-            : $seoService->getOptimizedHashtags($video ?: new Video(), $this->getPlatformCode());
+            : $seoService->getOptimizedHashtags($video ?: new Video(), $this->getPlatformCode(), $isTextMode ? 15 : null);
+
+        // Metin modunda veya hashtag sayısı az olduğunda zengin havuzla harmanla (Google SEO zenginliği)
+        if ($isTextMode || count($targetHashtags) < 10) {
+            $poolTags = $seoService->getOptimizedHashtags($video ?: new Video(), $this->getPlatformCode(), limit: 15);
+            $targetHashtags = array_values(array_unique(array_merge($targetHashtags, $poolTags)));
+        }
 
         // Metin gövdesinde eski/dağınık hashtag kalıntıları varsa temizle
         $captionWithoutTags = preg_replace('/#[^\s#]+/u', '', $caption);

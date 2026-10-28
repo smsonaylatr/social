@@ -24,6 +24,10 @@ class FacebookPublisher extends AbstractSocialPublisher
         $caption = $this->buildFullCaption($target);
         $videoUrl = $video->url;
 
+        // Facebook'ta link daima https://patenliayakkabilar.com olmalıdır (Google SEO & Facebook Card önizlemesi)
+        $caption = preg_replace('/https?:\/\/(www\.)?patenliayakkabilar\.com/i', 'https://patenliayakkabilar.com', $caption);
+        $caption = preg_replace('/(?<!https:\/\/)(?<!http:\/\/)\b(www\.)?patenliayakkabilar\.com\b/i', 'https://patenliayakkabilar.com', $caption);
+
         // Otomasyon kuralında / hedefte belirlenen format (Öncelikli) veya kanal ayarı
         $isTextOnly = $target->post_type === 'text'
             || $target->scheduledPost?->post_type === 'text'

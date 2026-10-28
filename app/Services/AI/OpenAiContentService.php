@@ -351,11 +351,11 @@ class OpenAiContentService implements AiContentProviderInterface
                 platformCode: 'facebook',
                 title: $fbTitle,
                 hookSentence: $fbHook,
-                caption: "{$fbHook}\n\n{$fbBody}\n\n{$bullets}\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n👉 Detaylı bilgi ve sipariş için: {$productUrl}\n📸 @patenliayakkabilar",
-                hashtags: ['PatenliAyakkabı', 'PatenliAyakkabılar', 'ÇocukPatenliAyakkabı', 'TekerlekliAyakkabı', 'RollerShoes'],
+                caption: "{$fbHook}\n\n{$fbBody}\n\n{$bullets}\n\nÇocuk patenli ayakkabı ve tekerlekli ayakkabı modellerini şimdi keşfet! 🛍️\n\n👉 Detaylı bilgi ve sipariş için: https://patenliayakkabilar.com\n📸 @patenliayakkabilar",
+                hashtags: ['PatenliAyakkabı', 'PatenliAyakkabılar', 'ÇocukPatenliAyakkabı', 'TekerlekliAyakkabı', 'RollerShoes', 'IşıklıPatenliAyakkabı', 'PatenliSporAyakkabı', 'GizliTekerlekliAyakkabı', 'ÇocukModası', 'SporAyakkabı', 'Alışveriş', 'Trend'],
                 seoKeywords: $seoKeywords,
-                callToAction: "Detaylı bilgi ve sipariş için: {$productUrl}",
-                suggestedProductUrl: $productUrl,
+                callToAction: "Detaylı bilgi ve sipariş için: https://patenliayakkabilar.com",
+                suggestedProductUrl: 'https://patenliayakkabilar.com',
                 isTestMode: true
             ),
             'youtube' => new GeneratedPlatformContentDTO(
@@ -374,10 +374,10 @@ class OpenAiContentService implements AiContentProviderInterface
                 title: null,
                 hookSentence: $xHook,
                 caption: $xCaption,
-                hashtags: ['PatenliAyakkabı', 'TekerlekliAyakkabı', 'ÇocukPatenliAyakkabı'],
+                hashtags: ['PatenliAyakkabı', 'TekerlekliAyakkabı', 'ÇocukPatenliAyakkabı', 'PatenliSporAyakkabı', 'RollerShoes'],
                 seoKeywords: $seoKeywords,
-                callToAction: "Hemen tıkla: {$productUrl}",
-                suggestedProductUrl: $productUrl,
+                callToAction: 'Hemen tıkla: https://patenliayakkabilar.com',
+                suggestedProductUrl: 'https://patenliayakkabilar.com',
                 isTestMode: true
             ),
             'pinterest' => new GeneratedPlatformContentDTO(
@@ -406,11 +406,11 @@ class OpenAiContentService implements AiContentProviderInterface
                 platformCode: 'linkedin',
                 title: 'Patenli Ayakkabı ve Tekerlekli Spor Ayakkabı Modelleri | Patenli Ayakkabılar',
                 hookSentence: 'Çocuk patenli ayakkabı ve tekerlekli ayakkabı modellerimizle hareketi eğlenceye dönüştürüyoruz! ⚡',
-                caption: "Çocuk patenli ayakkabı ve tekerlekli ayakkabı modellerimizle hareketi eğlenceye dönüştürüyoruz! ⚡\n\n{$brandName} olarak çocukların ve gençlerin severek giydiği patenli ayakkabı, ışıklı patenli ayakkabı ve gizli tekerlekli spor ayakkabı modelleri sunuyoruz. Hem günlük kullanıma uygun konforlu spor ayakkabı, hem de tek hareketle kaymaya hazır paten deneyimi bir arada!\n\n{$bullets}\n\nTüm patenli ayakkabı modelleri ve fiyatları için resmi web sitemizi ziyaret edin:\n🌐 patenliayakkabilar.com",
-                hashtags: ['PatenliAyakkabı', 'TekerlekliAyakkabı', 'ÇocukPatenliAyakkabı', 'IşıklıPatenliAyakkabı', 'PatenliAyakkabılar'],
+                caption: "Çocuk patenli ayakkabı ve tekerlekli ayakkabı modellerimizle hareketi eğlenceye dönüştürüyoruz! ⚡\n\n{$brandName} olarak çocukların ve gençlerin severek giydiği patenli ayakkabı, ışıklı patenli ayakkabı ve gizli tekerlekli spor ayakkabı modelleri sunuyoruz. Hem günlük kullanıma uygun konforlu spor ayakkabı, hem de tek hareketle kaymaya hazır paten deneyimi bir arada!\n\n{$bullets}\n\nTüm patenli ayakkabı modelleri ve fiyatları için resmi web sitemizi ziyaret edin:\npatenliayakkabilar.com",
+                hashtags: ['PatenliAyakkabı', 'TekerlekliAyakkabı', 'ÇocukPatenliAyakkabı', 'IşıklıPatenliAyakkabı', 'PatenliAyakkabılar', 'PatenliSporAyakkabı', 'ETicaret', 'Perakende', 'İnovasyon', 'Girişimcilik'],
                 seoKeywords: $seoKeywords,
                 callToAction: 'Patenli ayakkabı modellerini inceleyin: patenliayakkabilar.com',
-                suggestedProductUrl: $productUrl,
+                suggestedProductUrl: 'patenliayakkabilar.com',
                 isTestMode: true
             ),
         ];
@@ -464,22 +464,21 @@ Marka: {$brandName} | Slogan: {$slogan} | Ton: {$brandTone} | Yasaklı Kelimeler
 
 GENEL KURALLAR:
 1. Ürün: "Patenli Ayakkabı" / "Tekerlekli Spor Ayakkabı"dır (tek tıkla patene dönüşen ayakkabılar). Asla "1. Video", "klip", dosya adı gibi iç sistem etiketlerini metne yazma.
-2. SEO: Verilen SEO anahtar kelimelerini (seo_keywords) başlık, kanca veya maddelerde doğal olarak kullan.
-3. Emojiler: Video gönderilerinde sadece tüm cihazlarda sorunsuz görünen evrensel emojileri kullan (✨, 🔥, ⚡, 🎁, 👟, 🚚, 🛍️, 🌐, 📸, 👉, 🚀, ⭐). Metin gönderilerinde ise kesinlikle hiçbir emoji kullanma, sade ve profesyonel bir dil kullan! Windows'ta boş kutu (tofu) çıkan paten/kaykay emojilerini asla kullanma!
-4. Caption Şablonu: Tek parça düz metin KESİNLİKLE YASAKTIR. Satır satır, boşluklu (\n\n) ve maddeli görsel bloklardan oluşmalıdır:
-   - 1. satır: Vurucu Kanca (sonunda ✨, 🔥 veya 🎁 emojisi)
-   - \n\n
-   - 3-4 maddelik özellik listesi (Satır başlarında ✨, 👟, 🎁, 🚚 emojileriyle)
-   - \n\n
-   - CTA ve Yönlendirme (👉 Web sitesi ve @patenliayakkabilar)
-5. Platform Kuralları:
-   - instagram: Reels odaklı samimi kanca, title: null, 4-5 hashtag.
-   - facebook: title zorunlu, aile dostu açıklama, CTA ve ürün linki.
+2. SEO ve Google Sıralaması: Metin gönderilerinde temel amaç Google arama motorunda üst sıralara çıkmak ve organik SEO trafiği oluşturmaktır. Hedef anahtar kelimeleri (patenli ayakkabı, tekerlekli ayakkabı, çocuk patenli ayakkabı, ışıklı patenli ayakkabı, tekerlekli spor ayakkabı modelleri) başlık, kanca ve maddelerde zengin ve doğal bir şekilde kullan.
+3. Emojiler: Video gönderilerinde sadece tüm cihazlarda sorunsuz görünen evrensel emojileri kullan (✨, 🔥, ⚡, 🎁, 👟, 🚚, 🛍️, 🌐, 📸, 👉, 🚀, ⭐). Metin gönderilerinde ise kesinlikle HİÇBİR EMOJİ KULLANMA, sade ve profesyonel bir dil kullan! Windows'ta boş kutu (tofu) çıkan paten/kaykay emojilerini asla kullanma!
+4. Web Sitesi Linkleri:
+   - Facebook ve X (Twitter) için: Daima "https://patenliayakkabilar.com" (tam HTTPS bağlantısı) kullan.
+   - LinkedIn için: Daima "patenliayakkabilar.com" (yalın alan adı) kullan.
+5. Hashtagler: Zengin ve SEO odaklı hashtagler oluştur (marka, ürün tipi, arama sorguları ve trend etiketler).
+6. Caption Şablonu: Tek parça düz metin KESİNLİKLE YASAKTIR. Satır satır, boşluklu (\n\n) ve maddeli görsel bloklardan oluşmalıdır.
+7. Platform Kuralları:
+   - instagram: Reels odaklı samimi kanca, title: null, 5-8 hashtag.
+   - facebook: title zorunlu, aile dostu açıklama, CTA ve tam link (https://patenliayakkabilar.com), 10-15 zengin hashtag.
    - youtube: title zorunlu (max 90 karakter, emojili SEO Shorts başlığı), açıklama, etiketler.
-   - x: title: null, max 240 karakter, satır satır maddeli tweet şablonu, 2-3 hashtag.
+   - x: title: null, max 240 karakter, satır satır maddeli tweet şablonu, link (https://patenliayakkabilar.com), 3-5 zengin hashtag.
    - pinterest: title zorunlu (max 90 karakter), görsel SEO açıklaması.
    - tiktok: title: null, genç kitle dili, etkileşimli CTA, 4-5 hashtag.
-   - linkedin: title: null, marka ve perakende vizyonu odaklı metin.
+   - linkedin: title: null, marka ve perakende vizyonu odaklı metin, link (patenliayakkabilar.com), 8-12 zengin hashtag.
 
 ÖNEMLİ: Gereksiz uzatmalardan kaçın, özlü, vurucu ve net yaz. Çıktıyı SADECE aşağıdaki JSON formatında tek bir JSON objesi olarak üret:
 {

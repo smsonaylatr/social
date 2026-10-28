@@ -94,7 +94,20 @@ class HashtagOptimizationService
         }
 
         // 1.c Eğer marka havuzunda eksik kalırsa varsayılan marka etiketleriyle tamamla
-        $fallbackBrandTags = ['patenliayakkabilar', 'patenliayakkabi', 'walkrollfly', 'tekerleklisporayakkabi', 'cocukpatenliayakkabi', 'ayakkabipaten'];
+        $fallbackBrandTags = [
+            'patenliayakkabilar',
+            'patenliayakkabi',
+            'tekerleklisporayakkabi',
+            'cocukpatenliayakkabi',
+            'ayakkabipaten',
+            'isiklipatenliayakkabi',
+            'patenlisporayakkabi',
+            'gizlitekerlekliayakkabi',
+            'rollershoes',
+            'patenayakkabi',
+            'walkrollfly',
+            'tekerlekliayakkabi',
+        ];
         if (count($brandHashtags) < $brandTarget) {
             foreach ($fallbackBrandTags as $tag) {
                 $cleaned = $this->normalizeTag($tag);
@@ -151,13 +164,14 @@ class HashtagOptimizationService
 
             // Eğer trend havuzunda eksik kalırsa platforma özel garantili trend etiketleriyle tamamla
             $fallbackTrendTags = match ($platformCode) {
-                'x' => ['trend', 'viral', 'kesfet', 'paten', 'spor'],
-                'instagram' => ['kesfet', 'reels', 'viral', 'instareels', 'trend'],
-                'youtube' => ['shorts', 'shortsvideo', 'trend', 'viral', 'kesfet'],
-                'tiktok' => ['fyp', 'kesfet', 'kesfetteyiz', 'viral', 'trend'],
-                'pinterest' => ['trend', 'kesfet', 'hediyefikri', 'alisveris'],
-                'linkedin' => ['trend', 'girisimcilik', 'inovasyon', 'eticaret'],
-                default => ['kesfet', 'viral', 'trend', 'onecikar'],
+                'x' => ['trend', 'viral', 'kesfet', 'paten', 'spor', 'patenliayakkabi', 'sporayakkabi', 'alisveris', 'cocukmodasi'],
+                'facebook' => ['kesfet', 'viral', 'trend', 'onecikar', 'patenliayakkabi', 'cocukmodasi', 'sporayakkabi', 'alisveris', 'hediyefikri', 'cocukgiyim'],
+                'linkedin' => ['trend', 'girisimcilik', 'inovasyon', 'eticaret', 'perakende', 'cocukmodasi', 'patenliayakkabi', 'uretim', 'pazarlama'],
+                'instagram' => ['kesfet', 'reels', 'viral', 'instareels', 'trend', 'patenliayakkabi', 'cocukmodasi'],
+                'youtube' => ['shorts', 'shortsvideo', 'trend', 'viral', 'kesfet', 'patenliayakkabi'],
+                'tiktok' => ['fyp', 'kesfet', 'kesfetteyiz', 'viral', 'trend', 'patenliayakkabi'],
+                'pinterest' => ['trend', 'kesfet', 'hediyefikri', 'alisveris', 'patenliayakkabi'],
+                default => ['kesfet', 'viral', 'trend', 'onecikar', 'patenliayakkabi', 'sporayakkabi'],
             };
 
             if (count($trendHashtags) < $trendTarget) {

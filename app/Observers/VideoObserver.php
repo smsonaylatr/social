@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\AuditLog;
 use App\Models\Video;
+use App\Services\LiveStream\LiveStreamService;
 
 class VideoObserver
 {
@@ -20,6 +21,10 @@ class VideoObserver
                 'aspect_ratio' => $video->aspect_ratio,
             ]
         );
+
+        try {
+            app(LiveStreamService::class)->refreshActiveConcatFiles();
+        } catch (\Throwable) {}
     }
 
     public function deleted(Video $video): void
@@ -33,5 +38,10 @@ class VideoObserver
                 'original_filename' => $video->original_filename,
             ]
         );
+
+        try {
+            app(LiveStreamService::class)->refreshActiveConcatFiles();
+        } catch (\Throwable) {}
     }
 }
+

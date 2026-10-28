@@ -244,6 +244,12 @@ class SocialChannelsPage extends Page
                         'description' => 'Kanal kimliği ve video yayın durumunu senkronize etme izni.',
                         'required' => true,
                     ],
+                    [
+                        'name' => 'https://www.googleapis.com/auth/youtube',
+                        'label' => 'YouTube 7/24 Canlı Yayın Yönetimi',
+                        'description' => 'YouTube Live Studio canlı yayın ve yayın akışlarını (RTMP) otomatik oluşturma izni.',
+                        'required' => false,
+                    ],
                 ],
             ],
             'facebook' => [

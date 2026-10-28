@@ -62,22 +62,28 @@ class AdminPanelProvider extends PanelProvider
             ->navigationGroups([
                 NavigationGroup::make()
                     ->label('Video Yönetimi')
-                    ->icon('heroicon-o-video-camera'),
+                    ->icon('heroicon-o-video-camera')
+                    ->collapsible(false),
                 NavigationGroup::make()
                     ->label('Sosyal Medya')
-                    ->icon('heroicon-o-share'),
+                    ->icon('heroicon-o-share')
+                    ->collapsible(false),
                 NavigationGroup::make()
                     ->label('Yayın ve Otomasyon')
-                    ->icon('heroicon-o-calendar-days'),
+                    ->icon('heroicon-o-calendar-days')
+                    ->collapsible(false),
                 NavigationGroup::make()
                     ->label('AI ve SEO Stüdyosu')
-                    ->icon('heroicon-o-sparkles'),
+                    ->icon('heroicon-o-sparkles')
+                    ->collapsible(false),
                 NavigationGroup::make()
                     ->label('Raporlar ve Günlükler')
-                    ->icon('heroicon-o-chart-bar'),
+                    ->icon('heroicon-o-chart-bar')
+                    ->collapsible(false),
                 NavigationGroup::make()
                     ->label('Sistem Ayarları')
-                    ->icon('heroicon-o-cog-6-tooth'),
+                    ->icon('heroicon-o-cog-6-tooth')
+                    ->collapsible(false),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')

@@ -153,6 +153,30 @@ class TextPostPublishingTest extends TestCase
         $fbResult = app(FacebookPublisher::class)->publish($this->video, $post->targets->firstWhere('platform_code', 'facebook'), $accountFb);
         $this->assertEquals('text', $fbResult['post_type']);
         $this->assertStringNotContainsString('/videos/', $fbResult['post_url']);
+
+        // Platform-specific link formats & rich hashtags validation
+        $targetX = $post->targets->firstWhere('platform_code', 'x');
+        $targetLi = $post->targets->firstWhere('platform_code', 'linkedin');
+        $targetFb = $post->targets->firstWhere('platform_code', 'facebook');
+
+        $xFullCaption = app(XPublisher::class)->buildFullCaption($targetX);
+        $fbFullCaption = app(FacebookPublisher::class)->buildFullCaption($targetFb);
+        $liFullCaption = app(LinkedInPublisher::class)->buildFullCaption($targetLi);
+
+        // X and Facebook MUST use full https:// URL
+        $this->assertStringContainsString('https://patenliayakkabilar.com', $xFullCaption);
+        $this->assertStringContainsString('https://patenliayakkabilar.com', $fbFullCaption);
+
+        // LinkedIn MUST remain bare domain without https://
+        $this->assertStringContainsString('patenliayakkabilar.com', $liFullCaption);
+        $this->assertStringNotContainsString('https://patenliayakkabilar.com', $liFullCaption);
+        $this->assertStringNotContainsString('http://patenliayakkabilar.com', $liFullCaption);
+
+        // Rich hashtags validation
+        $this->assertGreaterThanOrEqual(5, count($targetFb->hashtags));
+        $this->assertGreaterThanOrEqual(5, count($targetLi->hashtags));
+        $this->assertStringContainsString('#', $fbFullCaption);
+        $this->assertStringContainsString('#', $liFullCaption);
     }
 
     public function test_dispatch_platform_post_job_records_text_or_video_summary(): void
@@ -227,5 +251,64 @@ class TextPostPublishingTest extends TestCase
         $this->assertStringNotContainsString('✨', $target->caption);
         $this->assertStringNotContainsString('🚀', $target->caption);
         $this->assertStringNotContainsString('👟', $target->caption);
+    }
+
+    public function test_text_posts_links_and_rich_seo_hashtags(): void
+    {
+        $textSchedule = Schedule::create([
+            'workspace_id' => $this->workspace->id,
+            'brand_id' => $this->brand->id,
+            'name' => 'SEO Metin Kuralı',
+            'post_type' => 'text',
+            'is_active' => true,
+        ]);
+
+        $accountX = $this->createAccount('x', 'x_acc_seo', 'Patenli X SEO');
+        $accountLi = $this->createAccount('linkedin', 'li_acc_seo', 'Patenli LinkedIn SEO');
+        $accountFb = $this->createAccount('facebook', 'fb_acc_seo', 'Patenli Facebook SEO');
+
+        $service = app(SchedulingService::class);
+        $post = $service->createScheduledPost(
+            video: $this->video,
+            scheduledAt: now(),
+            socialAccountIds: [$accountX->id, $accountLi->id, $accountFb->id],
+            scheduleId: $textSchedule->id
+        );
+
+        $targetX = $post->targets->firstWhere('platform_code', 'x');
+        $targetFb = $post->targets->firstWhere('platform_code', 'facebook');
+        $targetLi = $post->targets->firstWhere('platform_code', 'linkedin');
+
+        // Product URLs stored on targets
+        $this->assertEquals('https://patenliayakkabilar.com', $targetX->product_url);
+        $this->assertEquals('https://patenliayakkabilar.com', $targetFb->product_url);
+        $this->assertEquals('patenliayakkabilar.com', $targetLi->product_url);
+
+        // Rich hashtags on targets
+        $this->assertGreaterThanOrEqual(10, count($targetFb->hashtags));
+        $this->assertGreaterThanOrEqual(10, count($targetLi->hashtags));
+
+        // Captions built for publishing
+        $xCaption = app(XPublisher::class)->buildFullCaption($targetX);
+        $fbCaption = app(FacebookPublisher::class)->buildFullCaption($targetFb);
+        $liCaption = app(LinkedInPublisher::class)->buildFullCaption($targetLi);
+
+        // Link formats: Facebook & X must have https://patenliayakkabilar.com, LinkedIn must remain bare domain
+        $this->assertStringContainsString('https://patenliayakkabilar.com', $xCaption);
+        $this->assertStringContainsString('https://patenliayakkabilar.com', $fbCaption);
+        $this->assertStringContainsString('patenliayakkabilar.com', $liCaption);
+        $this->assertStringNotContainsString('https://patenliayakkabilar.com', $liCaption);
+        $this->assertStringNotContainsString('http://patenliayakkabilar.com', $liCaption);
+
+        // Rich hashtag formatting
+        $this->assertStringContainsString('#', $xCaption);
+        $this->assertStringContainsString('#', $fbCaption);
+        $this->assertStringContainsString('#', $liCaption);
+
+        // SEO Keywords in caption
+        $this->assertTrue(
+            str_contains(mb_strtolower($fbCaption), 'patenli ayakkabı') ||
+            str_contains(mb_strtolower($fbCaption), 'tekerlekli')
+        );
     }
 }

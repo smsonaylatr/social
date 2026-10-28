@@ -35,9 +35,8 @@ class XPublisher extends AbstractSocialPublisher
         $fullText = $this->buildFullCaption($target);
 
         // Ensure full https:// URL for X so X always generates the SEO Website Link Card ("From patenliayakkabilar.com")
-        if (! str_contains($fullText, 'https://') && ! str_contains($fullText, 'http://')) {
-            $fullText = preg_replace('/\b(patenliayakkabilar\.com)\b/i', 'https://$1', $fullText);
-        }
+        $fullText = preg_replace('/https?:\/\/(www\.)?patenliayakkabilar\.com/i', 'https://patenliayakkabilar.com', $fullText);
+        $fullText = preg_replace('/(?<!https:\/\/)(?<!http:\/\/)\b(www\.)?patenliayakkabilar\.com\b/i', 'https://patenliayakkabilar.com', $fullText);
 
         // Otomasyon kuralında / hedefte belirlenen format (Öncelikli) veya kanal ayarı
         $isTextOnly = $target->post_type === 'text'

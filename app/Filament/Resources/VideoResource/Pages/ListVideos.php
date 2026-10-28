@@ -53,6 +53,14 @@ class ListVideos extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('live_stream_studio')
+                ->label('🔴 7/24 Canlı Yayın (Band)')
+                ->icon('heroicon-o-signal')
+                ->color('danger')
+                ->size('sm')
+                ->tooltip('Video havuzundaki videoları YouTube ve Instagram\'da 7/24 kesintisiz band kaydı olarak canlı yayınlayın.')
+                ->url(fn () => \App\Filament\Resources\LiveStreamResource::getUrl('index')),
+
             Actions\Action::make('reanalyze_all')
                 ->label('Videoları Onar')
                 ->icon('heroicon-o-arrow-path')

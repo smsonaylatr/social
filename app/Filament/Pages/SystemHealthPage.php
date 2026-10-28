@@ -102,6 +102,11 @@ class SystemHealthPage extends Page
                 'status' => $aiKeyConfigured,
                 'model' => Setting::get('openai_model', 'gpt-4o-mini'),
             ],
+            'live_streams' => [
+                'running_count' => \App\Models\LiveStream::where('status', 'running')->count(),
+                'total_count' => \App\Models\LiveStream::count(),
+                'status' => true,
+            ],
             'platforms' => $platforms->toArray(),
         ];
     }

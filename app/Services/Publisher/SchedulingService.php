@@ -96,8 +96,9 @@ class SchedulingService
 
                 $isTextMode = ($effectivePostType === 'text');
 
-                // Hashtagler her zaman doğrudan hashtag havuzundan çekilir, platform limitine göre doldurulur ve sürekli döner
-                $hashtags = $hashtagService->getOptimizedHashtags($video, $platformCode);
+                // Hashtagler: Metin gönderilerinde Google SEO zenginliği için geniş havuzdan (15 adet) beslen
+                $hashtagLimit = $isTextMode ? 15 : null;
+                $hashtags = $hashtagService->getOptimizedHashtags($video, $platformCode, $hashtagLimit);
 
                 $caption = \App\Services\AI\OpenAiContentService::cleanSystemLabels($rawCaption);
                 $title = \App\Services\AI\OpenAiContentService::cleanSystemLabels($rawTitle);
@@ -115,8 +116,17 @@ class SchedulingService
                         : 'Patenli ayakkabı ve tekerlekli spor ayakkabı modelleri ile yürümek çok daha eğlenceli! ✨';
                 }
 
-                // SEO Anahtar Kelime Hafızasından beslenmeyi garanti altına al
-                $seoKeywords = $hashtagService->getRelevantKeywords($video, $platformCode, limit: 4);
+                // Platforma özel web sitesi linki kuralı:
+                // Facebook ve X -> https://patenliayakkabilar.com (Tam HTTPS)
+                // LinkedIn -> patenliayakkabilar.com (Yalın alan adı)
+                $targetProductUrl = match ($platformCode) {
+                    'linkedin' => 'patenliayakkabilar.com',
+                    'facebook', 'x' => 'https://patenliayakkabilar.com',
+                    default => 'https://patenliayakkabilar.com',
+                };
+
+                // SEO Anahtar Kelime Hafızasından beslenmeyi garanti altına al (Google sıralaması için)
+                $seoKeywords = $hashtagService->getRelevantKeywords($video, $platformCode, limit: 6);
                 $hasSeoKeyword = false;
                 foreach ($seoKeywords as $kw) {
                     if (mb_stripos($caption, $kw) !== false) {
@@ -127,9 +137,10 @@ class SchedulingService
                 if (! $hasSeoKeyword && ! empty($seoKeywords)) {
                     $kw1 = mb_convert_case($seoKeywords[0], MB_CASE_TITLE, 'UTF-8');
                     $kw2 = ! empty($seoKeywords[1]) ? mb_convert_case($seoKeywords[1], MB_CASE_TITLE, 'UTF-8') : 'Tekerlekli Ayakkabı';
+                    $kw3 = ! empty($seoKeywords[2]) ? mb_convert_case($seoKeywords[2], MB_CASE_TITLE, 'UTF-8') : 'Çocuk Patenli Ayakkabı';
                     if ($isTextMode) {
-                        // Metin postlarında emojiler kullanılmaz
-                        $caption .= "\n\n{$kw1} & {$kw2} modelleri ile eğlence dolu adımlar!";
+                        // Metin postlarında Google SEO odaklı zengin anahtar kelimeler
+                        $caption .= "\n\n- {$kw1} ve {$kw2} modelleri\n- {$kw3} ile konforlu ve güvenli adımlar";
                     } else {
                         if (str_contains($caption, "\n\n✨")) {
                             $caption = preg_replace('/(\n\n✨)/u', "\n\n✨ {$kw1} & {$kw2} modelleri\n✨", $caption, 1);
@@ -154,7 +165,7 @@ class SchedulingService
                     'title' => $title,
                     'caption' => $caption,
                     'hashtags' => $hashtags,
-                    'product_url' => $productUrl,
+                    'product_url' => $targetProductUrl,
                     'attempt_count' => 0,
                 ]);
             }
