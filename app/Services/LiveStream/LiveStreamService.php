@@ -284,7 +284,7 @@ class LiveStreamService
             $inputArgs .= ' -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100';
         } elseif ($hasBgMusic && $musicFileExists) {
             $normalizedMusicPath = str_replace('\\', '/', $musicFile);
-            $inputArgs .= sprintf(' -thread_queue_size 1024 -stream_loop -1 -i %s', escapeshellarg($normalizedMusicPath));
+            $inputArgs .= sprintf(' -stream_loop -1 -i %s', escapeshellarg($normalizedMusicPath));
         }
 
         // Çözünürlük ve Video Filtresi
