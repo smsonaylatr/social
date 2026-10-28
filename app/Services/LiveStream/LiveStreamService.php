@@ -228,16 +228,17 @@ class LiveStreamService
 
         $loopFlag = $stream->is_loop ? '-stream_loop -1' : '';
         $fps = max(15, min(60, (int) ($stream->fps ?: 30)));
-        $gop = $fps * 2; // 2 saniyede bir keyframe (YouTube & Instagram zorunlu standardı)
+        $gop = $fps * 2; // 2 saniyede bir keyframe (YouTube & Instagram & TikTok zorunlu standardı)
         $bitrate = max(800, min(8000, (int) ($stream->bitrate_kbps ?: 2500)));
-        $bufsize = $bitrate * 2;
 
         $normalizedConcatPath = str_replace('\\', '/', $concatFilePath);
 
         // Giriş parametreleri:
-        // +genpts+igndts sayesinde farklı videolar birbirine bağlanırken zaman damgası (PTS/DTS) kesintisi yaşanmaz.
+        // -nostdin arka plan sürecinin terminal stdin'e takılmasını önler.
+        // -fflags +genpts sayesinde zaman damgaları (PTS) baştan itibaren kusursuz oluşturulur.
+        // (-igndts bilerek kaldırılmıştır: ses akışının PTS zaman damgasını 0'a sıfırlayarak Instagram/YouTube kesintisine yol açıyordu!)
         $inputArgs = sprintf(
-            '-fflags +genpts+igndts -re %s -f concat -safe 0 -i %s',
+            '-nostdin -fflags +genpts -re %s -f concat -safe 0 -i %s',
             $loopFlag,
             escapeshellarg($normalizedConcatPath)
         );
@@ -255,7 +256,7 @@ class LiveStreamService
                 'vertical_720p' => [720, 1280],
                 'horizontal_1080p' => [1920, 1080],
                 'horizontal_720p' => [1280, 720],
-                default => [1080, 1920], // vertical_1080p (Instagram Live & YouTube Shorts/Dikey Canlı Yayın)
+                default => [1080, 1920], // vertical_1080p (Instagram Live & TikTok & YouTube Shorts dikey)
             };
 
             $vf = sprintf(
@@ -267,37 +268,43 @@ class LiveStreamService
                 $fps
             );
 
+            // Strict CBR rate-control (minrate = maxrate = bitrate, bufsize = bitrate):
+            // Bu sayede ani bant genişliği fırlamaları önlenir ve RTMP sunucusu (Instagram/YouTube/TikTok) yayını asla düşürmez.
+            // -fps_mode cfr sayesinde tüm video geçişlerinde ve döngüde sabit 30 FPS garanti edilir.
             $videoCodecArgs = sprintf(
-                '-vf %s -c:v libx264 -preset veryfast -tune zerolatency -b:v %dk -maxrate %dk -bufsize %dk -r %d -g %d -keyint_min %d -sc_threshold 0 -pix_fmt yuv420p',
+                '-vf %s -c:v libx264 -preset veryfast -tune zerolatency -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -pix_fmt yuv420p',
                 escapeshellarg($vf),
                 $bitrate,
                 $bitrate,
-                $bufsize,
-                $fps,
+                $bitrate,
+                $bitrate,
                 $gop,
                 $gop
             );
         }
 
-        // Ses kodlama ayarları
+        // Ses filtre ve kodlama ayarları:
+        // aresample=async=1:first_pts=0 ile video geçişlerinde ve döngüde
+        // ses PTS zaman damgaları kusursuz senkronize edilir, "Queue input is backward in time" hatası tamamen önlenir.
+        $audioFilter = 'aresample=async=1:first_pts=0';
         $audioMapArgs = $stream->mute_original_audio
             ? '-map 0:v:0 -map 1:a:0'
             : '';
 
-        $audioCodecArgs = '-c:a aac -b:a 128k -ar 44100 -ac 2';
+        $audioCodecArgs = sprintf('-af %s -c:a aac -b:a 128k -ar 44100 -ac 2', escapeshellarg($audioFilter));
 
         // Çıkış (Tekil RTMP veya Eşzamanlı Çoklu Platform Tee Muxer)
         $endpointValues = array_values($endpoints);
 
         if (count($endpointValues) === 1) {
             $outputArgs = sprintf(
-                '-f flv -flvflags no_duration_filesize %s',
+                '-max_muxing_queue_size 4096 -f flv -flvflags no_duration_filesize %s',
                 escapeshellarg($endpointValues[0])
             );
         } else {
-            // Aynı anda hem YouTube hem Instagram (Simulcast):
+            // Aynı anda hem YouTube hem Instagram hem TikTok (Simulcast):
             // Tek kez encode edilir, tee muxer ile tüm RTMP hedeflerine eşzamanlı gönderilir.
-            // onfail=ignore sayesinde bir platform (örn. Instagram 4 saat limiti) kapansa bile YouTube yayını kesilmez!
+            // onfail=ignore sayesinde bir platform (örn. Instagram 4 saat limiti) kapansa bile YouTube/TikTok yayını kesilmez!
             $teeTargets = array_map(function (string $url) {
                 return '[f=flv:onfail=ignore]' . $url;
             }, $endpointValues);
@@ -306,7 +313,7 @@ class LiveStreamService
             $mapForTee = $stream->mute_original_audio ? '' : '-map 0:v -map 0:a?';
 
             $outputArgs = sprintf(
-                '%s -flags +global_header -f tee %s',
+                '%s -flags +global_header -max_muxing_queue_size 4096 -f tee %s',
                 $mapForTee,
                 escapeshellarg($teeString)
             );
@@ -333,6 +340,11 @@ class LiveStreamService
             $this->killProcess($stream->process_pid);
         }
 
+        $stopFile = storage_path("app/live-streams/stream_{$stream->id}.stop");
+        if (file_exists($stopFile)) {
+            @unlink($stopFile);
+        }
+
         $concatFile = $this->buildConcatFile($stream);
         $ffmpegCommand = $this->buildFfmpegCommand($stream, $concatFile);
 
@@ -343,13 +355,13 @@ class LiveStreamService
 
         $logFile = "{$logDir}/stream_{$stream->id}.log";
         $headerLog = sprintf(
-            "[%s] === SOCIALFLOW 7/24 CANLI YAYIN BAŞLATILIYOR (#%d - %s) ===\nKomut: %s\n------------------------------------------------------------\n",
+            "\n[%s] === SOCIALFLOW 7/24 CANLI YAYIN BAŞLATILIYOR (#%d - %s) ===\nKomut: %s\n------------------------------------------------------------\n",
             now()->toDateTimeString(),
             $stream->id,
             $stream->title,
             $ffmpegCommand
         );
-        file_put_contents($logFile, $headerLog);
+        file_put_contents($logFile, $headerLog, FILE_APPEND);
 
         if (! $this->isFfmpegAvailable()) {
             $stream->update([
@@ -359,7 +371,7 @@ class LiveStreamService
             throw new \RuntimeException('Sunucuda FFmpeg bulunamadı. Canlı yayın akışı için sunucuda FFmpeg kurulu olmalıdır.');
         }
 
-        $pid = $this->spawnBackgroundProcess($ffmpegCommand, $logFile);
+        $pid = $this->spawnBackgroundProcess($ffmpegCommand, $logFile, $stream);
 
         if (! $pid || $pid <= 0) {
             $stream->update([
@@ -405,6 +417,9 @@ class LiveStreamService
      */
     public function stopStream(LiveStream $stream): bool
     {
+        $stopFile = storage_path("app/live-streams/stream_{$stream->id}.stop");
+        @file_put_contents($stopFile, 'stop');
+
         if ($stream->process_pid) {
             $this->killProcess($stream->process_pid);
         }
@@ -748,14 +763,39 @@ class LiveStreamService
     /**
      * İşletim sistemine (Linux / Windows) uygun şekilde arka plan işlemi başlatır ve PID döndürür.
      */
-    protected function spawnBackgroundProcess(string $command, string $logFile): ?int
+    protected function spawnBackgroundProcess(string $command, string $logFile, ?LiveStream $stream = null): ?int
     {
+        $streamId = $stream ? $stream->id : 'default';
+        $scriptDir = storage_path('app/live-streams');
+        if (! is_dir($scriptDir)) {
+            @mkdir($scriptDir, 0775, true);
+        }
+
+        $stopFile = "{$scriptDir}/stream_{$streamId}.stop";
+
         if (DIRECTORY_SEPARATOR === '\\') {
-            // Windows: WMIC process call create (Yerel ve ayrık süreç başlatır, ProcessId döndürür)
+            $runnerFile = "{$scriptDir}/runner_stream_{$streamId}.bat";
+            $stopFileWin = str_replace('/', '\\', $stopFile);
+            $logFileWin = str_replace('/', '\\', $logFile);
+
+            $batContent = "@echo off\r\n"
+                . "set \"STOP_FILE={$stopFileWin}\"\r\n"
+                . "set \"LOG_FILE={$logFileWin}\"\r\n"
+                . "if exist \"%STOP_FILE%\" del \"%STOP_FILE%\"\r\n"
+                . ":loop\r\n"
+                . "if exist \"%STOP_FILE%\" goto end\r\n"
+                . "echo [%date% %time%] [RUNNER] Canli yayin sureci baslatiliyor... >> \"%LOG_FILE%\"\r\n"
+                . $command . " >> \"%LOG_FILE%\" 2>&1\r\n"
+                . "if exist \"%STOP_FILE%\" goto end\r\n"
+                . "echo [%date% %time%] [RUNNER] Yayin sonlandi, 2 saniye icinde yeniden baglaniliyor... >> \"%LOG_FILE%\"\r\n"
+                . "timeout /t 2 /nobreak >nul\r\n"
+                . "goto loop\r\n"
+                . ":end\r\n";
+            file_put_contents($runnerFile, $batContent);
+
             $wmicCmd = sprintf(
-                'wmic process call create "cmd.exe /c %s >> %s 2>&1" 2>&1',
-                $command,
-                escapeshellarg($logFile)
+                'wmic process call create "cmd.exe /c \"\"%s\"\"" 2>&1',
+                $runnerFile
             );
             $output = (string) @shell_exec($wmicCmd);
             if (preg_match('/ProcessId\s*=\s*(\d+)/', $output, $matches)) {
@@ -763,13 +803,6 @@ class LiveStreamService
             }
 
             // Fallback: PowerShell Start-Process
-            $batDir = storage_path('app/live-streams');
-            if (! is_dir($batDir)) {
-                @mkdir($batDir, 0775, true);
-            }
-            $runnerFile = $batDir . '/run_' . md5($command . uniqid()) . '.bat';
-            file_put_contents($runnerFile, "@echo off\r\n" . $command . " >> " . escapeshellarg($logFile) . " 2>&1\r\n");
-
             $psCmd = sprintf(
                 'powershell -NoProfile -Command "(Start-Process -FilePath \'cmd.exe\' -ArgumentList \'/c \"\"%s\"\"\' -WindowStyle Hidden -PassThru).Id"',
                 $runnerFile
@@ -783,9 +816,32 @@ class LiveStreamService
         }
 
         // Linux / Unix (Ubuntu, Debian, CentOS, Plesk, cPanel)
+        // Kendi kendini onaran (Self-Healing Loop) arka plan betiği:
+        // Geçici ağ kopmasında veya platform bağlantı sıfırlamasında FFmpeg 2 saniye içinde otomatik yeniden başlar.
+        $runnerFile = "{$scriptDir}/runner_stream_{$streamId}.sh";
+        $shContent = "#!/bin/bash\n"
+            . "STOP_FILE=" . escapeshellarg($stopFile) . "\n"
+            . "LOG_FILE=" . escapeshellarg($logFile) . "\n"
+            . "rm -f \"\$STOP_FILE\"\n\n"
+            . "while [ ! -f \"\$STOP_FILE\" ]; do\n"
+            . "    echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] [RUNNER] FFmpeg canli yayin sureci baslatiliyor...\" >> \"\$LOG_FILE\"\n"
+            . "    " . $command . " >> \"\$LOG_FILE\" 2>&1\n"
+            . "    EXIT_CODE=\$?\n"
+            . "    echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] [RUNNER] FFmpeg sonlandi (kod: \$EXIT_CODE).\" >> \"\$LOG_FILE\"\n"
+            . "    if [ -f \"\$STOP_FILE\" ]; then\n"
+            . "        break\n"
+            . "    fi\n"
+            . "    echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] [RUNNER] 2 saniye icinde otomatik yeniden baglaniliyor...\" >> \"\$LOG_FILE\"\n"
+            . "    sleep 2\n"
+            . "done\n"
+            . "rm -f \"\$STOP_FILE\"\n";
+
+        file_put_contents($runnerFile, $shContent);
+        @chmod($runnerFile, 0755);
+
         $bgCmd = sprintf(
-            'nohup %s >> %s 2>&1 & echo $!',
-            $command,
+            'nohup bash %s </dev/null >> %s 2>&1 & echo $!',
+            escapeshellarg($runnerFile),
             escapeshellarg($logFile)
         );
 

@@ -108,34 +108,28 @@ Route::match(['get', 'post'], '/admin/ffmpeg-install', function () {
     return response()->json($result);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
-Route::match(['get', 'post'], '/admin/stream-test-probe', function () {
-    $ffmpeg = storage_path('app/bin/ffmpeg');
-    $playlist = storage_path('app/live-streams/stream_3_playlist.txt');
-
-    // Test with -stream_loop -1 to ensure loop boundary transitions are 100% clean
-    $cmd = sprintf(
-        '%s -nostdin -y -fflags +genpts -stream_loop -1 -f concat -safe 0 -i %s -vf %s -af %s -c:v libx264 -preset ultrafast -b:v 2500k -minrate 2500k -maxrate 2500k -bufsize 2500k -fps_mode cfr -g 60 -keyint_min 60 -sc_threshold 0 -pix_fmt yuv420p -c:a aac -b:a 128k -ar 44100 -ac 2 -t 35 -f null - 2>&1',
-        escapeshellcmd($ffmpeg),
-        escapeshellarg($playlist),
-        escapeshellarg('scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30,format=yuv420p'),
-        escapeshellarg('aresample=async=1:first_pts=0')
-    );
-
-    $out = (string) @shell_exec($cmd);
-
-    $lines = explode("\n", $out);
-    $suspicious = array_values(array_filter($lines, function ($l) {
-        $l = strtolower($l);
-        return str_contains($l, 'backward')
-            || str_contains($l, 'monotonic')
-            || str_contains($l, 'error')
-            || str_contains($l, 'queue');
-    }));
+Route::match(['get', 'post'], '/admin/stream-stop/{id}', function (int $id) {
+    $stream = \App\Models\LiveStream::findOrFail($id);
+    $service = app(\App\Services\LiveStream\LiveStreamService::class);
+    $service->stopStream($stream);
 
     return response()->json([
-        'total_lines' => count($lines),
-        'suspicious_lines' => $suspicious,
-        'last_3_lines' => array_slice($lines, -3),
+        'status' => 'ok',
+        'message' => "Canlı yayın #{$id} ({$stream->title}) durduruldu.",
+    ]);
+})->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+
+Route::match(['get', 'post'], '/admin/stream-restart/{id}', function (int $id) {
+    $stream = \App\Models\LiveStream::findOrFail($id);
+    $service = app(\App\Services\LiveStream\LiveStreamService::class);
+    $service->stopStream($stream);
+    sleep(1);
+    $service->startStream($stream);
+
+    return response()->json([
+        'status' => 'ok',
+        'message' => "Canlı yayın #{$id} ({$stream->title}) yeni parametrelerle yeniden başlatıldı.",
+        'pid' => $stream->fresh()->process_pid,
     ]);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
