@@ -169,10 +169,26 @@ Route::match(['get', 'post'], '/admin/stream-restart/{id}', function (int $id) {
     ]);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
+Route::match(['get', 'post'], '/admin/kill-all-ffmpeg', function () {
+    @shell_exec('pkill -9 -f ffmpeg 2>/dev/null');
+    @shell_exec('pkill -9 -f runner_stream 2>/dev/null');
+    \App\Models\LiveStream::query()->update(['status' => 'stopped', 'process_pid' => null]);
+
+    $remaining = trim((string) @shell_exec('ps aux | grep ffmpeg | grep -v grep 2>&1'));
+
+    return response()->json([
+        'status' => 'ok',
+        'message' => 'Tüm arka plan FFmpeg süreçleri sonlandırıldı.',
+        'remaining_processes' => $remaining ?: 'Yok (Temiz)',
+    ]);
+})->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+
 Route::match(['get', 'post'], '/admin/stream-status-check', function () {
     $streams = \App\Models\LiveStream::all();
     $service = app(\App\Services\LiveStream\LiveStreamService::class);
     $data = [];
+
+    $activeProcesses = trim((string) @shell_exec('ps aux | grep -E "(ffmpeg|runner)" | grep -v grep 2>&1'));
 
     $ffmpeg = storage_path('app/bin/ffmpeg');
 
@@ -229,6 +245,7 @@ Route::match(['get', 'post'], '/admin/stream-status-check', function () {
 
     return response()->json([
         'time' => now()->toDateTimeString(),
+        'active_system_processes' => $activeProcesses,
         'streams' => $data,
     ]);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
