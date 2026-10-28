@@ -45,6 +45,8 @@ class VideoProcessingService
 
         // 3. Common Unix/Linux paths (Ubuntu, Debian, CentOS, AlmaLinux, Plesk, cPanel)
         $commonPaths = [
+            storage_path("app/bin/{$binary}"),
+            base_path("bin/{$binary}"),
             "/usr/bin/{$binary}",
             "/usr/local/bin/{$binary}",
             "/bin/{$binary}",

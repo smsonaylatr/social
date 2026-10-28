@@ -101,6 +101,13 @@ Route::match(['get', 'post'], '/admin/ffmpeg-check', function () {
     ]);
 });
 
+Route::match(['get', 'post'], '/admin/ffmpeg-install', function () {
+    @set_time_limit(180);
+    $result = app(\App\Services\LiveStream\LiveStreamService::class)->autoInstallFfmpeg();
+
+    return response()->json($result);
+});
+
 Route::match(['get', 'post'], '/admin/requeue-failed', function () {
     $service = app(\App\Services\Publisher\SchedulingService::class);
     $requeued = $service->requeueFailedTargets();

@@ -54,6 +54,105 @@ class LiveStreamService
     }
 
     /**
+     * Sunucuda (özellikle Linux VPS / cPanel / Plesk) kurulu FFmpeg yoksa
+     * bağımsız x86_64 statik ikiliyi (binary) storage/app/bin altına otomatik indirip kurar.
+     */
+    public function autoInstallFfmpeg(): array
+    {
+        $binDir = storage_path('app/bin');
+        if (! is_dir($binDir)) {
+            @mkdir($binDir, 0775, true);
+        }
+
+        $ffmpegDest = $binDir . '/ffmpeg';
+        $ffprobeDest = $binDir . '/ffprobe';
+
+        if (PHP_OS_FAMILY === 'Linux') {
+            $urls = [
+                'ffmpeg' => [
+                    'https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1/ffmpeg-linux-x64',
+                    'https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-linux-64.zip',
+                ],
+                'ffprobe' => [
+                    'https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1/ffprobe-linux-x64',
+                    'https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffprobe-6.1-linux-64.zip',
+                ],
+            ];
+
+            // 1. FFmpeg İndir
+            if (! file_exists($ffmpegDest) || filesize($ffmpegDest) < 1000000) {
+                $downloaded = false;
+                try {
+                    $ctx = stream_context_create([
+                        'http' => ['follow_location' => 1, 'timeout' => 90],
+                        'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
+                    ]);
+                    $content = @file_get_contents($urls['ffmpeg'][0], false, $ctx);
+                    if ($content && strlen($content) > 5000000) {
+                        file_put_contents($ffmpegDest, $content);
+                        @chmod($ffmpegDest, 0755);
+                        $downloaded = true;
+                    }
+                } catch (\Throwable) {}
+
+                if (! $downloaded) {
+                    $zipPath = $binDir . '/ffmpeg.zip';
+                    $zipContent = @file_get_contents($urls['ffmpeg'][1], false, stream_context_create([
+                        'http' => ['follow_location' => 1, 'timeout' => 90],
+                        'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
+                    ]));
+                    if ($zipContent && strlen($zipContent) > 1000000) {
+                        file_put_contents($zipPath, $zipContent);
+                        if (class_exists('ZipArchive')) {
+                            $zip = new \ZipArchive();
+                            if ($zip->open($zipPath) === true) {
+                                $zip->extractTo($binDir);
+                                $zip->close();
+                                @chmod($ffmpegDest, 0755);
+                                $downloaded = true;
+                            }
+                        }
+                        @unlink($zipPath);
+                    }
+                }
+            }
+
+            // 2. FFprobe İndir
+            if (! file_exists($ffprobeDest) || filesize($ffprobeDest) < 1000000) {
+                try {
+                    $ctx = stream_context_create([
+                        'http' => ['follow_location' => 1, 'timeout' => 90],
+                        'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
+                    ]);
+                    $probeContent = @file_get_contents($urls['ffprobe'][0], false, $ctx);
+                    if ($probeContent && strlen($probeContent) > 3000000) {
+                        file_put_contents($ffprobeDest, $probeContent);
+                        @chmod($ffprobeDest, 0755);
+                    }
+                } catch (\Throwable) {}
+            }
+        }
+
+        @chmod($ffmpegDest, 0755);
+        @chmod($ffprobeDest, 0755);
+
+        $versionOutput = @shell_exec("{$ffmpegDest} -version 2>&1");
+        $isOk = $versionOutput && str_contains(strtolower($versionOutput), 'ffmpeg version');
+
+        if ($isOk) {
+            \App\Models\Setting::set('ffmpeg_binary_path', $ffmpegDest);
+            \App\Models\Setting::set('ffprobe_binary_path', $ffprobeDest);
+            $this->ffmpegPath = $ffmpegDest;
+        }
+
+        return [
+            'success' => $isOk,
+            'binary_path' => $ffmpegDest,
+            'version' => $versionOutput ? explode("\n", $versionOutput)[0] : 'Çalıştırılamadı',
+        ];
+    }
+
+    /**
      * Yayına ait ffconcat (band kaydı listesi) dosyasını oluşturur veya günceller.
      */
     public function buildConcatFile(LiveStream $stream): string

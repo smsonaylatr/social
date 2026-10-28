@@ -150,6 +150,33 @@ class ManageLiveStreams extends ManageRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('install_ffmpeg')
+                ->label('⚡ FFmpeg\'i Otomatik Kur')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Sunucuya FFmpeg Otomatik Kurulumu')
+                ->modalDescription('Sunucunuzda FFmpeg bulunamadı. Bu işlem Linux x86_64 uyumlu bağımsız statik FFmpeg ve FFprobe ikililerini depolama alanına otomatik olarak indirecek ve canlı yayını aktif edecektir.')
+                ->modalSubmitActionLabel('Şimdi İndir ve Kur')
+                ->action(function () {
+                    $res = app(LiveStreamService::class)->autoInstallFfmpeg();
+                    if ($res['success']) {
+                        Notification::make()
+                            ->title('FFmpeg Başarıyla Kuruldu! 🎉')
+                            ->body("Sürüm: {$res['version']}\nKonum: {$res['binary_path']}")
+                            ->success()
+                            ->duration(10000)
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('Otomatik İndirme Tamamlanamadı')
+                            ->body("Sunucu terminalinden şu komutu çalıştırabilirsiniz:\nsudo dnf install -y ffmpeg (veya sudo apt install -y ffmpeg)\nDurum: {$res['version']}")
+                            ->danger()
+                            ->persistent()
+                            ->send();
+                    }
+                }),
+
             Actions\Action::make('setup_channels')
                 ->label('⚡ 3 Platformu Otomatik Yapılandır')
                 ->icon('heroicon-o-sparkles')
