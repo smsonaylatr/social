@@ -169,6 +169,28 @@ Route::match(['get', 'post'], '/admin/stream-restart/{id}', function (int $id) {
     ]);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
+Route::match(['get', 'post'], '/admin/stream-optimize/{id}', function (int $id) {
+    $stream = \App\Models\LiveStream::findOrFail($id);
+    $stream->update([
+        'resolution_mode' => 'vertical_720p',
+        'fps' => 30,
+        'bitrate_kbps' => 2000,
+        'audio_mode' => $stream->audio_mode ?: 'replace_bg_music',
+        'bg_music_preset' => $stream->bg_music_preset ?: 'lofi_chill',
+        'bg_music_volume' => $stream->bg_music_volume ?: 100,
+    ]);
+
+    $service = app(\App\Services\LiveStream\LiveStreamService::class);
+    $cmd = $service->buildFfmpegCommand($stream);
+
+    return response()->json([
+        'status' => 'ok',
+        'message' => "Canlı yayın #{$id} ({$stream->title}) 720p 30fps ultrafast ayarlarına optimize edildi.",
+        'stream' => $stream->fresh(),
+        'ffmpeg_command' => $cmd,
+    ]);
+})->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+
 Route::match(['get', 'post'], '/admin/kill-all-ffmpeg', function () {
     @shell_exec('pkill -9 -f ffmpeg 2>/dev/null');
     @shell_exec('pkill -9 -f runner_stream 2>/dev/null');
