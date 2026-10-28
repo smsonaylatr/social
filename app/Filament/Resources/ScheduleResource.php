@@ -94,7 +94,8 @@ class ScheduleResource extends Resource
                                 'text' => '📝 Metin Gönderisi (Videosuz Paylaşım - AI Açıklama, Link & Hashtag)',
                             ])
                             ->default('video')
-                            ->helperText('Mevcut kurallar video olarak çalışır. Yeni otomasyonda Metin seçerseniz X, LinkedIn ve Facebook paylaşımları videosuz doğrudan metin olarak yayınlanır.')
+                            ->live()
+                            ->helperText('Metin seçildiğinde video yükleme ayarları gizlenir; X, LinkedIn ve Facebook paylaşımları videosuz doğrudan metin olarak yayınlanır.')
                             ->required(),
 
                         // 0. Algoritmik Keşfet ve Büyüme Modu Alanları
@@ -341,6 +342,20 @@ class ScheduleResource extends Resource
                             ->searchable()
                             ->preload()
                             ->helperText('Bu kural/platform için bağımsız video imleci. Boş bırakırsanız havuzun ilk videosundan başlar.')
+                            ->visible(fn (Get $get): bool => $get('post_type') !== 'text')
+                            ->columnSpanFull(),
+
+                        Placeholder::make('text_mode_info')
+                            ->hiddenLabel()
+                            ->content(new HtmlString('
+                                <div style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: 8px; padding: 0.85rem 1rem; color: #38bdf8; font-size: 0.825rem; line-height: 1.45;">
+                                    <div style="font-weight: 600; display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.25rem;">
+                                        <span>📝 Metin Gönderisi Modu Seçili</span>
+                                    </div>
+                                    Bu kuralda <strong>video dosyası yüklenmez ve video ayarı kullanılmaz</strong>. Paylaşımlar X (Twitter), LinkedIn ve Facebook hesaplarınıza doğrudan yapay zekanın ürettiği açıklama, SEO ürün bağlantısı ve etiketlerle <u>saf metin gönderisi</u> olarak yayınlanır.
+                                </div>
+                            '))
+                            ->visible(fn (Get $get): bool => $get('post_type') === 'text')
                             ->columnSpanFull(),
 
                         Toggle::make('is_active')

@@ -51,6 +51,11 @@ class AutomationOrchestratorService
         // 1. Pick the next eligible video: Her platform/kural kendi bağımsız sıralamasını takip eder!
         $video = $schedule->getNextVideo();
 
+        // Metin modunda eğer sıradaki video bulunamazsa havuzdaki ilk hazır videodan veya herhangi bir videodan AI konusu olarak faydalan
+        if (! $video && $schedule->post_type === 'text') {
+            $video = Video::where('status', 'ready')->first() ?: Video::first();
+        }
+
         if (! $video) {
             Log::info("Schedule #{$schedule->id} ({$schedule->name}) has no eligible video right now (pool empty).");
             return null;
