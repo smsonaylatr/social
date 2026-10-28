@@ -58,6 +58,49 @@ Route::match(['get', 'post'], '/admin/run-migrate', function () {
     ]);
 });
 
+Route::match(['get', 'post'], '/admin/ffmpeg-check', function () {
+    $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+    $hasShellExec = function_exists('shell_exec') && ! in_array('shell_exec', $disabled, true);
+    $hasExec = function_exists('exec') && ! in_array('exec', $disabled, true);
+
+    $whichFfmpeg = $hasShellExec ? trim((string) @shell_exec('which ffmpeg 2>/dev/null')) : null;
+    $versionOutput = $hasShellExec ? trim((string) @shell_exec('ffmpeg -version 2>&1')) : null;
+
+    $candidates = [
+        storage_path('app/bin/ffmpeg'),
+        '/usr/bin/ffmpeg',
+        '/usr/local/bin/ffmpeg',
+        '/bin/ffmpeg',
+        '/snap/bin/ffmpeg',
+        '/opt/ffmpeg/bin/ffmpeg',
+        '/usr/local/cpanel/3rdparty/bin/ffmpeg',
+    ];
+
+    $foundPaths = [];
+    foreach ($candidates as $p) {
+        if (@file_exists($p)) {
+            $foundPaths[] = $p;
+        }
+    }
+
+    $sudoCheck = $hasShellExec ? trim((string) @shell_exec('which sudo 2>/dev/null')) : null;
+    $aptCheck = $hasShellExec ? trim((string) @shell_exec('which apt-get 2>/dev/null')) : null;
+
+    return response()->json([
+        'os' => PHP_OS,
+        'os_family' => PHP_OS_FAMILY,
+        'uname' => php_uname(),
+        'shell_exec_available' => $hasShellExec,
+        'exec_available' => $hasExec,
+        'disabled_functions' => $disabled,
+        'which_ffmpeg' => $whichFfmpeg,
+        'version_first_line' => $versionOutput ? explode("\n", $versionOutput)[0] : null,
+        'found_binary_paths' => $foundPaths,
+        'has_apt' => !empty($aptCheck),
+        'has_sudo' => !empty($sudoCheck),
+    ]);
+});
+
 Route::match(['get', 'post'], '/admin/requeue-failed', function () {
     $service = app(\App\Services\Publisher\SchedulingService::class);
     $requeued = $service->requeueFailedTargets();
