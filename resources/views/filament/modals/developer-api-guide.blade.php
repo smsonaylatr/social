@@ -14,7 +14,7 @@
 
     <div style="display:flex; flex-direction:column; gap:16px;">
         @foreach($guides as $code => $g)
-            <div style="border-radius:14px; border:1px solid rgba(255,255,255,0.12); background:#111318; padding:18px;">
+            <div class="api-guide-card" style="border-radius:14px; border:1px solid rgba(255,255,255,0.12); background:#111318; padding:18px;">
                 {{-- Header --}}
                 <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding-bottom:12px; margin-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.08);">
                     <div style="display:flex; align-items:center; gap:10px;">

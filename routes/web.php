@@ -22,10 +22,33 @@ Route::get('/terms-of-service', fn () => view('legal.terms'))->name('terms.servi
 Route::get('/terms', fn () => redirect()->route('terms.service'));
 
 Route::match(['get', 'post'], '/admin/run-migrate', function () {
-    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+    $outputs = [];
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        $outputs[] = \Illuminate\Support\Facades\Artisan::output();
+    } catch (\Throwable $e) {
+        $outputs[] = "MIGRATE ERR: " . $e->getMessage();
+    }
+
+    if (config('database.default') === 'sqlite') {
+        try {
+            \Illuminate\Support\Facades\DB::statement('PRAGMA busy_timeout = 60000;');
+            \Illuminate\Support\Facades\DB::statement('PRAGMA journal_mode = WAL;');
+            \Illuminate\Support\Facades\DB::statement('PRAGMA synchronous = NORMAL;');
+            $outputs[] = "SQLite WAL mode and busy_timeout=60000 activated.";
+        } catch (\Throwable $e) {
+            $outputs[] = "SQLite PRAGMA: " . $e->getMessage();
+        }
+    }
+
+    try {
+        \Illuminate\Support\Facades\Artisan::call('optimize:clear');
+        $outputs[] = "Cache cleared.";
+    } catch (\Throwable $e) {}
+
     return response()->json([
         'status' => 'ok',
-        'output' => \Illuminate\Support\Facades\Artisan::output(),
+        'outputs' => $outputs,
     ]);
 });
 

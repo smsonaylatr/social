@@ -38,17 +38,17 @@
             @endphp
             <div class="scheduled-target-card p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/80 space-y-3">
                 {{-- Platform Header & Status --}}
-                <div class="flex items-center justify-between">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div class="flex items-center gap-2">
                         <span class="font-bold capitalize text-gray-900 dark:text-gray-100 text-sm flex items-center gap-1.5">
                             <span class="inline-block w-2.5 h-2.5 rounded-full {{ $target->status->value === 'published' ? 'bg-emerald-500' : ($target->status->value === 'failed' ? 'bg-rose-500' : 'bg-sky-500') }}"></span>
                             {{ $target->platform_code }}
                         </span>
-                        <span class="text-gray-500 dark:text-gray-400 text-xs font-medium">
+                        <span class="text-gray-500 dark:text-gray-400 text-xs font-medium truncate max-w-[200px]">
                             ({{ $target->socialAccount?->name ?? 'Hesap' }})
                         </span>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
                         <span class="px-2.5 py-0.5 rounded text-[11px] font-semibold 
                             {{ $target->status->value === 'published' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400' : '' }}
                             {{ $target->status->value === 'failed' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-400' : '' }}

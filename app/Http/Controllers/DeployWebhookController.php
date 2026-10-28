@@ -98,6 +98,18 @@ class DeployWebhookController extends Controller
             $errors[] = "MIGRATE ERR: " . $e->getMessage();
         }
 
+        // 4. SQLite Optimization (WAL & Busy Timeout to prevent database locked errors)
+        if (config('database.default') === 'sqlite') {
+            try {
+                \Illuminate\Support\Facades\DB::statement('PRAGMA busy_timeout = 60000;');
+                \Illuminate\Support\Facades\DB::statement('PRAGMA journal_mode = WAL;');
+                \Illuminate\Support\Facades\DB::statement('PRAGMA synchronous = NORMAL;');
+                $outputs[] = "SQLITE: WAL mode & busy_timeout=60000 set OK";
+            } catch (\Throwable $e) {
+                $errors[] = "SQLITE PRAGMA ERR: " . $e->getMessage();
+            }
+        }
+
         Log::info('Deploy webhook executed', [
             'outputs' => $outputs,
             'errors' => $errors,

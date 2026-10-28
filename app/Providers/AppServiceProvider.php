@@ -42,6 +42,15 @@ class AppServiceProvider extends ServiceProvider
             @\Illuminate\Support\Facades\Artisan::call('storage:link');
         }
 
+        // SQLite Eşzamanlı Kilitlenme Önleyici (WAL Modu & 60s Busy Timeout)
+        try {
+            if (config('database.default') === 'sqlite') {
+                \Illuminate\Support\Facades\DB::statement('PRAGMA busy_timeout = 60000;');
+                \Illuminate\Support\Facades\DB::statement('PRAGMA journal_mode = WAL;');
+                \Illuminate\Support\Facades\DB::statement('PRAGMA synchronous = NORMAL;');
+            }
+        } catch (\Throwable) {}
+
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('schedules')) {
                 if (! \Illuminate\Support\Facades\Schema::hasColumn('schedules', 'post_type')) {

@@ -145,7 +145,7 @@ class SchedulingService
             }
 
             return $scheduledPost;
-        });
+        }, 5);
     }
 
     /**
