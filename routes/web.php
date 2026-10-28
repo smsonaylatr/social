@@ -128,6 +128,22 @@ Route::match(['get', 'post'], '/admin/generate-audio-library', function () {
     ]);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
+Route::match(['get', 'post'], '/admin/stream-set-copyright-free/{id}', function (int $id) {
+    $stream = \App\Models\LiveStream::findOrFail($id);
+    $stream->update([
+        'audio_mode' => 'replace_bg_music',
+        'bg_music_source' => 'preset',
+        'bg_music_preset' => 'lofi_chill',
+        'bg_music_volume' => 100,
+    ]);
+
+    return response()->json([
+        'status' => 'ok',
+        'message' => "Canlı yayın #{$id} ({$stream->title}) telifsiz fon müziği moduna (replace_bg_music: lofi_chill) geçirildi.",
+        'stream' => $stream->fresh(),
+    ]);
+})->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+
 Route::match(['get', 'post'], '/admin/stream-stop/{id}', function (int $id) {
     $stream = \App\Models\LiveStream::findOrFail($id);
     $service = app(\App\Services\LiveStream\LiveStreamService::class);
