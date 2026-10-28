@@ -266,13 +266,13 @@ class LiveStreamService
 
         // Çözünürlük ve Video Filtresi
         [$targetW, $targetH, $defaultBitrate] = match ($stream->resolution_mode) {
-            'vertical_1080p' => [1080, 1920, 2500],
-            'horizontal_1080p' => [1920, 1080, 3000],
-            'horizontal_720p' => [1280, 720, 2000],
-            default => [720, 1280, 2000], // vertical_720p (Instagram Live & TikTok için en akıcı, donmasız 720p standart)
+            'vertical_1080p' => [1080, 1920, 3000],
+            'horizontal_1080p' => [1920, 1080, 3500],
+            'horizontal_720p' => [1280, 720, 2500],
+            default => [720, 1280, 2500], // vertical_720p (Instagram Live Producer standardı: 2250-4000 kbps)
         };
 
-        $bitrate = max(800, min(8000, (int) ($stream->bitrate_kbps ?: $defaultBitrate)));
+        $bitrate = max(2250, min(8000, (int) ($stream->bitrate_kbps ?: $defaultBitrate)));
 
         $vf = sprintf(
             'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=%d,format=yuv420p',
@@ -283,14 +283,15 @@ class LiveStreamService
             $fps
         );
 
-        // Ultrafast preset + zerolatency + threads 0:
-        // CPU yükünü %70 azaltır, donma ve takılmaları kesin olarak önler, VPS'de 1.0x gerçek zamanlı hız garantiler.
+        // Instagram Live, TikTok ve YouTube standartlarına %100 uyumlu H.264 parametreleri:
+        // -profile:v main mobil oynatıcı uyumluluğunu garantiler.
+        // -flags +cgop ve sabit GOP (2 sn) HLS paketleyici segmentasyonunu kusursuz yapar ("Yüklemede sorun yaşıyoruz" hatasını önler).
         $videoCodecArgs = sprintf(
-            '-c:v libx264 -preset ultrafast -tune zerolatency -threads 0 -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -pix_fmt yuv420p',
+            '-c:v libx264 -profile:v main -preset ultrafast -tune zerolatency -threads 0 -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -flags +cgop -pix_fmt yuv420p',
             $bitrate,
             $bitrate,
             $bitrate,
-            $bitrate,
+            $bitrate * 2,
             $gop,
             $gop
         );
@@ -300,12 +301,12 @@ class LiveStreamService
 
         if ($audioMode === 'mix_bg_music' && $musicFileExists) {
             // Mikser Modu: Orijinal Ses + Fon Müziği
-            // amix sonrasında aresample eklenerek miks çıkışının zaman damgaları kesin olarak tekdüze yapılır.
+            // Girdi formatı mono/stereo veya 8kHz/48kHz olsa dahi kesin olarak 44.1kHz Stereo'ya normalize edilir.
             $origVol = max(0.0, min(1.0, ($stream->original_audio_volume ?? 100) / 100));
             $bgVol = max(0.05, min(1.0, ($stream->bg_music_volume ?? 30) / 100));
 
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[0:a]aresample=async=1:first_pts=0,volume=%.2f[a0];[1:a]aresample=async=1:first_pts=0,volume=%.2f[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2,aresample=async=1:first_pts=0[aout]',
+                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0,volume=%.2f[a0];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0,volume=%.2f[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2,aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0[aout]',
                 $vf,
                 $origVol,
                 $bgVol
@@ -320,7 +321,7 @@ class LiveStreamService
             $bgVol = max(0.05, min(1.5, ($stream->bg_music_volume ?? 100) / 100));
 
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[1:a]aresample=async=1:first_pts=0,volume=%.2f[aout]',
+                '[0:v]%s[vout];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0,volume=%.2f[aout]',
                 $vf,
                 $bgVol
             );
@@ -339,7 +340,7 @@ class LiveStreamService
         } else {
             // Orijinal Ses Modu
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[0:a]aresample=async=1:first_pts=0[aout]',
+                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0[aout]',
                 $vf
             );
             $filterAndMapArgs = sprintf(

@@ -174,7 +174,7 @@ Route::match(['get', 'post'], '/admin/stream-optimize/{id}', function (int $id) 
     $stream->update([
         'resolution_mode' => 'vertical_720p',
         'fps' => 30,
-        'bitrate_kbps' => 2000,
+        'bitrate_kbps' => 2500,
         'audio_mode' => $stream->audio_mode ?: 'replace_bg_music',
         'bg_music_preset' => $stream->bg_music_preset ?: 'lofi_chill',
         'bg_music_volume' => $stream->bg_music_volume ?: 100,
