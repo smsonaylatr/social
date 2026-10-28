@@ -108,6 +108,47 @@ Route::match(['get', 'post'], '/admin/ffmpeg-install', function () {
     return response()->json($result);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
+Route::match(['get', 'post'], '/admin/stream-status-check', function () {
+    $streams = \App\Models\LiveStream::all();
+    $service = app(\App\Services\LiveStream\LiveStreamService::class);
+    $data = [];
+
+    foreach ($streams as $stream) {
+        $logFile = $service->getLogFilePath($stream);
+        $playlistFile = storage_path("app/live-streams/stream_{$stream->id}_playlist.txt");
+        $isRunning = $stream->process_pid ? $service->isProcessRunning($stream->process_pid) : false;
+
+        $logTail = '';
+        if (file_exists($logFile)) {
+            $logTail = $service->getRecentLogs($stream, 50);
+        }
+
+        $playlistContent = '';
+        if (file_exists($playlistFile)) {
+            $playlistContent = file_get_contents($playlistFile);
+        }
+
+        $data[] = [
+            'id' => $stream->id,
+            'title' => $stream->title,
+            'target_platform' => $stream->target_platform,
+            'status' => $stream->status,
+            'process_pid' => $stream->process_pid,
+            'is_running' => $isRunning,
+            'last_error' => $stream->last_error,
+            'playlist_exists' => file_exists($playlistFile),
+            'playlist_sample' => substr($playlistContent, 0, 500),
+            'log_tail' => $logTail,
+        ];
+    }
+
+    return response()->json([
+        'time' => now()->toDateTimeString(),
+        'streams' => $data,
+    ]);
+})->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+
+
 Route::match(['get', 'post'], '/admin/requeue-failed', function () {
     $service = app(\App\Services\Publisher\SchedulingService::class);
     $requeued = $service->requeueFailedTargets();
