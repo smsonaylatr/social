@@ -223,7 +223,7 @@ class LiveStreamService
         $endpoints = $stream->getActiveRtmpEndpoints();
 
         if (empty($endpoints)) {
-            throw new \RuntimeException('En az bir hedef platform (YouTube veya Instagram) etkinleştirilmeli ve Yayın Anahtarı (Stream Key) girilmelidir.');
+            throw new \RuntimeException('En az bir hedef platform (YouTube, Instagram veya TikTok) etkinleştirilmeli ve Yayın Anahtarı (Stream Key) girilmelidir.');
         }
 
         $loopFlag = $stream->is_loop ? '-stream_loop -1' : '';
@@ -236,62 +236,105 @@ class LiveStreamService
         // Giriş parametreleri:
         // -nostdin arka plan sürecinin terminal stdin'e takılmasını önler.
         // -fflags +genpts sayesinde zaman damgaları (PTS) baştan itibaren kusursuz oluşturulur.
-        // (-igndts bilerek kaldırılmıştır: ses akışının PTS zaman damgasını 0'a sıfırlayarak Instagram/YouTube kesintisine yol açıyordu!)
         $inputArgs = sprintf(
             '-nostdin -fflags +genpts -re %s -f concat -safe 0 -i %s',
             $loopFlag,
             escapeshellarg($normalizedConcatPath)
         );
 
-        // Eğer orijinal sesi kapat seçildiyse sessiz stereo AAC kaynağı ekle
-        if ($stream->mute_original_audio) {
+        // Ses Modu ve Telifsiz Fon Müziği Yönetimi:
+        // 'original': Orijinal video sesi
+        // 'replace_bg_music': Orijinal sesi kapat, telifsiz fon müziği çal (Telif koruması)
+        // 'mix_bg_music': Orijinal ses + telifsiz fon müziğini karıştır (Mikser)
+        // 'mute': Tamamen sessiz
+        $audioMode = $stream->audio_mode ?: ($stream->mute_original_audio ? 'mute' : 'original');
+        $hasBgMusic = in_array($audioMode, ['replace_bg_music', 'mix_bg_music'], true);
+        $musicFile = $hasBgMusic ? $this->resolveBackgroundMusicPath($stream) : null;
+        $musicFileExists = $musicFile && file_exists($musicFile);
+
+        if ($hasBgMusic && ! $musicFileExists) {
+            $audioMode = $stream->mute_original_audio ? 'mute' : 'original';
+            $hasBgMusic = false;
+        }
+
+        if ($audioMode === 'mute') {
             $inputArgs .= ' -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100';
+        } elseif ($hasBgMusic && $musicFileExists) {
+            $normalizedMusicPath = str_replace('\\', '/', $musicFile);
+            $inputArgs .= sprintf(' -stream_loop -1 -i %s', escapeshellarg($normalizedMusicPath));
         }
 
-        // Video filtre ve kodlama ayarları
-        if ($stream->resolution_mode === 'copy') {
-            $videoCodecArgs = '-c:v copy';
-        } else {
-            [$targetW, $targetH] = match ($stream->resolution_mode) {
-                'vertical_720p' => [720, 1280],
-                'horizontal_1080p' => [1920, 1080],
-                'horizontal_720p' => [1280, 720],
-                default => [1080, 1920], // vertical_1080p (Instagram Live & TikTok & YouTube Shorts dikey)
-            };
+        // Çözünürlük ve Video Filtresi
+        [$targetW, $targetH] = match ($stream->resolution_mode) {
+            'vertical_720p' => [720, 1280],
+            'horizontal_1080p' => [1920, 1080],
+            'horizontal_720p' => [1280, 720],
+            default => [1080, 1920], // vertical_1080p (Instagram Live & TikTok & YouTube Shorts dikey)
+        };
 
-            $vf = sprintf(
-                'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=%d,format=yuv420p',
-                $targetW,
-                $targetH,
-                $targetW,
-                $targetH,
-                $fps
+        $vf = sprintf(
+            'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=%d,format=yuv420p',
+            $targetW,
+            $targetH,
+            $targetW,
+            $targetH,
+            $fps
+        );
+
+        $videoCodecArgs = sprintf(
+            '-c:v libx264 -preset veryfast -tune zerolatency -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -pix_fmt yuv420p',
+            $bitrate,
+            $bitrate,
+            $bitrate,
+            $bitrate,
+            $gop,
+            $gop
+        );
+
+        $audioCodecArgs = '-c:a aac -b:a 128k -ar 44100 -ac 2';
+        $filterAndMapArgs = '';
+
+        if ($audioMode === 'mix_bg_music' && $musicFileExists) {
+            // Mikser Modu: Orijinal Ses + Fon Müziği
+            $origVol = max(0.0, min(1.0, ($stream->original_audio_volume ?? 100) / 100));
+            $bgVol = max(0.05, min(1.0, ($stream->bg_music_volume ?? 30) / 100));
+
+            $filterComplex = sprintf(
+                '[0:v]%s[vout];[0:a]aresample=async=1:first_pts=0,volume=%.2f[a0];[1:a]aresample=async=1:first_pts=0,volume=%.2f[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2[aout]',
+                $vf,
+                $origVol,
+                $bgVol
             );
 
-            // Strict CBR rate-control (minrate = maxrate = bitrate, bufsize = bitrate):
-            // Bu sayede ani bant genişliği fırlamaları önlenir ve RTMP sunucusu (Instagram/YouTube/TikTok) yayını asla düşürmez.
-            // -fps_mode cfr sayesinde tüm video geçişlerinde ve döngüde sabit 30 FPS garanti edilir.
-            $videoCodecArgs = sprintf(
-                '-vf %s -c:v libx264 -preset veryfast -tune zerolatency -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -pix_fmt yuv420p',
+            $filterAndMapArgs = sprintf(
+                '-filter_complex %s -map "[vout]" -map "[aout]"',
+                escapeshellarg($filterComplex)
+            );
+        } elseif ($audioMode === 'replace_bg_music' && $musicFileExists) {
+            // Telif Koruması Modu: Orijinal Sesi Kapat, Yalnızca Telifsiz Fon Müziği Çal
+            $bgVol = max(0.05, min(1.5, ($stream->bg_music_volume ?? 100) / 100));
+            $af = sprintf('aresample=async=1:first_pts=0,volume=%.2f', $bgVol);
+
+            $filterAndMapArgs = sprintf(
+                '-vf %s -af %s -map 0:v:0 -map 1:a:0',
                 escapeshellarg($vf),
-                $bitrate,
-                $bitrate,
-                $bitrate,
-                $bitrate,
-                $gop,
-                $gop
+                escapeshellarg($af)
+            );
+        } elseif ($audioMode === 'mute') {
+            // Sessiz Mod: Boş AAC
+            $filterAndMapArgs = sprintf(
+                '-vf %s -map 0:v:0 -map 1:a:0',
+                escapeshellarg($vf)
+            );
+        } else {
+            // Orijinal Ses Modu
+            $af = 'aresample=async=1:first_pts=0';
+            $filterAndMapArgs = sprintf(
+                '-vf %s -af %s -map 0:v:0 -map 0:a?',
+                escapeshellarg($vf),
+                escapeshellarg($af)
             );
         }
-
-        // Ses filtre ve kodlama ayarları:
-        // aresample=async=1:first_pts=0 ile video geçişlerinde ve döngüde
-        // ses PTS zaman damgaları kusursuz senkronize edilir, "Queue input is backward in time" hatası tamamen önlenir.
-        $audioFilter = 'aresample=async=1:first_pts=0';
-        $audioMapArgs = $stream->mute_original_audio
-            ? '-map 0:v:0 -map 1:a:0'
-            : '';
-
-        $audioCodecArgs = sprintf('-af %s -c:a aac -b:a 128k -ar 44100 -ac 2', escapeshellarg($audioFilter));
 
         // Çıkış (Tekil RTMP veya Eşzamanlı Çoklu Platform Tee Muxer)
         $endpointValues = array_values($endpoints);
@@ -302,19 +345,15 @@ class LiveStreamService
                 escapeshellarg($endpointValues[0])
             );
         } else {
-            // Aynı anda hem YouTube hem Instagram hem TikTok (Simulcast):
-            // Tek kez encode edilir, tee muxer ile tüm RTMP hedeflerine eşzamanlı gönderilir.
-            // onfail=ignore sayesinde bir platform (örn. Instagram 4 saat limiti) kapansa bile YouTube/TikTok yayını kesilmez!
+            // Simulcast (Aynı anda YouTube, Instagram, TikTok)
             $teeTargets = array_map(function (string $url) {
                 return '[f=flv:onfail=ignore]' . $url;
             }, $endpointValues);
 
             $teeString = implode('|', $teeTargets);
-            $mapForTee = $stream->mute_original_audio ? '' : '-map 0:v -map 0:a?';
 
             $outputArgs = sprintf(
-                '%s -flags +global_header -max_muxing_queue_size 4096 -f tee %s',
-                $mapForTee,
+                '-flags +global_header -max_muxing_queue_size 4096 -f tee %s',
                 escapeshellarg($teeString)
             );
         }
@@ -323,7 +362,7 @@ class LiveStreamService
             '%s -y %s %s %s %s %s',
             escapeshellcmd($this->ffmpegPath),
             $inputArgs,
-            $audioMapArgs,
+            $filterAndMapArgs,
             $videoCodecArgs,
             $audioCodecArgs,
             $outputArgs
@@ -758,6 +797,90 @@ class LiveStreamService
         }
 
         return $absPath;
+    }
+
+    /**
+     * Telifsiz arka plan fon müziği dosyasını döner veya sunucuda otomatik oluşturur.
+     */
+    public function resolveBackgroundMusicPath(LiveStream $stream): string
+    {
+        $dir = storage_path('app/audio-library');
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+
+        // 1. Kullanıcı özel bir MP3/M4A/WAV yüklediyse
+        if ($stream->bg_music_source === 'custom' && $stream->bg_music_path) {
+            $customDisk = Storage::disk('public');
+            if ($customDisk->exists($stream->bg_music_path)) {
+                return $customDisk->path($stream->bg_music_path);
+            }
+            $abs = storage_path('app/public/' . $stream->bg_music_path);
+            if (file_exists($abs)) {
+                return $abs;
+            }
+        }
+
+        // 2. Preset (Hazır Telifsiz Müzik)
+        $preset = $stream->bg_music_preset ?: 'lofi_chill';
+        $presetFile = "{$dir}/{$preset}.mp3";
+
+        if (file_exists($presetFile) && filesize($presetFile) > 10000) {
+            return $presetFile;
+        }
+
+        return $this->generatePresetAudioTrack($preset, $presetFile);
+    }
+
+    /**
+     * FFmpeg matematiksel frekans sentezleyicisi (lavfi aevalsrc) ile
+     * %100 Telifsiz (Content ID / Telif hakkı asla iddia edilemez) 60 saniyelik kusursuz döngü fon müziği üretir.
+     */
+    public function generatePresetAudioTrack(string $preset, ?string $targetPath = null): string
+    {
+        $dir = storage_path('app/audio-library');
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+
+        $targetPath = $targetPath ?: "{$dir}/{$preset}.mp3";
+
+        // Farklı müzik türleri için akor frekansları ve ses filtreleri:
+        [$synthExpr, $afFilter] = match ($preset) {
+            'ambient_relax' => [
+                // 432 Hz frekansında huzurlu derin meditasyon & ortam pedi
+                '0.14*sin(2*PI*216*t)*sin(2*PI*0.1*t) + 0.12*sin(2*PI*270*t)*sin(2*PI*0.15*t) + 0.10*sin(2*PI*324*t)*sin(2*PI*0.2*t) + 0.08*sin(2*PI*432*t)*sin(2*PI*0.08*t)',
+                'lowpass=f=750,aecho=0.85:0.9:1200|2000:0.35|0.25,volume=1.2',
+            ],
+            'upbeat_energetic' => [
+                // Enerjik modern ritmik vuruşlar ve bas
+                '0.16*sin(2*PI*130.81*t)*sin(2*PI*2*t) + 0.14*sin(2*PI*261.63*t)*sin(2*PI*4*t) + 0.12*sin(2*PI*392*t)*sin(2*PI*1*t)',
+                'highpass=f=80,lowpass=f=2800,aecho=0.8:0.8:500:0.2,volume=1.3',
+            ],
+            'acoustic_guitar' => [
+                // Akustik melodi ve piyano rezonansı
+                '0.14*sin(2*PI*246.94*t)*sin(2*PI*0.5*t) + 0.12*sin(2*PI*329.63*t)*sin(2*PI*0.33*t) + 0.10*sin(2*PI*493.88*t)*sin(2*PI*0.25*t)',
+                'lowpass=f=1100,aecho=0.8:0.85:600|1100:0.3|0.2,volume=1.2',
+            ],
+            default => [
+                // 'lofi_chill': Rahatlatıcı Lo-Fi Chill Synth Pad (Am7 Akoru: 220Hz, 261Hz, 329Hz, 392Hz)
+                '0.14*sin(2*PI*220*t)*sin(2*PI*0.25*t) + 0.12*sin(2*PI*261.63*t)*sin(2*PI*0.125*t) + 0.12*sin(2*PI*329.63*t)*sin(2*PI*0.33*t) + 0.09*sin(2*PI*392*t)*sin(2*PI*0.2*t)',
+                'lowpass=f=850,aecho=0.8:0.88:800|1500:0.35|0.22,volume=1.2',
+            ],
+        };
+
+        if ($this->isFfmpegAvailable()) {
+            $cmd = sprintf(
+                '%s -nostdin -y -f lavfi -i %s -af %s -t 60 -c:a aac -b:a 192k -ar 44100 -ac 2 %s 2>&1',
+                escapeshellcmd($this->ffmpegPath),
+                escapeshellarg("aevalsrc={$synthExpr}:s=44100"),
+                escapeshellarg($afFilter),
+                escapeshellarg($targetPath)
+            );
+            @shell_exec($cmd);
+        }
+
+        return $targetPath;
     }
 
     /**

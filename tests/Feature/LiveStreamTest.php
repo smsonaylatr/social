@@ -230,4 +230,66 @@ class LiveStreamTest extends TestCase
         @unlink($tempFile);
         @unlink($tempWithAudio);
     }
+
+    public function test_background_music_replace_and_mix_modes(): void
+    {
+        $workspace = Workspace::create(['name' => 'Test WS', 'slug' => 'test-ws']);
+        Storage::disk('public')->put('videos/sample_bg.mp4', 'fake-video-content');
+        Storage::disk('public')->put('audio-library/custom_beat.mp3', 'fake-audio-content');
+
+        Video::create([
+            'workspace_id' => $workspace->id,
+            'title' => 'Bg Test Video',
+            'original_filename' => 'sample_bg.mp4',
+            'storage_path' => 'videos/sample_bg.mp4',
+            'disk' => 'public',
+            'file_hash' => md5('sample_bg'),
+            'file_size' => 1024,
+            'duration_seconds' => 15,
+            'width' => 1080,
+            'height' => 1920,
+            'status' => VideoStatus::READY,
+        ]);
+
+        // 1. Replace mode with custom audio file
+        $streamReplace = LiveStream::create([
+            'workspace_id' => $workspace->id,
+            'title' => 'Replace Audio Stream',
+            'source_type' => 'pool',
+            'youtube_enabled' => true,
+            'youtube_stream_key' => 'test-key',
+            'audio_mode' => 'replace_bg_music',
+            'bg_music_source' => 'custom',
+            'bg_music_path' => 'audio-library/custom_beat.mp3',
+            'bg_music_volume' => 80,
+        ]);
+
+        $service = app(LiveStreamService::class);
+        $cmdReplace = $service->buildFfmpegCommand($streamReplace);
+
+        $this->assertStringContainsString('custom_beat.mp3', $cmdReplace);
+        $this->assertStringContainsString('-map 0:v:0 -map 1:a:0', $cmdReplace);
+        $this->assertStringContainsString('volume=0.80', $cmdReplace);
+
+        // 2. Mix mode with custom audio file
+        $streamMix = LiveStream::create([
+            'workspace_id' => $workspace->id,
+            'title' => 'Mix Audio Stream',
+            'source_type' => 'pool',
+            'youtube_enabled' => true,
+            'youtube_stream_key' => 'test-key',
+            'audio_mode' => 'mix_bg_music',
+            'bg_music_source' => 'custom',
+            'bg_music_path' => 'audio-library/custom_beat.mp3',
+            'original_audio_volume' => 100,
+            'bg_music_volume' => 25,
+        ]);
+
+        $cmdMix = $service->buildFfmpegCommand($streamMix);
+
+        $this->assertStringContainsString('-filter_complex', $cmdMix);
+        $this->assertStringContainsString('amix=inputs=2', $cmdMix);
+        $this->assertStringContainsString('volume=0.25', $cmdMix);
+        $this->assertStringContainsString('-map "[vout]" -map "[aout]"', $cmdMix);
+    }
 }

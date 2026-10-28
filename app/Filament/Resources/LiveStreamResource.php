@@ -8,6 +8,7 @@ use App\Models\Playlist;
 use App\Models\SocialAccount;
 use App\Models\Video;
 use App\Services\LiveStream\LiveStreamService;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
@@ -209,7 +210,7 @@ class LiveStreamResource extends Resource
                                     ->required(),
                             ]),
 
-                        Grid::make(3)
+                        Grid::make(2)
                             ->schema([
                                 Toggle::make('is_loop')
                                     ->label('♾️ 7/24 Sonsuz Band Döngüsü')
@@ -220,11 +221,80 @@ class LiveStreamResource extends Resource
                                     ->label('🛡️ Otomatik Kurtarma (Watchdog)')
                                     ->helperText('İnternet veya RTMP kopmasında yayını otomatik yeniden başlatır.')
                                     ->default(true),
+                            ]),
+                    ]),
 
-                                Toggle::make('mute_original_audio')
-                                    ->label('🔇 Videoların Sesini Kapat')
-                                    ->helperText('Telif veya gürültü önlemek için sessiz AAC akışı gönderir.')
-                                    ->default(false),
+                // 🎵 TELİFSİZ FON MÜZİĞİ & SES AYARLARI (TELİF KORUMASI)
+                Section::make('🎵 Telifsiz Fon Müziği & Ses Ayarları (Telif Koruması)')
+                    ->description('Canlı yayındaki telifli şarkı veya sesleri engelleyin, arkaya telifsiz kesintisiz fon müziği koyun veya sesleri karıştırın.')
+                    ->collapsible()
+                    ->schema([
+                        Select::make('audio_mode')
+                            ->label('Ses Yayın Modu')
+                            ->options([
+                                'original' => '🔊 Orijinal Video Sesi (Videodaki mevcut sesleri yayınla)',
+                                'replace_bg_music' => '🛡️ Telifsiz Müzik ile Değiştir (Telif Önleme — Şiddetle Tavsiye Edilen)',
+                                'mix_bg_music' => '🎚️ Orijinal Ses + Telifsiz Müzik Karıştır (Arka Plan Fon Müziği)',
+                                'mute' => '🔇 Tamamen Sessiz (Sessiz Canlı Yayın)',
+                            ])
+                            ->default('original')
+                            ->live()
+                            ->helperText('Telif hakkı ihtarı yememek için "Telifsiz Müzik ile Değiştir" modunu seçerek videodaki müzikleri telifsiz fon müziği ile değiştirebilirsiniz.'),
+
+                        Grid::make(2)
+                            ->visible(fn (Get $get): bool => in_array($get('audio_mode'), ['replace_bg_music', 'mix_bg_music'], true))
+                            ->schema([
+                                Select::make('bg_music_source')
+                                    ->label('Müzik Kaynağı')
+                                    ->options([
+                                        'preset' => '✨ Hazır Telifsiz Müzik Havuzu (Sistem Kütüphanesi)',
+                                        'custom' => '📁 Özel Müzik Dosyası Yükle (Kendi MP3/M4A Dosyanız)',
+                                    ])
+                                    ->default('preset')
+                                    ->live(),
+
+                                Select::make('bg_music_preset')
+                                    ->label('Telifsiz Müzik Türü')
+                                    ->options([
+                                        'lofi_chill' => '🎧 Lo-Fi Chill Beats (Rahatlatıcı & Modern Akorlar)',
+                                        'ambient_relax' => '🌅 Ambient Deep Relax (Huzurlu 432Hz Derin Ortam)',
+                                        'upbeat_energetic' => '⚡ Upbeat Energetic (Hareketli & Ritmik)',
+                                        'acoustic_guitar' => '🎹 Acoustic Melody (Hafif Akustik & Melodik)',
+                                    ])
+                                    ->default('lofi_chill')
+                                    ->visible(fn (Get $get): bool => $get('bg_music_source') !== 'custom')
+                                    ->helperText('Bu müzikler matematiksel frekans sentezi ile üretilir; YouTube, Instagram veya TikTok telif sistemlerinde %100 temizdir.'),
+
+                                FileUpload::make('bg_music_path')
+                                    ->label('Özel Telifsiz Müzik Dosyası (MP3 / M4A / WAV)')
+                                    ->disk('public')
+                                    ->directory('audio-library')
+                                    ->acceptedFileTypes(['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/aac', 'audio/x-m4a', 'audio/m4a'])
+                                    ->visible(fn (Get $get): bool => $get('bg_music_source') === 'custom')
+                                    ->helperText('Kendi indirdiğiniz telifsiz MP3 veya arka plan ses dosyasını yükleyin. Yayın boyunca kesintisiz döngüde çalacaktır.'),
+                            ]),
+
+                        Grid::make(2)
+                            ->visible(fn (Get $get): bool => in_array($get('audio_mode'), ['replace_bg_music', 'mix_bg_music'], true))
+                            ->schema([
+                                TextInput::make('bg_music_volume')
+                                    ->label('Fon Müziği Ses Düzeyi (%)')
+                                    ->numeric()
+                                    ->minValue(5)
+                                    ->maxValue(100)
+                                    ->default(fn (Get $get) => $get('audio_mode') === 'mix_bg_music' ? 30 : 100)
+                                    ->suffix('%')
+                                    ->helperText('Mikser modunda %25-%35 tavsiye edilir, tam müzik değişiminde %100 uygundur.'),
+
+                                TextInput::make('original_audio_volume')
+                                    ->label('Orijinal Video Sesi Düzeyi (%)')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100)
+                                    ->default(100)
+                                    ->suffix('%')
+                                    ->visible(fn (Get $get): bool => $get('audio_mode') === 'mix_bg_music')
+                                    ->helperText('Orijinal videodaki konuşma veya seslerin seviyesi.'),
                             ]),
                     ]),
 
