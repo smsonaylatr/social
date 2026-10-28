@@ -245,7 +245,8 @@ class LiveStream extends Model
         }
 
         if ($this->instagram_enabled && ! empty(trim((string) $this->instagram_stream_key))) {
-            $baseUrl = rtrim(trim((string) ($this->instagram_rtmp_url ?: 'rtmps://edgetee-upload-iad.xx.fbcdn.net:443/rtmp')), '/');
+            $rawUrl = trim((string) ($this->instagram_rtmp_url ?: 'rtmps://live-upload.instagram.com:443/rtmp'));
+            $baseUrl = rtrim($rawUrl, '/');
             $key = ltrim(trim((string) $this->instagram_stream_key), '/');
             $endpoints['instagram'] = "{$baseUrl}/{$key}";
         }

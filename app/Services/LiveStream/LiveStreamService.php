@@ -367,11 +367,25 @@ class LiveStreamService
             $targetUrl = $endpointValues[0];
             // Meta (Instagram / Facebook) RTMPS bağlantılarında sunucu SSL el sıkışmasını (TLS fatal alert) önle
             $tlsFlag = str_starts_with($targetUrl, 'rtmps://') ? '-tls_verify 0 ' : '';
-            $outputArgs = sprintf(
-                '-max_muxing_queue_size 4096 -f flv -flvflags no_duration_filesize %s%s',
-                $tlsFlag,
-                escapeshellarg($targetUrl)
-            );
+
+            // Instagram/Meta anahtarı URL sorgu parametreleri (?s_bl=1&...) içeriyorsa
+            // FFmpeg'in RTMPS el sıkışmasını bozmaması için -rtmp_playpath ile güvenli ayrıştırma yapılır
+            if (str_contains($targetUrl, '?') && preg_match('#^(rtmps?://[^/]+(?:/[^/]+)?)/(.+)$#', $targetUrl, $matches)) {
+                $baseRtmp = $matches[1];
+                $playpath = $matches[2];
+                $outputArgs = sprintf(
+                    '-max_muxing_queue_size 4096 -f flv -flvflags no_duration_filesize %s-rtmp_playpath %s %s',
+                    $tlsFlag,
+                    escapeshellarg($playpath),
+                    escapeshellarg($baseRtmp)
+                );
+            } else {
+                $outputArgs = sprintf(
+                    '-max_muxing_queue_size 4096 -f flv -flvflags no_duration_filesize %s%s',
+                    $tlsFlag,
+                    escapeshellarg($targetUrl)
+                );
+            }
         } else {
             // Simulcast (Aynı anda YouTube, Instagram, TikTok)
             $teeTargets = array_map(function (string $url) {

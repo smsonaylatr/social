@@ -172,6 +172,7 @@ Route::match(['get', 'post'], '/admin/stream-restart/{id}', function (int $id) {
 Route::match(['get', 'post'], '/admin/stream-optimize/{id}', function (int $id) {
     $stream = \App\Models\LiveStream::findOrFail($id);
     $stream->update([
+        'instagram_rtmp_url' => 'rtmps://live-upload.instagram.com:443/rtmp/',
         'resolution_mode' => 'vertical_720p',
         'fps' => 30,
         'bitrate_kbps' => 2500,
