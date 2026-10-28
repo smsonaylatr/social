@@ -43,12 +43,30 @@ class AppServiceProvider extends ServiceProvider
         }
 
         try {
-            if (
-                \Illuminate\Support\Facades\Schema::hasTable('schedules') &&
-                (! \Illuminate\Support\Facades\Schema::hasColumn('schedules', 'growth_strategy') ||
-                 ! \Illuminate\Support\Facades\Schema::hasColumn('scheduled_post_targets', 'scheduled_at'))
-            ) {
-                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+            if (\Illuminate\Support\Facades\Schema::hasTable('schedules')) {
+                if (! \Illuminate\Support\Facades\Schema::hasColumn('schedules', 'post_type')) {
+                    try {
+                        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+                    } catch (\Throwable) {}
+
+                    if (! \Illuminate\Support\Facades\Schema::hasColumn('schedules', 'post_type')) {
+                        \Illuminate\Support\Facades\Schema::table('schedules', function ($table) {
+                            $table->string('post_type', 32)->default('video')->nullable();
+                        });
+                    }
+                }
+
+                if (! \Illuminate\Support\Facades\Schema::hasColumn('scheduled_posts', 'post_type')) {
+                    \Illuminate\Support\Facades\Schema::table('scheduled_posts', function ($table) {
+                        $table->string('post_type', 32)->default('video')->nullable();
+                    });
+                }
+
+                if (! \Illuminate\Support\Facades\Schema::hasColumn('scheduled_post_targets', 'post_type')) {
+                    \Illuminate\Support\Facades\Schema::table('scheduled_post_targets', function ($table) {
+                        $table->string('post_type', 32)->default('video')->nullable();
+                    });
+                }
             }
         } catch (\Throwable) {
             // Sessizce geç
