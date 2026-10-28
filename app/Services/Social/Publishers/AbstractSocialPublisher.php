@@ -130,15 +130,19 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
         $kw1 = ! empty($seoKeywords[0]) ? mb_convert_case($seoKeywords[0], MB_CASE_TITLE, 'UTF-8') : 'Patenli Ayakkabı';
         $kw2 = ! empty($seoKeywords[1]) ? mb_convert_case($seoKeywords[1], MB_CASE_TITLE, 'UTF-8') : 'Tekerlekli Spor Ayakkabı';
 
+        $isTextMode = ($target->post_type === 'text' || $target->scheduledPost?->post_type === 'text');
+
         // 0. Güvenlik Bariyeri: Gönderi metni kesinlikle boş veya sadece sistem etiketi olamaz!
         if ($caption === '' || preg_match('/^\d+[\.\s\-]+video$/i', $caption)) {
             $caption = $video?->custom_caption
                 ?: ($video?->title && ! preg_match('/^\d+[\.\s\-]+video/i', $video->title) ? $video->title : '')
-                ?: "Adım at, topuğa bas ve kaymaya başla! 🚀\n\n✨ {$kw1} modelleri ile eğlence ve konfor bir arada\n👟 {$kw2} ve günlük spor ayakkabı deneyimi\n🚚 Hızlı kargo • Güvenli alışveriş";
+                ?: ($isTextMode
+                    ? "Adım at, topuğa bas ve kaymaya başla!\n\n- {$kw1} modelleri ile eğlence ve konfor bir arada\n- {$kw2} ve günlük spor ayakkabı deneyimi\n- Hızlı kargo • Güvenli alışveriş"
+                    : "Adım at, topuğa bas ve kaymaya başla! 🚀\n\n✨ {$kw1} modelleri ile eğlence ve konfor bir arada\n👟 {$kw2} ve günlük spor ayakkabı deneyimi\n🚚 Hızlı kargo • Güvenli alışveriş");
         }
 
         // 1. Şablon Güvencesi: Eğer metin tek satır/düz paragrafsa ve maddeli şablon içermiyorsa, estetik şablon yapısını uygula
-        if (! str_contains($caption, "\n") || (! str_contains($caption, '✨') && ! str_contains($caption, '👟') && ! str_contains($caption, '•'))) {
+        if (! str_contains($caption, "\n") || (! str_contains($caption, '✨') && ! str_contains($caption, '👟') && ! str_contains($caption, '•') && ! str_contains($caption, '- '))) {
             // Metin içine düz girmiş link ve hashtag kalıntılarını temizle (ayrı blok olarak eklenecek)
             $cleanHook = preg_replace('/https?:\/\/\S+/i', '', $caption);
             $cleanHook = preg_replace('/\bpatenliayakkabilar\.com\S*/i', '', $cleanHook);
@@ -147,12 +151,14 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
             $cleanHook = trim($cleanHook);
 
             if (empty($cleanHook)) {
-                $cleanHook = 'Adım at, topuğa bas ve kaymaya başla! 🚀';
-            } elseif (! preg_match('/[✨🔥⚡🎁🌟🚀]$/u', $cleanHook)) {
+                $cleanHook = $isTextMode ? 'Adım at, topuğa bas ve kaymaya başla!' : 'Adım at, topuğa bas ve kaymaya başla! 🚀';
+            } elseif (! $isTextMode && ! preg_match('/[✨🔥⚡🎁🌟🚀]$/u', $cleanHook)) {
                 $cleanHook .= ' 🔥';
             }
 
-            $bullets = "✨ Tek hareketle patene dönüşen {$kw1}\n👟 {$kw2} modelleri\n🚚 Hızlı kargo • Güvenli alışveriş";
+            $bullets = $isTextMode
+                ? "- Tek hareketle patene dönüşen {$kw1}\n- {$kw2} modelleri\n- Hızlı kargo • Güvenli alışveriş"
+                : "✨ Tek hareketle patene dönüşen {$kw1}\n👟 {$kw2} modelleri\n🚚 Hızlı kargo • Güvenli alışveriş";
             $caption = "{$cleanHook}\n\n{$bullets}";
         } else {
             // Eğer metinde SEO hafızasındaki anahtar kelimelerden hiçbiri geçmiyorsa, maddelere doğal olarak ekle
@@ -165,10 +171,14 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
             }
 
             if (! $hasKeyword && ! empty($seoKeywords)) {
-                $seoLine = "✨ {$kw1} ve {$kw2} modelleri";
+                $seoLine = $isTextMode ? "- {$kw1} ve {$kw2} modelleri" : "✨ {$kw1} ve {$kw2} modelleri";
                 // Eğer şablonda ✨ varsa ve ilk satır kancaysa, maddeler arasına dahil et
                 if (! str_contains($caption, $kw1)) {
-                    $caption = preg_replace('/(\n\n✨)/u', "\n\n{$seoLine}\n✨", $caption, 1);
+                    if ($isTextMode) {
+                        $caption .= "\n\n{$seoLine}";
+                    } else {
+                        $caption = preg_replace('/(\n\n✨)/u', "\n\n{$seoLine}\n✨", $caption, 1);
+                    }
                 }
             }
         }
@@ -183,7 +193,7 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
                 || ($bareDomain !== '' && mb_stripos($caption, $bareDomain) !== false);
 
             if (! $urlAlreadyInCaption) {
-                $caption .= "\n\n🌐 " . $productUrl;
+                $caption .= $isTextMode ? "\n\n" . $productUrl : "\n\n🌐 " . $productUrl;
             }
         }
 
@@ -225,6 +235,10 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
 
         if (! empty($formattedTags)) {
             $caption .= "\n\n" . implode(' ', $formattedTags);
+        }
+
+        if ($isTextMode) {
+            $caption = \App\Services\AI\OpenAiContentService::stripEmojis($caption);
         }
 
         return $this->safeTruncate(trim($caption), $maxPlatformLength);

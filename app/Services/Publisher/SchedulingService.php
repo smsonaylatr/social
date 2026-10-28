@@ -94,15 +94,25 @@ class SchedulingService
                     $productUrl = $aiContent->suggested_product_url ?: ($video->product_url ?: ($video->brand?->website ?? 'https://patenliayakkabilar.com'));
                 }
 
+                $isTextMode = ($effectivePostType === 'text');
+
                 // Hashtagler her zaman doğrudan hashtag havuzundan çekilir, platform limitine göre doldurulur ve sürekli döner
                 $hashtags = $hashtagService->getOptimizedHashtags($video, $platformCode);
 
                 $caption = \App\Services\AI\OpenAiContentService::cleanSystemLabels($rawCaption);
                 $title = \App\Services\AI\OpenAiContentService::cleanSystemLabels($rawTitle);
 
+                // Metin postlarında emoji kesinlikle kullanılmaz!
+                if ($isTextMode) {
+                    $caption = \App\Services\AI\OpenAiContentService::stripEmojis($caption);
+                    $title = \App\Services\AI\OpenAiContentService::stripEmojis($title);
+                }
+
                 // Kesin güvenlik: Başlık veya Açıklama ASLA boş gönderilemez!
                 if (empty(trim((string) $caption))) {
-                    $caption = 'Patenli ayakkabı ve tekerlekli spor ayakkabı modelleri ile yürümek çok daha eğlenceli! ✨';
+                    $caption = $isTextMode
+                        ? 'Patenli ayakkabı ve tekerlekli spor ayakkabı modelleri ile yürümek çok daha eğlenceli!'
+                        : 'Patenli ayakkabı ve tekerlekli spor ayakkabı modelleri ile yürümek çok daha eğlenceli! ✨';
                 }
 
                 // SEO Anahtar Kelime Hafızasından beslenmeyi garanti altına al
@@ -117,10 +127,15 @@ class SchedulingService
                 if (! $hasSeoKeyword && ! empty($seoKeywords)) {
                     $kw1 = mb_convert_case($seoKeywords[0], MB_CASE_TITLE, 'UTF-8');
                     $kw2 = ! empty($seoKeywords[1]) ? mb_convert_case($seoKeywords[1], MB_CASE_TITLE, 'UTF-8') : 'Tekerlekli Ayakkabı';
-                    if (str_contains($caption, "\n\n✨")) {
-                        $caption = preg_replace('/(\n\n✨)/u', "\n\n✨ {$kw1} & {$kw2} modelleri\n✨", $caption, 1);
+                    if ($isTextMode) {
+                        // Metin postlarında emojiler kullanılmaz
+                        $caption .= "\n\n{$kw1} & {$kw2} modelleri ile eğlence dolu adımlar!";
                     } else {
-                        $caption .= "\n\n✨ {$kw1} & {$kw2} modelleri ile eğlence dolu adımlar!";
+                        if (str_contains($caption, "\n\n✨")) {
+                            $caption = preg_replace('/(\n\n✨)/u', "\n\n✨ {$kw1} & {$kw2} modelleri\n✨", $caption, 1);
+                        } else {
+                            $caption .= "\n\n✨ {$kw1} & {$kw2} modelleri ile eğlence dolu adımlar!";
+                        }
                     }
                 }
 

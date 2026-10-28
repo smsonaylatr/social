@@ -465,7 +465,7 @@ Marka: {$brandName} | Slogan: {$slogan} | Ton: {$brandTone} | Yasaklı Kelimeler
 GENEL KURALLAR:
 1. Ürün: "Patenli Ayakkabı" / "Tekerlekli Spor Ayakkabı"dır (tek tıkla patene dönüşen ayakkabılar). Asla "1. Video", "klip", dosya adı gibi iç sistem etiketlerini metne yazma.
 2. SEO: Verilen SEO anahtar kelimelerini (seo_keywords) başlık, kanca veya maddelerde doğal olarak kullan.
-3. Emojiler: Sadece tüm cihazlarda sorunsuz görünen evrensel emojileri kullan (✨, 🔥, ⚡, 🎁, 👟, 🚚, 🛍️, 🌐, 📸, 👉, 🚀, ⭐). Windows'ta boş kutu (tofu) çıkan paten/kaykay emojilerini kullanma!
+3. Emojiler: Video gönderilerinde sadece tüm cihazlarda sorunsuz görünen evrensel emojileri kullan (✨, 🔥, ⚡, 🎁, 👟, 🚚, 🛍️, 🌐, 📸, 👉, 🚀, ⭐). Metin gönderilerinde ise kesinlikle hiçbir emoji kullanma, sade ve profesyonel bir dil kullan! Windows'ta boş kutu (tofu) çıkan paten/kaykay emojilerini asla kullanma!
 4. Caption Şablonu: Tek parça düz metin KESİNLİKLE YASAKTIR. Satır satır, boşluklu (\n\n) ve maddeli görsel bloklardan oluşmalıdır:
    - 1. satır: Vurucu Kanca (sonunda ✨, 🔥 veya 🎁 emojisi)
    - \n\n
@@ -539,6 +539,28 @@ PROMPT;
         $cleaned = preg_replace('/\b\d+[\.\s\-]+(?:video|klip|bölüm)\b/iu', 'Patenli Ayakkabı', $cleaned);
         // "Video 4", "Klip 1" -> "Patenli Ayakkabı"
         $cleaned = preg_replace('/\b(?:video|klip)\s+\d+\b/iu', 'Patenli Ayakkabı', $cleaned);
+
+        return trim($cleaned);
+    }
+
+    /**
+     * Metin içindeki tüm emojileri, sembolleri ve piktogramları temizler (Metin postları için)
+     */
+    public static function stripEmojis(?string $text): string
+    {
+        if (empty($text)) {
+            return '';
+        }
+
+        // Geniş kapsamlı Unicode emoji, sembol ve varyasyon seçici deseni
+        $pattern = '/[\p{Extended_Pictographic}\x{1F000}-\x{1FFFF}\x{2600}-\x{27BF}\x{FE00}-\x{FE0F}\x{200D}\x{200B}]/u';
+        $cleaned = preg_replace($pattern, '', $text);
+
+        // Satır içi birden fazla boşluğu teke indir ve satır başı/sonu boşlukları temizle
+        $cleaned = preg_replace('/[ \t]+/u', ' ', $cleaned);
+        $cleaned = preg_replace('/^ +| +$/mu', '', $cleaned);
+        // 3 veya daha fazla satır sonunu 2'ye indir
+        $cleaned = preg_replace("/\n{3,}/u", "\n\n", $cleaned);
 
         return trim($cleaned);
     }

@@ -49,6 +49,11 @@ class LinkedInPublisher extends AbstractSocialPublisher
         $productUrl = $target->product_url ?: ($video->product_url ?: 'https://patenliayakkabilar.com');
         $seoTitle = mb_substr($target->title ?: ($video->title ?: 'Patenli Ayakkabı ve Tekerlekli Spor Ayakkabı Modelleri | Patenli Ayakkabılar'), 0, 200);
 
+        if ($isTextOnly) {
+            $commentary = \App\Services\AI\OpenAiContentService::stripEmojis($commentary);
+            $seoTitle = \App\Services\AI\OpenAiContentService::stripEmojis($seoTitle);
+        }
+
         $headers = [
             'X-Restli-Protocol-Version' => '2.0.0',
         ];

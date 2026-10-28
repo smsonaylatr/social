@@ -190,4 +190,42 @@ class TextPostPublishingTest extends TestCase
         $this->assertEquals('success', $attempt->status);
         $this->assertStringContainsString('Text Post (Videosuz)', $attempt->request_payload_summary);
     }
+
+    public function test_text_posts_never_contain_emojis(): void
+    {
+        $sampleTextWithEmojis = "Adım at, topuğa bas ve kaymaya başla! 🚀\n\n✨ Tek hareketle patene dönüşen ayakkabılar\n👟 Işıklı ve gizli tekerlekli modeller 🎁\n🚚 Hızlı kargo • 🛍️ Güvenli alışveriş";
+        $cleaned = \App\Services\AI\OpenAiContentService::stripEmojis($sampleTextWithEmojis);
+
+        $this->assertStringNotContainsString('🚀', $cleaned);
+        $this->assertStringNotContainsString('✨', $cleaned);
+        $this->assertStringNotContainsString('👟', $cleaned);
+        $this->assertStringNotContainsString('🎁', $cleaned);
+        $this->assertStringNotContainsString('🚚', $cleaned);
+        $this->assertStringNotContainsString('🛍️', $cleaned);
+        $this->assertStringContainsString('Adım at, topuğa bas ve kaymaya başla!', $cleaned);
+
+        // Schedule as text post and check target captions
+        $textSchedule = Schedule::create([
+            'workspace_id' => $this->workspace->id,
+            'brand_id' => $this->brand->id,
+            'name' => 'Emojissiz Metin Kuralı',
+            'post_type' => 'text',
+            'is_active' => true,
+        ]);
+
+        $account = $this->createAccount('x', 'x_acc_no_emoji', 'Patenli X No Emoji');
+        $service = app(SchedulingService::class);
+        $post = $service->createScheduledPost(
+            video: $this->video,
+            scheduledAt: now(),
+            socialAccountIds: [$account->id],
+            scheduleId: $textSchedule->id
+        );
+
+        $target = $post->targets->first();
+        $this->assertEquals('text', $target->post_type);
+        $this->assertStringNotContainsString('✨', $target->caption);
+        $this->assertStringNotContainsString('🚀', $target->caption);
+        $this->assertStringNotContainsString('👟', $target->caption);
+    }
 }

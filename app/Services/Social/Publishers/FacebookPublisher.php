@@ -50,12 +50,13 @@ class FacebookPublisher extends AbstractSocialPublisher
         $pageToken = $resolved['page_token'];
 
         if ($isTextOnly) {
-            // Metin Gönderisi Modu: Facebook Sayfası Feed'ine videosuz metin gönderisi paylaşır
+            // Metin Gönderisi Modu: Facebook Sayfası Feed'ine videosuz ve emojissiz metin gönderisi paylaşır
+            $cleanCaption = \App\Services\AI\OpenAiContentService::stripEmojis($caption);
             $endpoint = "https://graph.facebook.com/v19.0/{$pageId}/feed";
             $response = Http::withToken($pageToken)
                 ->timeout(60)
                 ->post($endpoint, [
-                    'message' => $caption,
+                    'message' => $cleanCaption,
                 ]);
 
             if (! $response->successful()) {
