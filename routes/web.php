@@ -175,9 +175,11 @@ Route::match(['get', 'post'], '/admin/stream-optimize/{id}', function (int $id) 
         'resolution_mode' => 'vertical_720p',
         'fps' => 30,
         'bitrate_kbps' => 2500,
-        'audio_mode' => $stream->audio_mode ?: 'replace_bg_music',
+        'audio_mode' => 'replace_bg_music',
+        'bg_music_source' => $stream->bg_music_source ?: 'preset',
         'bg_music_preset' => $stream->bg_music_preset ?: 'lofi_chill',
-        'bg_music_volume' => $stream->bg_music_volume ?: 100,
+        'bg_music_volume' => 100,
+        'original_audio_volume' => 0,
     ]);
 
     $service = app(\App\Services\LiveStream\LiveStreamService::class);
@@ -185,7 +187,7 @@ Route::match(['get', 'post'], '/admin/stream-optimize/{id}', function (int $id) 
 
     return response()->json([
         'status' => 'ok',
-        'message' => "Canlı yayın #{$id} ({$stream->title}) 720p 30fps ultrafast ayarlarına optimize edildi.",
+        'message' => "Canlı yayın #{$id} ({$stream->title}) 720p 30fps ultrafast ve kesintisiz asetpts/setpts ayarlarına optimize edildi.",
         'stream' => $stream->fresh(),
         'ffmpeg_command' => $cmd,
     ]);

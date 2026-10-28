@@ -235,9 +235,10 @@ class LiveStreamService
 
         // Giriş parametreleri:
         // -nostdin arka plan sürecinin terminal stdin'e takılmasını önler.
-        // -fflags +genpts sayesinde zaman damgaları (PTS) baştan itibaren kusursuz oluşturulur.
+        // -fflags +genpts+discardcorrupt ve ignore_err sayesinde zaman damgaları (PTS) baştan itibaren kusursuz oluşturulur,
+        // bozuk veya eksik karelerde süreç donmaz veya takılmaz.
         $inputArgs = sprintf(
-            '-nostdin -fflags +genpts -re %s -f concat -safe 0 -i %s',
+            '-nostdin -fflags +genpts+discardcorrupt -err_detect ignore_err -re %s -f concat -safe 0 -protocol_whitelist file,crypto,data,http,https,tcp,tls -i %s',
             $loopFlag,
             escapeshellarg($normalizedConcatPath)
         );
@@ -248,6 +249,13 @@ class LiveStreamService
         // 'mix_bg_music': Orijinal ses + telifsiz fon müziğini karıştır (Mikser)
         // 'mute': Tamamen sessiz
         $audioMode = $stream->audio_mode ?: ($stream->mute_original_audio ? 'mute' : 'original');
+
+        // Kullanıcı mikser modunu seçip orijinal sesi 0 yaptıysa doğrudan replace_bg_music uygula
+        // Böylece video havuzundaki farklı ses codec'leri (HE-AAC vs LC) çözücüyü asla kilitleyemez.
+        if ($audioMode === 'mix_bg_music' && (int) ($stream->original_audio_volume ?? 100) <= 0) {
+            $audioMode = 'replace_bg_music';
+        }
+
         $hasBgMusic = in_array($audioMode, ['replace_bg_music', 'mix_bg_music'], true);
         $musicFile = $hasBgMusic ? $this->resolveBackgroundMusicPath($stream) : null;
         $musicFileExists = $musicFile && file_exists($musicFile);
@@ -275,11 +283,12 @@ class LiveStreamService
         $bitrate = max(2250, min(8000, (int) ($stream->bitrate_kbps ?: $defaultBitrate)));
 
         $vf = sprintf(
-            'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=%d,format=yuv420p',
+            'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=%d,setpts=N/%d/TB,format=yuv420p',
             $targetW,
             $targetH,
             $targetW,
             $targetH,
+            $fps,
             $fps
         );
 
@@ -302,11 +311,12 @@ class LiveStreamService
         if ($audioMode === 'mix_bg_music' && $musicFileExists) {
             // Mikser Modu: Orijinal Ses + Fon Müziği
             // Girdi formatı mono/stereo veya 8kHz/48kHz olsa dahi kesin olarak 44.1kHz Stereo'ya normalize edilir.
+            // asetpts=N/SR/TB ile zamanda geriye düşme (non-monotonic DTS) tamamen imkansız kılınır.
             $origVol = max(0.0, min(1.0, ($stream->original_audio_volume ?? 100) / 100));
             $bgVol = max(0.05, min(1.0, ($stream->bg_music_volume ?? 30) / 100));
 
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0,volume=%.2f[a0];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0,volume=%.2f[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2,aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0[aout]',
+                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1000:first_pts=0,volume=%.2f[a0];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1000:first_pts=0,volume=%.2f[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2,aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100,asetpts=N/SR/TB[aout]',
                 $vf,
                 $origVol,
                 $bgVol
@@ -318,10 +328,11 @@ class LiveStreamService
             );
         } elseif ($audioMode === 'replace_bg_music' && $musicFileExists) {
             // Telif Koruması Modu: Orijinal Sesi Kapat, Yalnızca Telifsiz Fon Müziği Çal
+            // asetpts=N/SR/TB ile döngü wrap-around anlarında zaman damgaları kesinlikle pürüzsüz artar.
             $bgVol = max(0.05, min(1.5, ($stream->bg_music_volume ?? 100) / 100));
 
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0,volume=%.2f[aout]',
+                '[0:v]%s[vout];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0,volume=%.2f,asetpts=N/SR/TB[aout]',
                 $vf,
                 $bgVol
             );
@@ -340,7 +351,7 @@ class LiveStreamService
         } else {
             // Orijinal Ses Modu
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0[aout]',
+                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1000:first_pts=0,asetpts=N/SR/TB[aout]',
                 $vf
             );
             $filterAndMapArgs = sprintf(
