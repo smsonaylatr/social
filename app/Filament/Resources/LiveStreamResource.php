@@ -269,9 +269,31 @@ class LiveStreamResource extends Resource
                                     ->label('Özel Telifsiz Müzik Dosyası (MP3 / M4A / WAV)')
                                     ->disk('public')
                                     ->directory('audio-library')
-                                    ->acceptedFileTypes(['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/aac', 'audio/x-m4a', 'audio/m4a'])
+                                    ->preserveFilenames()
+                                    ->maxSize(102400) // 100 MB
+                                    ->acceptedFileTypes([
+                                        'audio/*',
+                                        'audio/wav',
+                                        'audio/x-wav',
+                                        'audio/wave',
+                                        'audio/vnd.wave',
+                                        'audio/x-pn-wav',
+                                        'audio/mpeg',
+                                        'audio/mp3',
+                                        'audio/mpeg3',
+                                        'audio/x-mpeg-3',
+                                        'audio/aac',
+                                        'audio/x-aac',
+                                        'audio/m4a',
+                                        'audio/x-m4a',
+                                        'audio/mp4',
+                                        'audio/x-mp4',
+                                        'audio/ogg',
+                                        'audio/flac',
+                                        'audio/x-flac',
+                                    ])
                                     ->visible(fn (Get $get): bool => $get('bg_music_source') === 'custom')
-                                    ->helperText('Kendi indirdiğiniz telifsiz MP3 veya arka plan ses dosyasını yükleyin. Yayın boyunca kesintisiz döngüde çalacaktır.'),
+                                    ->helperText('Kendi indirdiğiniz telifsiz MP3, WAV veya M4A dosyasını yükleyin. Yayın boyunca kesintisiz döngüde çalacaktır.'),
                             ]),
 
                         Grid::make(2)
