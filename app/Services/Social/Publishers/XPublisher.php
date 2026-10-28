@@ -3,6 +3,7 @@
 namespace App\Services\Social\Publishers;
 
 use App\Models\ScheduledPostTarget;
+use App\Models\Setting;
 use App\Models\SocialAccount;
 use App\Models\Video;
 use Illuminate\Http\Client\PendingRequest;
@@ -43,7 +44,11 @@ class XPublisher extends AbstractSocialPublisher
             $fullText = "Patenli ayakkabı modelleri ile yürümek artık çok daha eğlenceli! ✨\n\n🌐 https://patenliayakkabilar.com\n#PatenliAyakkabı #TekerlekliAyakkabı";
         }
 
-        $caption = mb_substr($fullText, 0, 280);
+        $caption = $this->safeTruncate($fullText, 280);
+
+        // X Metin Postu Modu: Varsayılan olarak yapay zekanın ürettiği metin videosuz doğrudan tweet olarak paylaşılır
+        $postMode = Setting::get('partner_x_post_mode', Setting::get('social_x_text_only_mode', 'text'));
+        $isTextOnly = in_array($postMode, ['text', 'text_only', true, '1', 1], true);
 
         if ($this->isSandboxToken($token)) {
             $tweetId = '178' . rand(10000000000000, 99999999999999);
@@ -52,11 +57,15 @@ class XPublisher extends AbstractSocialPublisher
                 'post_url' => "https://x.com/{$account->username}/status/{$tweetId}",
                 'status' => 'published',
                 'is_mock' => true,
+                'post_type' => $isTextOnly ? 'text' : 'video',
             ];
         }
 
-        // 1. Upload video media (supports X v2 media/upload and v1.1 fallback)
-        $mediaId = $this->tryUploadVideoMedia($video, $token, $account);
+        // 1. Upload video media (sadece metin modu kapalıysa video yüklenir)
+        $mediaId = null;
+        if (! $isTextOnly) {
+            $mediaId = $this->tryUploadVideoMedia($video, $token, $account);
+        }
 
         // 2. Create Tweet: POST /2/tweets (with api.x.com and api.twitter.com fallback)
         $account->load('credential');
@@ -92,7 +101,7 @@ class XPublisher extends AbstractSocialPublisher
         // If 403 duplicate content error (when testing the same video multiple times), make text unique
         if ($tweetResponse && $tweetResponse->status() === 403 && str_contains(strtolower($tweetResponse->body()), 'duplicate')) {
             $suffix = ' ✨';
-            $payload['text'] = mb_substr($caption, 0, 280 - mb_strlen($suffix)) . $suffix;
+            $payload['text'] = $this->safeTruncate($caption, 280 - mb_strlen($suffix, 'UTF-8')) . $suffix;
             $tweetResponse = $this->postTweetRequest($token, $payload);
         }
 
@@ -109,6 +118,7 @@ class XPublisher extends AbstractSocialPublisher
             'post_id' => $tweetId,
             'post_url' => "https://x.com/{$username}/status/{$tweetId}",
             'status' => 'published',
+            'post_type' => $isTextOnly ? 'text' : 'video',
         ];
     }
 

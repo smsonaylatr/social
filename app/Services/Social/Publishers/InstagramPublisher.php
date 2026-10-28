@@ -21,7 +21,7 @@ class InstagramPublisher extends AbstractSocialPublisher
         @set_time_limit(180);
 
         $token = $this->getAccessToken($account);
-        $caption = mb_substr($this->buildFullCaption($target), 0, 2200);
+        $caption = $this->safeTruncate($this->buildFullCaption($target), 2200);
         $videoUrl = $video->url;
 
         if ($this->isSandboxToken($token)) {

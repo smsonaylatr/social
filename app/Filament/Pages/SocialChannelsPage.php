@@ -45,6 +45,7 @@ class SocialChannelsPage extends Page
     public string $partnerClientId = '';
     public string $partnerClientSecret = '';
     public string $partnerEnvironment = 'sandbox'; // 'sandbox' (Başvuru / Test) or 'production' (Onaylı İş Ortağı)
+    public string $partnerPostMode = 'text'; // 'text' (Videosuz Metin Postu) or 'video' (Video Gönderisi)
 
     // Edit Channel Modal
     public bool $showEditModal = false;
@@ -97,6 +98,9 @@ class SocialChannelsPage extends Page
         $this->partnerClientId = (string) Setting::get("partner_{$platformCode}_client_id", '');
         $this->partnerClientSecret = (string) Setting::get("partner_{$platformCode}_client_secret", '');
         $this->partnerEnvironment = (string) Setting::get("partner_{$platformCode}_env", 'sandbox');
+        
+        $defaultMode = in_array($platformCode, ['x', 'linkedin', 'facebook'], true) ? 'text' : 'video';
+        $this->partnerPostMode = (string) Setting::get("partner_{$platformCode}_post_mode", $defaultMode);
     }
 
     public function savePartnerConfig(): void
@@ -107,6 +111,12 @@ class SocialChannelsPage extends Page
         Setting::set("partner_{$code}_client_id", trim($this->partnerClientId), 'partner_oauth');
         Setting::set("partner_{$code}_client_secret", trim($this->partnerClientSecret), 'partner_oauth');
         Setting::set("partner_{$code}_env", $this->partnerEnvironment, 'partner_oauth');
+        Setting::set("partner_{$code}_post_mode", $this->partnerPostMode, 'partner_oauth');
+        
+        // Geriye dönük uyumluluk için platform bazlı özel ayarları da senkronize et
+        if (in_array($code, ['x', 'linkedin', 'facebook'], true)) {
+            Setting::set("social_{$code}_text_only_mode", $this->partnerPostMode === 'text', 'partner_oauth');
+        }
 
         $platformName = $def['name'] ?? strtoupper($code);
         $this->bannerMessage = "{$platformName} İş Ortağı (Partner App) OAuth yapılandırması kaydedildi.";

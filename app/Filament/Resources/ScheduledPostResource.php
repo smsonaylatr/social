@@ -173,6 +173,16 @@ class ScheduledPostResource extends Resource
                     ->label('Platformlar')
                     ->badge()
                     ->visibleFrom('sm')
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'x' => '𝕏 X (Metin)',
+                        'linkedin' => '💼 LinkedIn (Metin)',
+                        'facebook' => '👥 Facebook (Metin)',
+                        'instagram' => '📸 Instagram',
+                        'youtube' => '▶️ YouTube',
+                        'tiktok' => '🎵 TikTok',
+                        'pinterest' => '📌 Pinterest',
+                        default => ucfirst($state),
+                    })
                     ->color(fn (string $state): string => match ($state) {
                         'instagram' => 'warning',
                         'youtube' => 'danger',

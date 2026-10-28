@@ -45,20 +45,10 @@ enum SocialPlatformCode: string
     }
 
     /**
-     * Her platformun izin verdiği en yüksek / teknik maksimum hashtag sayısı (5-10 arası)
+     * Her platformun izin verdiği en uygun ve algoritmik maksimum hashtag sayısı (5 marka + 5 trend = 10)
      */
     public function maxHashtags(): int
     {
-        return match ($this) {
-            self::INSTAGRAM => 10, // 5 anahtar kelime + 5 keşfet
-            self::FACEBOOK => 10,
-            self::PINTEREST => 10,
-            self::TELEGRAM => 10,
-            self::TIKTOK => 10,
-            self::YOUTUBE => 10,
-            self::LINKEDIN => 10,
-            self::WHATSAPP => 10,
-            self::X => 10, // 5-10 arası (5 anahtar kelime + 5 keşfet)
-        };
+        return 10;
     }
 }

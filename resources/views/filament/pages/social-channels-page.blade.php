@@ -449,17 +449,27 @@
                             </div>
 
                             <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem;">
-                                <div style="display:flex; align-items:center; gap:0.75rem;">
-                                    <label class="mc-form-label" style="margin:0;">Bağlantı Ortamı:</label>
-                                    <select wire:model="partnerEnvironment" class="mc-form-input" style="width:auto; padding:0.35rem 0.75rem;">
-                                        <option value="sandbox">Başvuru / Sandbox Modu (Simülasyon İzin Onayı)</option>
-                                        <option value="production">Canlı İş Ortağı Modu (Resmi OAuth Yönlendirmesi)</option>
-                                    </select>
+                                <div style="display:flex; align-items:center; flex-wrap:wrap; gap:1.25rem;">
+                                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                                        <label class="mc-form-label" style="margin:0;">Bağlantı Ortamı:</label>
+                                        <select wire:model="partnerEnvironment" class="mc-form-input" style="width:auto; padding:0.35rem 0.75rem;">
+                                            <option value="sandbox">Başvuru / Sandbox Modu (Simülasyon İzin Onayı)</option>
+                                            <option value="production">Canlı İş Ortağı Modu (Resmi OAuth Yönlendirmesi)</option>
+                                        </select>
+                                    </div>
+
+                                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                                        <label class="mc-form-label" style="margin:0;">Paylaşım Formatı:</label>
+                                        <select wire:model="partnerPostMode" class="mc-form-input" style="width:auto; padding:0.35rem 0.75rem; font-weight:600;">
+                                            <option value="text">📝 Metin Gönderisi (Videosuz Paylaşım - AI Açıklama, Link & Hashtag)</option>
+                                            <option value="video">🎬 Video Gönderisi (MP4 Video Dosyası ile)</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <button type="button" wire:click="savePartnerConfig" class="mc-btn-action mc-btn-refresh">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                                    <span>İş Ortağı OAuth Ayarlarını Kaydet</span>
+                                    <span>Kanal Ayarlarını Kaydet</span>
                                 </button>
                             </div>
                         </div>

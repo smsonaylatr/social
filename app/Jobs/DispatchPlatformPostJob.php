@@ -52,13 +52,15 @@ class DispatchPlatformPostJob implements ShouldQueue
             $publisher = $publisherManager->getPublisher($target->platform_code);
             $result = $publisher->publish($video, $target, $account);
 
+            $isTextPost = ($result['post_type'] ?? '') === 'text';
+
             // Record attempt
             PublicationAttempt::create([
                 'scheduled_post_target_id' => $target->id,
                 'attempt_number' => $attemptNumber,
                 'status' => 'success',
                 'http_status_code' => 200,
-                'request_payload_summary' => "Caption: {$target->caption}, Video: {$video->original_filename}",
+                'request_payload_summary' => ($isTextPost ? 'Format: Text Post (Videosuz), ' : 'Format: Video, ') . "Caption: " . mb_substr($target->caption ?? '', 0, 120),
                 'response_summary' => json_encode($result),
                 'attempted_at' => now(),
             ]);
@@ -72,20 +74,20 @@ class DispatchPlatformPostJob implements ShouldQueue
             ]);
 
             // Update video usage metrics
-            $video->increment('usage_count', 1, ['last_used_at' => now()]);
+            $video?->increment('usage_count', 1, ['last_used_at' => now()]);
             $account->update(['last_posted_at' => now()]);
 
             // Update hashtag usage metrics in pool
             if (! empty($target->hashtags) && is_array($target->hashtags)) {
                 app(\App\Services\SEO\HashtagOptimizationService::class)
-                    ->recordHashtagUsage($target->hashtags, $video->workspace_id);
+                    ->recordHashtagUsage($target->hashtags, $video?->workspace_id ?? $account->workspace_id);
             }
 
             // Update SEO keyword memory usage metrics (continuous rotation)
             app(\App\Services\SEO\HashtagOptimizationService::class)
                 ->recordKeywordUsageFromContent(
                     ($target->caption ?? '') . ' ' . ($target->title ?? '') . ' ' . implode(' ', $target->hashtags ?? []),
-                    $video->workspace_id
+                    $video?->workspace_id ?? $account->workspace_id
                 );
 
             $this->updateParentPostStatus($target->scheduledPost);

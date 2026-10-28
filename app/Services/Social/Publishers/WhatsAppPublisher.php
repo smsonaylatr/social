@@ -17,7 +17,7 @@ class WhatsAppPublisher extends AbstractSocialPublisher
     public function publish(Video $video, ScheduledPostTarget $target, SocialAccount $account): array
     {
         $token = $this->getAccessToken($account);
-        $caption = mb_substr($this->buildFullCaption($target), 0, 1024);
+        $caption = $this->safeTruncate($this->buildFullCaption($target), 1024);
 
         if ($this->isSandboxToken($token)) {
             $publishId = 'wa_msg_' . uniqid();

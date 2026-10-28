@@ -59,7 +59,7 @@ class PinterestPublisher extends AbstractSocialPublisher
             ->post('https://api.pinterest.com/v5/pins', [
                 'board_id' => $boardId,
                 'title' => mb_substr($target->title ?: $video->title, 0, 100),
-                'description' => mb_substr($this->buildFullCaption($target), 0, 500),
+                'description' => $this->safeTruncate($this->buildFullCaption($target), 500),
                 'link' => $target->product_url ?: $video->product_url,
                 'media_source' => [
                     'source_type' => 'video_id',

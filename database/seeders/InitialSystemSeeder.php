@@ -258,11 +258,19 @@ class InitialSystemSeeder extends Seeder
             );
 
             foreach ($gData['tags'] as $tag) {
+                $platformFilter = match ($tag) {
+                    'reels', 'reelsvideo', 'instareels', 'viralreels' => 'instagram',
+                    'shorts', 'shortsvideo' => 'youtube',
+                    'fyp', 'viraltiktok', 'tiktoktrend', 'kesfetbeni', 'kesfetteyim' => 'tiktok',
+                    default => null,
+                };
+
                 Hashtag::firstOrCreate(
                     ['workspace_id' => $workspace->id, 'tag' => $tag],
                     [
                         'group_id' => $group->id,
                         'category' => $gData['category'],
+                        'platform_filter' => $platformFilter,
                         'priority' => $gData['priority'],
                         'is_active' => true,
                     ]

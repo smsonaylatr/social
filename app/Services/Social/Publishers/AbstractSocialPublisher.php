@@ -196,19 +196,74 @@ abstract class AbstractSocialPublisher implements SocialPublisherInterface
         $captionWithoutTags = preg_replace('/#[^\s#]+/u', '', $caption);
         $caption = trim(preg_replace('/\n{3,}/', "\n\n", (string) $captionWithoutTags));
 
+        // Platformun izin verdiği maksimum karakter sınırını belirle
+        $platformEnum = \App\Enums\SocialPlatformCode::tryFrom($this->getPlatformCode());
+        $maxPlatformLength = $platformEnum ? $platformEnum->maxCaptionLength() : 2200;
+
         $formattedTags = [];
         foreach ($targetHashtags as $rawTag) {
-            $cleanTag = ltrim(trim((string) $rawTag), '#');
-            if ($cleanTag === '' || in_array('#' . $cleanTag, $formattedTags)) {
+            $cleanTag = $seoService->normalizeTag((string) $rawTag);
+            if (! $seoService->isTagValidForPlatform($cleanTag, $this->getPlatformCode())) {
                 continue;
             }
-            $formattedTags[] = '#' . $cleanTag;
+            if (in_array('#' . $cleanTag, $formattedTags)) {
+                continue;
+            }
+
+            // Karakter bütçesi kontrolü: Yeni etiketin platform sınırını aşıp aşmadığını test et
+            $candidateTag = '#' . $cleanTag;
+            $testTags = array_merge($formattedTags, [$candidateTag]);
+            $testFullCaption = $caption . "\n\n" . implode(' ', $testTags);
+
+            // Eğer etiketi ekleyince sınır aşılıyorsa, bu etiketi ve sonrakileri ekleme (kesinlikle yarım kesilmez!)
+            if (mb_strlen($testFullCaption, 'UTF-8') > $maxPlatformLength) {
+                break;
+            }
+
+            $formattedTags[] = $candidateTag;
         }
 
         if (! empty($formattedTags)) {
             $caption .= "\n\n" . implode(' ', $formattedTags);
         }
 
-        return trim($caption);
+        return $this->safeTruncate(trim($caption), $maxPlatformLength);
+    }
+
+    /**
+     * Metni kelime, emoji, URL ve hashtag bütünlüğünü bozmadan güvenle sınırlar.
+     * Asla "#pat" gibi yarım kesilmiş hashtag veya sonda tek başına "#" bırakmaz.
+     */
+    public function safeTruncate(string $text, int $maxLength): string
+    {
+        $text = trim($text);
+        if (mb_strlen($text, 'UTF-8') <= $maxLength) {
+            return $text;
+        }
+
+        // 1. Eğer metnin sonundaki hashtagler yüzünden sınır aşılıyorsa, hashtagleri sondan teker teker çıkar
+        while (mb_strlen($text, 'UTF-8') > $maxLength && preg_match('/\s+#[^\s#]+$/u', $text)) {
+            $text = preg_replace('/\s+#[^\s#]+$/u', '', $text);
+        }
+
+        if (mb_strlen($text, 'UTF-8') <= $maxLength) {
+            return trim($text);
+        }
+
+        // 2. Eğer hala sınırdan uzunsa, kelime veya satır sınırından güvenle kes
+        $truncated = mb_substr($text, 0, $maxLength, 'UTF-8');
+
+        $lastSpace = mb_strrpos($truncated, ' ', 0, 'UTF-8');
+        $lastNewline = mb_strrpos($truncated, "\n", 0, 'UTF-8');
+        $lastBreak = max($lastSpace !== false ? $lastSpace : 0, $lastNewline !== false ? $lastNewline : 0);
+
+        if ($lastBreak > (int) ($maxLength * 0.7)) {
+            $truncated = mb_substr($truncated, 0, $lastBreak, 'UTF-8');
+        }
+
+        // 3. Kesilme sonucu sonda kalan yarım hashtag (#pat vb.) veya tek başına # işaretini temizle
+        $truncated = preg_replace('/\s*#[^\s]*$/u', '', $truncated);
+
+        return trim($truncated);
     }
 }

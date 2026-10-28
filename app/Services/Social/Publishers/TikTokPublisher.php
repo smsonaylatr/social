@@ -33,7 +33,7 @@ class TikTokPublisher extends AbstractSocialPublisher
             ->timeout(60)
             ->post('https://open.tiktokapis.com/v2/post/publish/video/init/', [
                 'post_info' => [
-                    'title' => mb_substr($this->buildFullCaption($target), 0, 2200),
+                    'title' => $this->safeTruncate($this->buildFullCaption($target), 2200),
                     'privacy_level' => 'PUBLIC_TO_EVERYONE',
                     'disable_duet' => false,
                     'disable_stitch' => false,

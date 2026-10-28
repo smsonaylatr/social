@@ -3,6 +3,7 @@
 namespace App\Services\Social\Publishers;
 
 use App\Models\ScheduledPostTarget;
+use App\Models\Setting;
 use App\Models\SocialAccount;
 use App\Models\Video;
 use Illuminate\Support\Facades\Http;
@@ -23,12 +24,22 @@ class FacebookPublisher extends AbstractSocialPublisher
         $caption = $this->buildFullCaption($target);
         $videoUrl = $video->url;
 
+        // Facebook Metin Postu Modu: Varsayılan olarak yapay zekanın ürettiği açıklama videosuz doğrudan sayfa gönderisi olarak paylaşılır
+        $postMode = Setting::get('partner_facebook_post_mode', Setting::get('social_facebook_text_only_mode', 'text'));
+        $isTextOnly = in_array($postMode, ['text', 'text_only', true, '1', 1], true);
+
         if ($this->isSandboxToken($token)) {
+            $postId = 'fb_post_' . uniqid();
+            $url = $isTextOnly
+                ? "https://facebook.com/{$account->account_id}/posts/" . rand(1000000, 9999999)
+                : "https://facebook.com/{$account->account_id}/videos/" . rand(1000000, 9999999);
+
             return [
-                'post_id' => 'fb_post_' . uniqid(),
-                'post_url' => "https://facebook.com/{$account->account_id}/videos/" . rand(1000000, 9999999),
+                'post_id' => $postId,
+                'post_url' => $url,
                 'status' => 'published',
                 'is_mock' => true,
+                'post_type' => $isTextOnly ? 'text' : 'video',
             ];
         }
 
@@ -36,6 +47,31 @@ class FacebookPublisher extends AbstractSocialPublisher
         $resolved = $this->resolveFacebookPage($account, $token);
         $pageId = $resolved['page_id'];
         $pageToken = $resolved['page_token'];
+
+        if ($isTextOnly) {
+            // Metin Gönderisi Modu: Facebook Sayfası Feed'ine videosuz metin gönderisi paylaşır
+            $endpoint = "https://graph.facebook.com/v19.0/{$pageId}/feed";
+            $response = Http::withToken($pageToken)
+                ->timeout(60)
+                ->post($endpoint, [
+                    'message' => $caption,
+                ]);
+
+            if (! $response->successful()) {
+                throw new \RuntimeException($this->buildFriendlyFacebookError($response->json() ?: $response->body(), $pageId));
+            }
+
+            $result = $response->json();
+            $postId = $result['id'] ?? null;
+
+            return [
+                'post_id' => $postId,
+                'post_url' => "https://facebook.com/{$postId}",
+                'status' => 'published',
+                'post_type' => 'text',
+                'raw' => $result,
+            ];
+        }
 
         $endpoint = "https://graph.facebook.com/v19.0/{$pageId}/videos";
         $response = Http::withToken($pageToken)
@@ -75,6 +111,7 @@ class FacebookPublisher extends AbstractSocialPublisher
             'post_id' => $videoId,
             'post_url' => "https://facebook.com/{$pageId}/videos/{$videoId}",
             'status' => 'published',
+            'post_type' => 'video',
             'raw' => $result,
         ];
     }

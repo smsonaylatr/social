@@ -3,6 +3,7 @@
 namespace App\Services\Social\Publishers;
 
 use App\Models\ScheduledPostTarget;
+use App\Models\Setting;
 use App\Models\SocialAccount;
 use App\Models\Video;
 use Illuminate\Support\Facades\Http;
@@ -21,6 +22,10 @@ class LinkedInPublisher extends AbstractSocialPublisher
 
         $token = $this->getAccessToken($account);
 
+        // LinkedIn Metin Postu Modu: Varsayılan olarak yapay zekanın ürettiği açıklama videosuz doğrudan metin gönderisi olarak paylaşılır
+        $postMode = Setting::get('partner_linkedin_post_mode', Setting::get('social_linkedin_text_only_mode', 'text'));
+        $isTextOnly = in_array($postMode, ['text', 'text_only', true, '1', 1], true);
+
         if ($this->isSandboxToken($token)) {
             $urn = 'urn:li:share:' . rand(7000000000000000000, 7999999999999999999);
             return [
@@ -28,6 +33,7 @@ class LinkedInPublisher extends AbstractSocialPublisher
                 'post_url' => "https://www.linkedin.com/feed/update/{$urn}",
                 'status' => 'published',
                 'is_mock' => true,
+                'post_type' => $isTextOnly ? 'text' : 'video',
             ];
         }
 
@@ -38,7 +44,7 @@ class LinkedInPublisher extends AbstractSocialPublisher
         // Strip https:// from patenliayakkabilar.com in commentary so LinkedIn displays "patenliayakkabilar.com" instead of shortening to "lnkd.in/..."
         $fullText = preg_replace('/https?:\/\/(www\.)?patenliayakkabilar\.com\/?/i', 'patenliayakkabilar.com', $fullText);
 
-        $commentary = mb_substr($fullText, 0, 3000);
+        $commentary = $this->safeTruncate($fullText, 3000);
         $productUrl = $target->product_url ?: ($video->product_url ?: 'https://patenliayakkabilar.com');
         $seoTitle = mb_substr($target->title ?: ($video->title ?: 'Patenli Ayakkabı ve Tekerlekli Spor Ayakkabı Modelleri | Patenli Ayakkabılar'), 0, 200);
 
@@ -46,105 +52,116 @@ class LinkedInPublisher extends AbstractSocialPublisher
             'X-Restli-Protocol-Version' => '2.0.0',
         ];
 
-        // 1. Upload video binary via LinkedIn v2 Assets API
         $assetUrn = null;
-        $binaryContent = $this->loadVideoBinary($video);
 
-        if ($binaryContent !== null && strlen($binaryContent) > 0) {
-            try {
-                $registerResp = Http::withToken($token)
-                    ->withHeaders($headers)
-                    ->timeout(30)
-                    ->post('https://api.linkedin.com/v2/assets?action=registerUpload', [
-                        'registerUploadRequest' => [
-                            'recipes' => ['urn:li:digitalmediaRecipe:feedshare-video'],
-                            'owner' => $authorUrn,
-                            'serviceRelationships' => [
-                                [
-                                    'relationshipType' => 'OWNER',
-                                    'identifier' => 'urn:li:userGeneratedContent',
+        if ($isTextOnly) {
+            // Metin Postu Modu: Saf metin gönderisi (LinkedIn REST-LI UGC shareMediaCategory = NONE)
+            $shareContent = [
+                'shareCommentary' => [
+                    'text' => $commentary,
+                ],
+                'shareMediaCategory' => 'NONE',
+            ];
+        } else {
+            // 1. Upload video binary via LinkedIn v2 Assets API (Sadece video modunda)
+            $binaryContent = $this->loadVideoBinary($video);
+
+            if ($binaryContent !== null && strlen($binaryContent) > 0) {
+                try {
+                    $registerResp = Http::withToken($token)
+                        ->withHeaders($headers)
+                        ->timeout(30)
+                        ->post('https://api.linkedin.com/v2/assets?action=registerUpload', [
+                            'registerUploadRequest' => [
+                                'recipes' => ['urn:li:digitalmediaRecipe:feedshare-video'],
+                                'owner' => $authorUrn,
+                                'serviceRelationships' => [
+                                    [
+                                        'relationshipType' => 'OWNER',
+                                        'identifier' => 'urn:li:userGeneratedContent',
+                                    ],
                                 ],
                             ],
-                        ],
-                    ]);
+                        ]);
 
-                if ($registerResp->successful()) {
-                    $registerData = $registerResp->json() ?? [];
-                    $candidateAsset = $registerData['value']['asset'] ?? null;
-                    $uploadRequestInfo = $registerData['value']['uploadMechanism']['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'] ?? [];
-                    $uploadUrl = $uploadRequestInfo['uploadUrl'] ?? null;
+                    if ($registerResp->successful()) {
+                        $registerData = $registerResp->json() ?? [];
+                        $candidateAsset = $registerData['value']['asset'] ?? null;
+                        $uploadRequestInfo = $registerData['value']['uploadMechanism']['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'] ?? [];
+                        $uploadUrl = $uploadRequestInfo['uploadUrl'] ?? null;
 
-                    if ($candidateAsset && $uploadUrl) {
-                        $extraHeaders = $uploadRequestInfo['headers'] ?? [];
-                        $uploadHeaders = array_merge(
-                            is_array($extraHeaders) ? $extraHeaders : [],
-                            ['Content-Type' => 'application/octet-stream']
-                        );
+                        if ($candidateAsset && $uploadUrl) {
+                            $extraHeaders = $uploadRequestInfo['headers'] ?? [];
+                            $uploadHeaders = array_merge(
+                                is_array($extraHeaders) ? $extraHeaders : [],
+                                ['Content-Type' => 'application/octet-stream']
+                            );
 
-                        // Upload binary to LinkedIn mediaUpload endpoint (with Bearer token first, fallback without)
-                        $uploadResp = Http::withToken($token)
-                            ->withHeaders($uploadHeaders)
-                            ->timeout(180)
-                            ->withBody($binaryContent, 'application/octet-stream')
-                            ->put($uploadUrl);
-
-                        if (! $uploadResp->successful() && $uploadResp->status() !== 201) {
-                            $uploadResp = Http::withHeaders($uploadHeaders)
+                            // Upload binary to LinkedIn mediaUpload endpoint (with Bearer token first, fallback without)
+                            $uploadResp = Http::withToken($token)
+                                ->withHeaders($uploadHeaders)
                                 ->timeout(180)
                                 ->withBody($binaryContent, 'application/octet-stream')
                                 ->put($uploadUrl);
-                        }
 
-                        if ($uploadResp->successful() || $uploadResp->status() === 201) {
-                            $assetUrn = $candidateAsset;
-                            $this->waitForVideoAssetReady($assetUrn, $token, $headers);
+                            if (! $uploadResp->successful() && $uploadResp->status() !== 201) {
+                                $uploadResp = Http::withHeaders($uploadHeaders)
+                                ->timeout(180)
+                                ->withBody($binaryContent, 'application/octet-stream')
+                                ->put($uploadUrl);
+                            }
+
+                            if ($uploadResp->successful() || $uploadResp->status() === 201) {
+                                $assetUrn = $candidateAsset;
+                                $this->waitForVideoAssetReady($assetUrn, $token, $headers);
+                            }
                         }
                     }
+                } catch (\Throwable) {
+                    $assetUrn = null;
                 }
-            } catch (\Throwable) {
-                $assetUrn = null;
             }
-        }
 
-        // 2. Publish via LinkedIn v2 ugcPosts API (VIDEO when video asset uploaded)
-        if ($assetUrn) {
-            $shareContent = [
-                'shareCommentary' => [
-                    'text' => $commentary,
-                ],
-                'shareMediaCategory' => 'VIDEO',
-                'media' => [
-                    [
-                        'status' => 'READY',
-                        'description' => [
-                            'text' => 'Patenli ayakkabı, tekerlekli ayakkabı ve çocuk ışıklı patenli spor ayakkabı modelleri — patenliayakkabilar.com',
-                        ],
-                        'media' => $assetUrn,
-                        'title' => [
-                            'text' => $seoTitle,
+            // 2. Publish via LinkedIn v2 ugcPosts API (VIDEO when video asset uploaded, otherwise ARTICLE)
+            if ($assetUrn) {
+                $shareContent = [
+                    'shareCommentary' => [
+                        'text' => $commentary,
+                    ],
+                    'shareMediaCategory' => 'VIDEO',
+                    'media' => [
+                        [
+                            'status' => 'READY',
+                            'description' => [
+                                'text' => 'Patenli ayakkabı, tekerlekli ayakkabı ve çocuk ışıklı patenli spor ayakkabı modelleri — patenliayakkabilar.com',
+                            ],
+                            'media' => $assetUrn,
+                            'title' => [
+                                'text' => $seoTitle,
+                            ],
                         ],
                     ],
-                ],
-            ];
-        } else {
-            $shareContent = [
-                'shareCommentary' => [
-                    'text' => $commentary,
-                ],
-                'shareMediaCategory' => 'ARTICLE',
-                'media' => [
-                    [
-                        'status' => 'READY',
-                        'originalUrl' => $productUrl,
-                        'title' => [
-                            'text' => $seoTitle,
-                        ],
-                        'description' => [
-                            'text' => 'Patenli ayakkabı, tekerlekli ayakkabı ve çocuk ışıklı patenli spor ayakkabı modelleri — patenliayakkabilar.com',
+                ];
+            } else {
+                $shareContent = [
+                    'shareCommentary' => [
+                        'text' => $commentary,
+                    ],
+                    'shareMediaCategory' => 'ARTICLE',
+                    'media' => [
+                        [
+                            'status' => 'READY',
+                            'originalUrl' => $productUrl,
+                            'title' => [
+                                'text' => $seoTitle,
+                            ],
+                            'description' => [
+                                'text' => 'Patenli ayakkabı, tekerlekli ayakkabı ve çocuk ışıklı patenli spor ayakkabı modelleri — patenliayakkabilar.com',
+                            ],
                         ],
                     ],
-                ],
-            ];
+                ];
+            }
         }
 
         $ugcPayload = [
@@ -184,6 +201,7 @@ class LinkedInPublisher extends AbstractSocialPublisher
             'post_id' => $postUrn,
             'post_url' => "https://www.linkedin.com/feed/update/{$postUrn}",
             'status' => 'published',
+            'post_type' => $isTextOnly ? 'text' : ($assetUrn ? 'video' : 'article'),
         ];
     }
 

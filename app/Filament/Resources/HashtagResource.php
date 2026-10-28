@@ -49,7 +49,7 @@ class HashtagResource extends Resource
                         ->placeholder('Örn: patenliayakkabi')
                         ->required()
                         ->maxLength(255)
-                        ->mutateDehydratedStateUsing(fn ($state) => ltrim(trim($state), '#')),
+                        ->mutateDehydratedStateUsing(fn ($state) => preg_replace('/[^\p{L}\p{N}_]/u', '', str_replace(' ', '', ltrim(trim($state), '#')))),
 
                     Select::make('category')
                         ->label('Kategori')

@@ -30,25 +30,26 @@ class HashtagOptimizationService
      */
     public function getOptimizedHashtags(Video $video, string $platformCode, ?int $limit = null, bool $markAsUsed = true): array
     {
+        $platformCode = strtolower(trim($platformCode));
         $maxLimit = $this->getPlatformMaxHashtagLimit($platformCode);
-        $effectiveLimit = ($limit !== null && $limit > 0) ? min($limit, $maxLimit) : $maxLimit;
-        // Standart 10 adet (5 marka + 5 trend)
-        $effectiveLimit = max(5, min(10, $effectiveLimit));
+        $effectiveLimit = ($limit !== null && $limit > 0) ? $limit : $maxLimit;
+        $effectiveLimit = max(1, min(15, $effectiveLimit));
 
         $blacklistedTags = Hashtag::where('is_blacklisted', true)->pluck('tag')->map(fn ($t) => mb_strtolower($t, 'UTF-8'))->toArray();
+        // Güvenlik: Eksik/yarım kalan veya istenmeyen etiketleri kara listeye dahil et
+        $blacklistedTags = array_merge($blacklistedTags, ['pat', 'pa', 'p', 'video', 'klip']);
 
         // ══════════════════════════════════════════════════════════════════════════
-        // 1. AŞAMA: 5 TANE MARKA HASHTAG'İ (category = 'brand')
+        // 1. AŞAMA: MARKA HASHTAG'LERİ (category = 'brand')
         // ══════════════════════════════════════════════════════════════════════════
-        $brandTarget = (int) ceil($effectiveLimit / 2); // 10 için tam 5 adet
+        $brandTarget = (int) ceil($effectiveLimit / 2);
         $brandHashtags = [];
 
         // 1.a Varsa videoya özel custom hashtag'lerden marka kategorisine uyanları al
         if (! empty($video->custom_hashtags) && is_array($video->custom_hashtags)) {
             foreach ($video->custom_hashtags as $tag) {
-                $cleaned = ltrim(trim((string) $tag), '#');
-                $lower = mb_strtolower($cleaned, 'UTF-8');
-                if ($cleaned !== '' && ! in_array($lower, $blacklistedTags) && ! in_array($cleaned, $brandHashtags)) {
+                $cleaned = $this->normalizeTag((string) $tag);
+                if ($this->isTagValidForPlatform($cleaned, $platformCode, $blacklistedTags) && ! in_array($cleaned, $brandHashtags)) {
                     $brandHashtags[] = $cleaned;
                 }
                 if (count($brandHashtags) >= $brandTarget) {
@@ -82,9 +83,8 @@ class HashtagOptimizationService
             }
 
             foreach ($shuffledPool = $shuffledBrandPool as $hashtag) {
-                $cleaned = ltrim(trim((string) $hashtag->tag), '#');
-                $lower = mb_strtolower($cleaned, 'UTF-8');
-                if ($cleaned !== '' && ! in_array($lower, $blacklistedTags) && ! in_array($cleaned, $brandHashtags)) {
+                $cleaned = $this->normalizeTag((string) $hashtag->tag);
+                if ($this->isTagValidForPlatform($cleaned, $platformCode, $blacklistedTags) && ! in_array($cleaned, $brandHashtags)) {
                     $brandHashtags[] = $cleaned;
                 }
                 if (count($brandHashtags) >= $brandTarget) {
@@ -93,13 +93,13 @@ class HashtagOptimizationService
             }
         }
 
-        // 1.c Eğer marka havuzunda 5'ten az etiket varsa varsayılan marka etiketleriyle tamamla
+        // 1.c Eğer marka havuzunda eksik kalırsa varsayılan marka etiketleriyle tamamla
         $fallbackBrandTags = ['patenliayakkabilar', 'patenliayakkabi', 'walkrollfly', 'tekerleklisporayakkabi', 'cocukpatenliayakkabi', 'ayakkabipaten'];
         if (count($brandHashtags) < $brandTarget) {
             foreach ($fallbackBrandTags as $tag) {
-                $lower = mb_strtolower($tag, 'UTF-8');
-                if (! in_array($lower, $blacklistedTags) && ! in_array($tag, $brandHashtags)) {
-                    $brandHashtags[] = $tag;
+                $cleaned = $this->normalizeTag($tag);
+                if ($this->isTagValidForPlatform($cleaned, $platformCode, $blacklistedTags) && ! in_array($cleaned, $brandHashtags)) {
+                    $brandHashtags[] = $cleaned;
                 }
                 if (count($brandHashtags) >= $brandTarget) {
                     break;
@@ -108,63 +108,75 @@ class HashtagOptimizationService
         }
 
         // ══════════════════════════════════════════════════════════════════════════
-        // 2. AŞAMA: 5 TANE TREND HASHTAG'İ (category = 'trending')
+        // 2. AŞAMA: TREND HASHTAG'LERİ (category = 'trending')
         // ══════════════════════════════════════════════════════════════════════════
-        $trendTarget = $effectiveLimit - count($brandHashtags); // 10 için tam 5 adet
+        $trendTarget = max(0, $effectiveLimit - count($brandHashtags));
         $trendHashtags = [];
         $existingLower = array_map(fn ($t) => mb_strtolower($t, 'UTF-8'), $brandHashtags);
 
-        // 'trending' kategorisindeki aktif hashtag havuzundan çek
-        $trendPool = Hashtag::where('is_active', true)
-            ->where('is_blacklisted', false)
-            ->where('category', 'trending')
-            ->where(function ($q) use ($platformCode) {
-                $q->whereNull('platform_filter')
-                  ->orWhere('platform_filter', $platformCode);
-            })
-            ->when($video->workspace_id, fn ($q) => $q->where('workspace_id', $video->workspace_id))
-            ->orderBy('usage_count', 'asc') // En az kullanılanlar
-            ->orderByRaw('last_used_at IS NULL DESC, last_used_at ASC') // En eski / hiç kullanılmayanlar
-            ->orderBy('priority', 'desc')
-            ->limit(max($trendTarget * 4, 40))
-            ->get();
+        if ($trendTarget > 0) {
+            // 'trending' kategorisindeki aktif hashtag havuzundan çek
+            $trendPool = Hashtag::where('is_active', true)
+                ->where('is_blacklisted', false)
+                ->where('category', 'trending')
+                ->where(function ($q) use ($platformCode) {
+                    $q->whereNull('platform_filter')
+                      ->orWhere('platform_filter', $platformCode);
+                })
+                ->when($video->workspace_id, fn ($q) => $q->where('workspace_id', $video->workspace_id))
+                ->orderBy('usage_count', 'asc') // En az kullanılanlar
+                ->orderByRaw('last_used_at IS NULL DESC, last_used_at ASC') // En eski / hiç kullanılmayanlar
+                ->orderBy('priority', 'desc')
+                ->limit(max($trendTarget * 4, 40))
+                ->get();
 
-        // Rotasyon için eşit kullanım grubunu rastgele harmanla
-        $groupedTrend = $trendPool->groupBy(fn ($item) => "{$item->usage_count}_{$item->priority}");
-        $shuffledTrendPool = collect();
-        foreach ($groupedTrend as $group) {
-            $shuffledTrendPool = $shuffledTrendPool->concat($group->shuffle());
-        }
-
-        foreach ($shuffledTrendPool as $hashtag) {
-            $cleaned = ltrim(trim((string) $hashtag->tag), '#');
-            $lower = mb_strtolower($cleaned, 'UTF-8');
-            if ($cleaned !== '' && ! in_array($lower, $existingLower) && ! in_array($lower, $blacklistedTags) && ! in_array($cleaned, $trendHashtags)) {
-                $trendHashtags[] = $cleaned;
-                $existingLower[] = $lower;
+            // Rotasyon için eşit kullanım grubunu rastgele harmanla
+            $groupedTrend = $trendPool->groupBy(fn ($item) => "{$item->usage_count}_{$item->priority}");
+            $shuffledTrendPool = collect();
+            foreach ($groupedTrend as $group) {
+                $shuffledTrendPool = $shuffledTrendPool->concat($group->shuffle());
             }
-            if (count($trendHashtags) >= $trendTarget) {
-                break;
-            }
-        }
 
-        // Eğer trend havuzunda eksik kalırsa garantili popüler keşfet etiketleriyle tamamla
-        $fallbackTrendTags = ['kesfet', 'viral', 'fyp', 'trend', 'kesfetteyiz', 'reels', 'shorts', 'onecikar', 'viralreels'];
-        if (count($trendHashtags) < $trendTarget) {
-            foreach ($fallbackTrendTags as $tag) {
-                $lower = mb_strtolower($tag, 'UTF-8');
-                if (! in_array($lower, $existingLower) && ! in_array($lower, $blacklistedTags) && ! in_array($tag, $trendHashtags)) {
-                    $trendHashtags[] = $tag;
+            foreach ($shuffledTrendPool as $hashtag) {
+                $cleaned = $this->normalizeTag((string) $hashtag->tag);
+                $lower = mb_strtolower($cleaned, 'UTF-8');
+                if ($this->isTagValidForPlatform($cleaned, $platformCode, $blacklistedTags) && ! in_array($lower, $existingLower) && ! in_array($cleaned, $trendHashtags)) {
+                    $trendHashtags[] = $cleaned;
                     $existingLower[] = $lower;
                 }
                 if (count($trendHashtags) >= $trendTarget) {
                     break;
                 }
             }
+
+            // Eğer trend havuzunda eksik kalırsa platforma özel garantili trend etiketleriyle tamamla
+            $fallbackTrendTags = match ($platformCode) {
+                'x' => ['trend', 'viral', 'kesfet', 'paten', 'spor'],
+                'instagram' => ['kesfet', 'reels', 'viral', 'instareels', 'trend'],
+                'youtube' => ['shorts', 'shortsvideo', 'trend', 'viral', 'kesfet'],
+                'tiktok' => ['fyp', 'kesfet', 'kesfetteyiz', 'viral', 'trend'],
+                'pinterest' => ['trend', 'kesfet', 'hediyefikri', 'alisveris'],
+                'linkedin' => ['trend', 'girisimcilik', 'inovasyon', 'eticaret'],
+                default => ['kesfet', 'viral', 'trend', 'onecikar'],
+            };
+
+            if (count($trendHashtags) < $trendTarget) {
+                foreach ($fallbackTrendTags as $tag) {
+                    $cleaned = $this->normalizeTag($tag);
+                    $lower = mb_strtolower($cleaned, 'UTF-8');
+                    if ($this->isTagValidForPlatform($cleaned, $platformCode, $blacklistedTags) && ! in_array($lower, $existingLower) && ! in_array($cleaned, $trendHashtags)) {
+                        $trendHashtags[] = $cleaned;
+                        $existingLower[] = $lower;
+                    }
+                    if (count($trendHashtags) >= $trendTarget) {
+                        break;
+                    }
+                }
+            }
         }
 
         // ══════════════════════════════════════════════════════════════════════════
-        // 3. AŞAMA: SADECE 5 MARKA + 5 TREND HASHTAG'İNİ BİRLEŞTİR
+        // 3. AŞAMA: MARKA + TREND HASHTAG'LERİNİ BİRLEŞTİR
         // ══════════════════════════════════════════════════════════════════════════
         $selected = array_merge($brandHashtags, $trendHashtags);
 
@@ -174,6 +186,56 @@ class HashtagOptimizationService
         }
 
         return $selected;
+    }
+
+    /**
+     * Etiketi temizler, boşlukları ve geçersiz simgeleri kaldırır
+     */
+    public function normalizeTag(string $rawTag): string
+    {
+        $tag = ltrim(trim($rawTag), '#');
+        $tag = str_replace(' ', '', $tag);
+        // Türkçe karakterleri ve alfanümerik karakterleri koru
+        $tag = preg_replace('/[^\p{L}\p{N}_]/u', '', $tag);
+        return $tag;
+    }
+
+    /**
+     * Etiketin hedef platform için uygun olup olmadığını denetler (Platform Çapraz Bulaşma Koruması)
+     */
+    public function isTagValidForPlatform(string $tag, string $platformCode, array $blacklistedTags = []): bool
+    {
+        $lower = mb_strtolower(trim($tag), 'UTF-8');
+
+        // Boş veya 2 karakterden kısa veya kara listede olan etiketler geçersizdir
+        if (mb_strlen($lower, 'UTF-8') < 3 || in_array($lower, $blacklistedTags)) {
+            return false;
+        }
+
+        $platformCode = strtolower($platformCode);
+
+        // 1. Instagram etiketleri (reels, instareels vb.) diğer platformlarda kullanılamaz
+        if (str_contains($lower, 'reel') || str_contains($lower, 'insta')) {
+            if ($platformCode !== 'instagram' && $platformCode !== 'facebook') {
+                return false;
+            }
+        }
+
+        // 2. YouTube Shorts etiketleri diğer platformlarda kullanılamaz
+        if (str_contains($lower, 'short')) {
+            if ($platformCode !== 'youtube') {
+                return false;
+            }
+        }
+
+        // 3. TikTok etiketleri (fyp, viraltiktok, foryou vb.) diğer platformlarda kullanılamaz
+        if (str_contains($lower, 'tiktok') || str_contains($lower, 'fyp') || str_contains($lower, 'foryou') || str_contains($lower, 'akim')) {
+            if ($platformCode !== 'tiktok') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
