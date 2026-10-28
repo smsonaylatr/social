@@ -170,7 +170,24 @@ Route::match(['get', 'post'], '/admin/stream-restart/{id}', function (int $id) {
     ]);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
+Route::match(['get', 'post'], '/admin/stream-pretranscode/{id}', function (int $id) {
+    @set_time_limit(600);
+    $stream = \App\Models\LiveStream::findOrFail($id);
+    $service = app(\App\Services\LiveStream\LiveStreamService::class);
+    $results = $service->preNormalizeStreamVideos($stream);
+    $concatFile = $service->buildConcatFile($stream);
+
+    return response()->json([
+        'status' => 'ok',
+        'message' => "Canlı yayın #{$id} ({$stream->title}) videoları standart 720p 30fps CFR formatına başarıyla normalize edildi.",
+        'concat_file' => $concatFile,
+        'videos_count' => count($results),
+        'results' => $results,
+    ]);
+})->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+
 Route::match(['get', 'post'], '/admin/stream-optimize/{id}', function (int $id) {
+    @set_time_limit(600);
     $stream = \App\Models\LiveStream::findOrFail($id);
     $stream->update([
         'instagram_rtmp_url' => 'rtmps://live-upload.instagram.com:443/rtmp/',
@@ -185,13 +202,15 @@ Route::match(['get', 'post'], '/admin/stream-optimize/{id}', function (int $id) 
     ]);
 
     $service = app(\App\Services\LiveStream\LiveStreamService::class);
+    $normResults = $service->preNormalizeStreamVideos($stream);
     $cmd = $service->buildFfmpegCommand($stream);
 
     return response()->json([
         'status' => 'ok',
-        'message' => "Canlı yayın #{$id} ({$stream->title}) 720p 30fps ultrafast ve kesintisiz asetpts/setpts ayarlarına optimize edildi.",
+        'message' => "Canlı yayın #{$id} ({$stream->title}) 720p 30fps CFR standartlarına optimize edildi ve havuz videoları kesintisiz oynatma için normalize edildi.",
         'stream' => $stream->fresh(),
         'ffmpeg_command' => $cmd,
+        'normalized_videos' => $normResults,
     ]);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 

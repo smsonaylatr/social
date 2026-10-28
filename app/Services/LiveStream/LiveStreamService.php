@@ -194,7 +194,7 @@ class LiveStreamService
 
         for ($r = 0; $r < $repeatFactor; $r++) {
             foreach ($videos as $video) {
-                $absPath = $this->ensureVideoHasAudio($video);
+                $absPath = $this->ensureVideoNormalizedForStream($video, $stream);
                 // FFmpeg concat demuxer için ters eğik çizgileri düz çizgiye çevir ve tek tırnakları kaçır
                 $normalizedPath = str_replace('\\', '/', $absPath);
                 $escapedPath = str_replace("'", "'\\''", $normalizedPath);
@@ -250,10 +250,9 @@ class LiveStreamService
 
         // Giriş parametreleri:
         // -nostdin arka plan sürecinin terminal stdin'e takılmasını önler.
-        // -fflags +genpts+discardcorrupt ve ignore_err sayesinde zaman damgaları (PTS) baştan itibaren kusursuz oluşturulur,
-        // bozuk veya eksik karelerde süreç donmaz veya takılmaz.
+        // -re girişin gerçek zamanlı akmasını sağlar (30 fps = saniyede tam 30 kare).
         $inputArgs = sprintf(
-            '-nostdin -fflags +genpts+discardcorrupt -err_detect ignore_err -re %s -f concat -safe 0 -protocol_whitelist file,crypto,data,http,https,tcp,tls -i %s',
+            '-nostdin -re %s -f concat -safe 0 -protocol_whitelist file,crypto,data,http,https,tcp,tls -i %s',
             $loopFlag,
             escapeshellarg($normalizedConcatPath)
         );
@@ -284,7 +283,7 @@ class LiveStreamService
             $inputArgs .= ' -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100';
         } elseif ($hasBgMusic && $musicFileExists) {
             $normalizedMusicPath = str_replace('\\', '/', $musicFile);
-            $inputArgs .= sprintf(' -stream_loop -1 -i %s', escapeshellarg($normalizedMusicPath));
+            $inputArgs .= sprintf(' -re -stream_loop -1 -i %s', escapeshellarg($normalizedMusicPath));
         }
 
         // Çözünürlük ve Video Filtresi
@@ -325,12 +324,11 @@ class LiveStreamService
         if ($audioMode === 'mix_bg_music' && $musicFileExists) {
             // Mikser Modu: Orijinal Ses + Fon Müziği
             // Girdi formatı mono/stereo veya 8kHz/48kHz olsa dahi kesin olarak 44.1kHz Stereo'ya normalize edilir.
-            // aresample=async=1 ile ses ve görüntü zaman damgaları kesinlikle senkron ve tekdüze kalır.
             $origVol = max(0.0, min(1.0, ($stream->original_audio_volume ?? 100) / 100));
             $bgVol = max(0.05, min(1.0, ($stream->bg_music_volume ?? 30) / 100));
 
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0,volume=%.2f[a0];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0,volume=%.2f[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2,aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0[aout]',
+                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100,volume=%.2f[a0];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100,volume=%.2f[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2,aformat=sample_rates=44100:channel_layouts=stereo[aout]',
                 $vf,
                 $origVol,
                 $bgVol
@@ -342,11 +340,11 @@ class LiveStreamService
             );
         } elseif ($audioMode === 'replace_bg_music' && $musicFileExists) {
             // Telif Koruması Modu: Orijinal Sesi Kapat, Yalnızca Telifsiz Fon Müziği Çal
-            // Video havuzundaki sesleri tamamen yok sayar, aresample ile sürekli ve pürüzsüz akış sağlar.
+            // Video havuzundaki sesleri tamamen yok sayar, aformat ile sürekli tekdüze artan DTS sağlar.
             $bgVol = max(0.05, min(1.5, ($stream->bg_music_volume ?? 100) / 100));
 
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0,volume=%.2f[aout]',
+                '[0:v]%s[vout];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100,volume=%.2f[aout]',
                 $vf,
                 $bgVol
             );
@@ -365,7 +363,7 @@ class LiveStreamService
         } else {
             // Orijinal Ses Modu
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100:async=1:first_pts=0[aout]',
+                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100[aout]',
                 $vf
             );
             $filterAndMapArgs = sprintf(
@@ -380,13 +378,13 @@ class LiveStreamService
         if (count($endpointValues) === 1) {
             $targetUrl = $endpointValues[0];
             $outputArgs = sprintf(
-                '-max_muxing_queue_size 4096 -f flv -flvflags no_duration_filesize %s',
+                '-max_muxing_queue_size 4096 -f flv -flvflags no_duration_filesize+add_keyframe_index %s',
                 escapeshellarg($targetUrl)
             );
         } else {
             // Simulcast (Aynı anda YouTube, Instagram, TikTok)
             $teeTargets = array_map(function (string $url) {
-                return '[f=flv:onfail=ignore]' . $url;
+                return '[f=flv:flvflags=no_duration_filesize+add_keyframe_index:onfail=ignore]' . $url;
             }, $endpointValues);
 
             $teeString = implode('|', $teeTargets);
@@ -795,6 +793,106 @@ class LiveStreamService
         }
 
         return false;
+    }
+
+    /**
+     * Canlı yayının kesintisiz, 7/24 donmadan ve takılmadan akabilmesi için
+     * video havuzundaki videoyu standart dikey/yatay çözünürlük, 30fps CFR, tek tip GOP (2s)
+     * ve tek tip ses formatına dönüştürüp önbelleğe alır.
+     */
+    public function ensureVideoNormalizedForStream(\App\Models\Video $video, ?LiveStream $stream = null): string
+    {
+        $disk = $video->disk ?: 'public';
+        $absPath = Storage::disk($disk)->path($video->storage_path);
+
+        if (! file_exists($absPath)) {
+            return $absPath;
+        }
+
+        // Test ortamında veya dosya sahteyse direkt audio safeguard'a yönlendir
+        if (! $this->isFfmpegAvailable() || (filesize($absPath) < 1024 && ! str_starts_with((string) @file_get_contents($absPath, false, null, 0, 16), "\x00"))) {
+            return $this->ensureVideoHasAudio($video);
+        }
+
+        [$targetW, $targetH] = match ($stream?->resolution_mode) {
+            'vertical_1080p' => [1080, 1920],
+            'horizontal_1080p' => [1920, 1080],
+            'horizontal_720p' => [1280, 720],
+            default => [720, 1280],
+        };
+        $fps = max(15, min(60, (int) ($stream?->fps ?: 30)));
+        $gop = $fps * 2;
+
+        $cacheDir = storage_path('app/live-streams/normalized');
+        if (! is_dir($cacheDir)) {
+            @mkdir($cacheDir, 0775, true);
+        }
+
+        $hash = substr(md5($absPath . filemtime($absPath) . "_{$targetW}x{$targetH}_{$fps}"), 0, 14);
+        $normFile = "{$cacheDir}/norm_v{$video->id}_{$hash}.mp4";
+
+        if (file_exists($normFile) && filesize($normFile) > 10000) {
+            return $normFile;
+        }
+
+        $hasAudio = $this->hasAudioTrack($absPath);
+        $audioInput = $hasAudio ? '' : '-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100';
+        $mapArgs = $hasAudio ? '-map 0:v:0 -map 0:a:0?' : '-map 0:v:0 -map 1:a:0 -shortest';
+
+        $vf = sprintf(
+            'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=%d,format=yuv420p',
+            $targetW,
+            $targetH,
+            $targetW,
+            $targetH,
+            $fps
+        );
+
+        $cmd = sprintf(
+            '%s -nostdin -y -i %s %s -vf %s -c:v libx264 -preset veryfast -profile:v main -b:v 2500k -maxrate 2500k -bufsize 5000k -g %d -keyint_min %d -sc_threshold 0 -flags +cgop -c:a aac -b:a 128k -ar 44100 -ac 2 -video_track_timescale 15360 %s %s 2>&1',
+            escapeshellcmd($this->ffmpegPath),
+            escapeshellarg($absPath),
+            $audioInput,
+            escapeshellarg($vf),
+            $gop,
+            $gop,
+            $mapArgs,
+            escapeshellarg($normFile)
+        );
+
+        @shell_exec($cmd);
+
+        if (file_exists($normFile) && filesize($normFile) > 10000) {
+            return $normFile;
+        }
+
+        return $this->ensureVideoHasAudio($video);
+    }
+
+    /**
+     * Yayına ait tüm videoları yayına başlamadan önce toplu olarak normalize eder.
+     */
+    public function preNormalizeStreamVideos(LiveStream $stream): array
+    {
+        $videos = $stream->getEligibleVideos();
+        $results = [];
+
+        foreach ($videos as $video) {
+            $start = microtime(true);
+            $normalizedPath = $this->ensureVideoNormalizedForStream($video, $stream);
+            $duration = round(microtime(true) - $start, 2);
+
+            $results[] = [
+                'video_id' => $video->id,
+                'title' => $video->title,
+                'normalized_path' => $normalizedPath,
+                'exists' => file_exists($normalizedPath),
+                'size' => file_exists($normalizedPath) ? filesize($normalizedPath) : 0,
+                'duration_seconds' => $duration,
+            ];
+        }
+
+        return $results;
     }
 
     /**
