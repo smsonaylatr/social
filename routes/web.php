@@ -108,7 +108,26 @@ Route::match(['get', 'post'], '/admin/ffmpeg-install', function () {
     return response()->json($result);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
-Route::match(['get', 'post'], '/admin/stream-status-check', function () {
+Route::match(['get', 'post'], '/admin/stream-test-probe', function () {
+    $ffmpeg = storage_path('app/bin/ffmpeg');
+    $playlist = storage_path('app/live-streams/stream_3_playlist.txt');
+
+    // Run a 5-second test encode to /dev/null with our proposed hardened flags
+    $cmd = sprintf(
+        '%s -nostdin -y -fflags +genpts+igndts+discardcorrupt -avoid_negative_ts make_zero -f concat -safe 0 -i %s -vf %s -af %s -c:v libx264 -preset ultrafast -b:v 2500k -minrate 2500k -maxrate 2500k -bufsize 2500k -fps_mode cfr -g 60 -keyint_min 60 -sc_threshold 0 -pix_fmt yuv420p -c:a aac -b:a 128k -ar 44100 -ac 2 -t 15 -f null - 2>&1',
+        escapeshellcmd($ffmpeg),
+        escapeshellarg($playlist),
+        escapeshellarg('scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30,format=yuv420p'),
+        escapeshellarg('aresample=async=1000:min_hard_comp=0.100000:first_pts=0')
+    );
+
+    $out = (string) @shell_exec($cmd);
+
+    return response()->json([
+        'cmd' => $cmd,
+        'output' => explode("\n", $out),
+    ]);
+})->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
     $streams = \App\Models\LiveStream::all();
     $service = app(\App\Services\LiveStream\LiveStreamService::class);
     $data = [];
