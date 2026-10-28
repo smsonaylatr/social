@@ -209,6 +209,33 @@ Route::match(['get', 'post'], '/admin/kill-all-ffmpeg', function () {
     ]);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
+Route::match(['get', 'post'], '/admin/stream-log-error-search/{id}', function (int $id) {
+    $stream = \App\Models\LiveStream::findOrFail($id);
+    $service = app(\App\Services\LiveStream\LiveStreamService::class);
+    $logFile = $service->getLogFilePath($stream);
+    if (! file_exists($logFile)) {
+        return response()->json(['error' => 'No log file']);
+    }
+
+    $content = file_get_contents($logFile);
+    // Convert \r to \n
+    $content = str_replace(["\r\n", "\r"], "\n", $content);
+    $lines = explode("\n", $content);
+    $filtered = [];
+    foreach ($lines as $line) {
+        $t = trim($line);
+        if ($t === '') continue;
+        if (str_starts_with($t, 'frame=')) continue;
+        $filtered[] = $t;
+    }
+
+    return response()->json([
+        'total_lines' => count($lines),
+        'non_progress_lines_count' => count($filtered),
+        'recent_events' => array_slice($filtered, -60),
+    ]);
+})->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+
 Route::match(['get', 'post'], '/admin/stream-status-check', function () {
     $streams = \App\Models\LiveStream::all();
     $service = app(\App\Services\LiveStream\LiveStreamService::class);
