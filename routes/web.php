@@ -128,6 +128,8 @@ Route::match(['get', 'post'], '/admin/stream-test-probe', function () {
         'output' => explode("\n", $out),
     ]);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+
+Route::match(['get', 'post'], '/admin/stream-status-check', function () {
     $streams = \App\Models\LiveStream::all();
     $service = app(\App\Services\LiveStream\LiveStreamService::class);
     $data = [];
