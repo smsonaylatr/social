@@ -236,22 +236,82 @@ Route::match(['get', 'post'], '/admin/stream-log-error-search/{id}', function (i
         return response()->json(['error' => 'No log file']);
     }
 
-    $content = file_get_contents($logFile);
-    // Convert \r to \n
+    $size = filesize($logFile);
+    $readBytes = min($size, 512 * 1024); // Son 512 KB
+    $fp = fopen($logFile, 'rb');
+    fseek($fp, -$readBytes, SEEK_END);
+    $content = fread($fp, $readBytes);
+    fclose($fp);
+
+    // Son başlatma bloğunu bul
+    $marker = '=== SOCIALFLOW 7/24 CANLI YAYIN';
+    $lastPos = strrpos($content, $marker);
+    if ($lastPos !== false) {
+        $content = substr($content, $lastPos);
+    }
+
     $content = str_replace(["\r\n", "\r"], "\n", $content);
     $lines = explode("\n", $content);
-    $filtered = [];
+
+    $events = [];
+    $lastFrameLine = null;
+    $noisePrefixes = [
+        'ffmpeg version',
+        'built with gcc',
+        'configuration:',
+        'libavutil',
+        'libavcodec',
+        'libavformat',
+        'libavdevice',
+        'libavfilter',
+        'libswscale',
+        'libswresample',
+        'Metadata:',
+        'handler_name',
+        'encoder',
+        'vendor_id',
+        'compatible_brands',
+        'major_brand',
+        'minor_version',
+    ];
+
     foreach ($lines as $line) {
         $t = trim($line);
         if ($t === '') continue;
-        if (str_starts_with($t, 'frame=')) continue;
-        $filtered[] = $t;
+
+        if (str_starts_with($t, 'frame=')) {
+            if ($lastFrameLine === null) {
+                $events[] = '[FIRST_FRAME] ' . $t;
+            }
+            $lastFrameLine = $t;
+            continue;
+        }
+
+        if ($lastFrameLine !== null) {
+            $events[] = '[LAST_FRAME_BEFORE_EVENT] ' . $lastFrameLine;
+            $lastFrameLine = null;
+        }
+
+        $isNoise = false;
+        foreach ($noisePrefixes as $prefix) {
+            if (str_starts_with($t, $prefix)) {
+                $isNoise = true;
+                break;
+            }
+        }
+        if ($isNoise) continue;
+
+        $events[] = $t;
+    }
+
+    if ($lastFrameLine !== null) {
+        $events[] = '[FINAL_FRAME] ' . $lastFrameLine;
     }
 
     return response()->json([
-        'total_lines' => count($lines),
-        'non_progress_lines_count' => count($filtered),
-        'recent_events' => array_slice($filtered, -60),
+        'total_lines_in_session' => count($lines),
+        'events_count' => count($events),
+        'session_events' => array_slice($events, 0, 250),
     ]);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
