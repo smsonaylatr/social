@@ -108,6 +108,26 @@ Route::match(['get', 'post'], '/admin/ffmpeg-install', function () {
     return response()->json($result);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
+Route::match(['get', 'post'], '/admin/generate-audio-library', function () {
+    $service = app(\App\Services\LiveStream\LiveStreamService::class);
+    $presets = ['lofi_chill', 'ambient_relax', 'upbeat_energetic', 'acoustic_guitar'];
+    $results = [];
+
+    foreach ($presets as $p) {
+        $path = $service->generatePresetAudioTrack($p);
+        $results[$p] = [
+            'path' => $path,
+            'exists' => file_exists($path),
+            'size' => file_exists($path) ? filesize($path) : 0,
+        ];
+    }
+
+    return response()->json([
+        'status' => 'ok',
+        'presets' => $results,
+    ]);
+})->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+
 Route::match(['get', 'post'], '/admin/stream-stop/{id}', function (int $id) {
     $stream = \App\Models\LiveStream::findOrFail($id);
     $service = app(\App\Services\LiveStream\LiveStreamService::class);
