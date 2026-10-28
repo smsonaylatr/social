@@ -15,6 +15,7 @@ class LiveStream extends Model
     protected $fillable = [
         'workspace_id',
         'brand_id',
+        'target_platform',
         'title',
         'description',
         'source_type',
@@ -38,6 +39,10 @@ class LiveStream extends Model
         'instagram_account_id',
         'instagram_rtmp_url',
         'instagram_stream_key',
+        'tiktok_enabled',
+        'tiktok_account_id',
+        'tiktok_rtmp_url',
+        'tiktok_stream_key',
         'custom_rtmp_enabled',
         'custom_rtmp_name',
         'custom_rtmp_url',
@@ -61,6 +66,7 @@ class LiveStream extends Model
         'mute_original_audio' => 'boolean',
         'youtube_enabled' => 'boolean',
         'instagram_enabled' => 'boolean',
+        'tiktok_enabled' => 'boolean',
         'custom_rtmp_enabled' => 'boolean',
         'process_pid' => 'integer',
         'total_videos_count' => 'integer',
@@ -105,6 +111,11 @@ class LiveStream extends Model
     public function instagramAccount(): BelongsTo
     {
         return $this->belongsTo(SocialAccount::class, 'instagram_account_id');
+    }
+
+    public function tiktokAccount(): BelongsTo
+    {
+        return $this->belongsTo(SocialAccount::class, 'tiktok_account_id');
     }
 
     /**
@@ -229,6 +240,12 @@ class LiveStream extends Model
             $baseUrl = rtrim(trim((string) ($this->instagram_rtmp_url ?: 'rtmps://edgetee-upload-iad.xx.fbcdn.net:443/rtmp')), '/');
             $key = ltrim(trim((string) $this->instagram_stream_key), '/');
             $endpoints['instagram'] = "{$baseUrl}/{$key}";
+        }
+
+        if ($this->tiktok_enabled && ! empty(trim((string) $this->tiktok_stream_key))) {
+            $baseUrl = rtrim(trim((string) ($this->tiktok_rtmp_url ?: 'rtmp://live-push.tiktok.com/live/')), '/');
+            $key = ltrim(trim((string) $this->tiktok_stream_key), '/');
+            $endpoints['tiktok'] = "{$baseUrl}/{$key}";
         }
 
         if ($this->custom_rtmp_enabled && ! empty(trim((string) $this->custom_rtmp_url))) {

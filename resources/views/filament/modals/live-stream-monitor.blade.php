@@ -77,6 +77,11 @@
                     📸 Instagram Live ({{ !empty($stream->instagram_stream_key) ? 'Anahtar Tanımlı' : 'Anahtar Eksik!' }})
                 </span>
             @endif
+            @if($stream->tiktok_enabled)
+                <span class="px-2.5 py-1 rounded-md bg-cyan-600/20 border border-cyan-500/40 text-cyan-300 text-xs font-medium">
+                    🎵 TikTok Live ({{ !empty($stream->tiktok_stream_key) ? 'Anahtar Tanımlı' : 'Anahtar Eksik!' }})
+                </span>
+            @endif
             @if($stream->custom_rtmp_enabled)
                 <span class="px-2.5 py-1 rounded-md bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 text-xs font-medium">
                     🌐 Özel RTMP ({{ $stream->custom_rtmp_name ?: 'Ek Platform' }})

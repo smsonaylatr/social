@@ -12,11 +12,11 @@ use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Support\Enums\MaxWidth;
@@ -24,6 +24,7 @@ use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\TextColumn\TextColumnSize;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\HtmlString;
 
@@ -34,7 +35,7 @@ class LiveStreamResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-signal';
     protected static ?string $navigationGroup = 'Yayın ve Otomasyon';
     protected static ?string $navigationLabel = '7/24 Canlı Yayın (Band)';
-    protected static ?string $modelLabel = 'Canlı Yayın (Band)';
+    protected static ?string $modelLabel = 'Canlı Yayın Kanalı';
     protected static ?string $pluralModelLabel = '7/24 Canlı Yayın Stüdyosu (Band Kaydı)';
     protected static ?int $navigationSort = 3;
 
@@ -61,17 +62,63 @@ class LiveStreamResource extends Resource
     {
         return $form
             ->schema([
-                Section::make('🎬 Band Kaydı & Video Havuzu Ayarları')
-                    ->description('Video havuzundaki videoları bir TV kanalı gibi arka arkaya birleştirip 7/24 kesintisiz canlı yayına dönüştürür.')
+                Section::make('🎯 Canlı Yayın Platformu ve Kanal Türü')
+                    ->description('Her platform için bağımsız, platforma özel optimize edilmiş 7/24 canlı yayın kanalı oluşturabilir veya çoklu yayın (Simulcast) seçebilirsiniz.')
                     ->schema([
-                        TextInput::make('title')
-                            ->label('Canlı Yayın Başlığı')
-                            ->default('7/24 Kesintisiz Band Yayını (YouTube & Instagram)')
-                            ->placeholder('Örn: 7/24 Patenli Ayakkabılar Canlı Yayını')
+                        Select::make('target_platform')
+                            ->label('Hedef Sosyal Medya Platformu')
+                            ->options([
+                                'youtube' => '🔴 YouTube 7/24 Canlı Yayın (Shorts & Standart)',
+                                'instagram' => '📸 Instagram 7/24 Canlı Yayın (Live Producer)',
+                                'tiktok' => '🎵 TikTok 7/24 Canlı Yayın (Live Studio / RTMP)',
+                                'multi' => '🌐 Çoklu Platform (Aynı Anda Eşzamanlı Simulcast)',
+                            ])
+                            ->default('youtube')
+                            ->live()
                             ->required()
-                            ->maxLength(255)
-                            ->columnSpanFull(),
+                            ->afterStateUpdated(function (string $state, Set $set, Get $get) {
+                                $currentTitle = $get('title');
+                                if (empty($currentTitle) || str_contains($currentTitle, '7/24')) {
+                                    $set('title', match ($state) {
+                                        'youtube' => '🔴 YouTube 7/24 Kesintisiz Band Yayını',
+                                        'instagram' => '📸 Instagram 7/24 Dikey Band Yayını',
+                                        'tiktok' => '🎵 TikTok 7/24 Canlı Yayın Akışı',
+                                        default => '🌐 7/24 Çoklu Platform Band Yayını (Simulcast)',
+                                    });
+                                }
 
+                                if ($state === 'youtube') {
+                                    $set('youtube_enabled', true);
+                                    $set('instagram_enabled', false);
+                                    $set('tiktok_enabled', false);
+                                } elseif ($state === 'instagram') {
+                                    $set('youtube_enabled', false);
+                                    $set('instagram_enabled', true);
+                                    $set('tiktok_enabled', false);
+                                    $set('resolution_mode', 'vertical_1080p');
+                                } elseif ($state === 'tiktok') {
+                                    $set('youtube_enabled', false);
+                                    $set('instagram_enabled', false);
+                                    $set('tiktok_enabled', true);
+                                    $set('resolution_mode', 'vertical_1080p');
+                                } else {
+                                    $set('youtube_enabled', true);
+                                    $set('instagram_enabled', true);
+                                    $set('tiktok_enabled', true);
+                                }
+                            }),
+
+                        TextInput::make('title')
+                            ->label('Yayın Kanalı Adı')
+                            ->default('🔴 YouTube 7/24 Kesintisiz Band Yayını')
+                            ->placeholder('Örn: YouTube 7/24 Patenli Ayakkabılar Canlı Yayını')
+                            ->required()
+                            ->maxLength(255),
+                    ])->columns(2),
+
+                Section::make('🎬 Video Havuzu & Band Kaydı Kaynak Ayarları')
+                    ->description('Canlı yayına basılacak videoların kaynağını, oynatma sırasını ve filtrelerini belirleyin.')
+                    ->schema([
                         Grid::make(3)
                             ->schema([
                                 Select::make('source_type')
@@ -90,7 +137,7 @@ class LiveStreamResource extends Resource
                                     ->options([
                                         'sequential' => '🔢 Sıralı (1. Video, 2. Video...)',
                                         'reverse' => '🆕 En Yeni Videodan Başla',
-                                        'shuffle' => '🔀 Karışık (Rastgele Döngü)',
+                                        'shuffle' => '🔀 Karışık (Rastgele TV Döngüsü)',
                                     ])
                                     ->default('sequential')
                                     ->required(),
@@ -99,8 +146,8 @@ class LiveStreamResource extends Resource
                                     ->label('Video Format Filtresi')
                                     ->options([
                                         'all' => '🌟 Tüm Videolar (Otomatik Ölçekle)',
-                                        '9:16' => '📱 Sadece 9:16 Dikey Videolar',
-                                        '16:9' => '🖥️ Sadece 16:9 Yatay Videolar',
+                                        '9:16' => '📱 Sadece 9:16 Dikey Videolar (Reels/Shorts)',
+                                        '16:9' => '🖥️ Sadece 16:9 Yatay Videolar (Yatay YouTube)',
                                     ])
                                     ->default('all')
                                     ->required(),
@@ -129,11 +176,11 @@ class LiveStreamResource extends Resource
                         Grid::make(3)
                             ->schema([
                                 Select::make('resolution_mode')
-                                    ->label('Yayın Çıkış Çözünürlüğü & Yönü')
+                                    ->label('Yayın Çıkış Formatı & Çözünürlük')
                                     ->options([
-                                        'vertical_1080p' => '📱 9:16 Dikey 1080p (IG Live & YT Shorts Canlı)',
-                                        'vertical_720p' => '📱 9:16 Dikey 720p (Düşük CPU / Akıcı)',
-                                        'horizontal_1080p' => '🖥️ 16:9 Yatay 1080p (YouTube TV Yayını)',
+                                        'vertical_1080p' => '📱 9:16 Dikey 1080p (IG Live, TikTok & YT Shorts Canlı)',
+                                        'vertical_720p' => '📱 9:16 Dikey 720p (Düşük CPU / Hızlı Akış)',
+                                        'horizontal_1080p' => '🖥️ 16:9 Yatay 1080p (Standart YouTube TV Yayını)',
                                         'horizontal_720p' => '🖥️ 16:9 Yatay 720p (Standart HD)',
                                         'copy' => '⚡ Doğrudan Aktarım (Encode Yok / Ultra Düşük CPU)',
                                     ])
@@ -141,7 +188,7 @@ class LiveStreamResource extends Resource
                                     ->required(),
 
                                 Select::make('bitrate_kbps')
-                                    ->label('Video Bitrate (Kalite / Hız)')
+                                    ->label('Video Bitrate (Kalite / Bant Genişliği)')
                                     ->options([
                                         1500 => '1500 kbps (Düşük Bant Genişliği)',
                                         2500 => '2500 kbps (Önerilen — Stabil 7/24)',
@@ -181,13 +228,16 @@ class LiveStreamResource extends Resource
                             ]),
                     ]),
 
-                Section::make('🔴 YouTube Canlı Yayın Hedefi (RTMP / OAuth)')
-                    ->description('YouTube Studio -> Canlı Yayın ekranındaki Yayın Anahtarını (Stream Key) girebilir veya bağlı YouTube hesabınızdan otomatik oluşturabilirsiniz.')
+                // 🔴 1. YOUTUBE CANLI YAYIN AYARLARI
+                Section::make('🔴 YouTube Canlı Yayın Ayarları & Bağlantısı')
+                    ->description('YouTube Studio Canlı Yayın RTMP bilgileri veya bağlı Google OAuth hesabı ile otomatik yayın.')
+                    ->visible(fn (Get $get): bool => in_array($get('target_platform'), ['youtube', 'multi'], true))
                     ->schema([
                         Toggle::make('youtube_enabled')
                             ->label('YouTube Canlı Yayınını Etkinleştir')
                             ->default(true)
-                            ->live(),
+                            ->live()
+                            ->visible(fn (Get $get): bool => $get('target_platform') === 'multi'),
 
                         Grid::make(2)
                             ->schema([
@@ -202,9 +252,9 @@ class LiveStreamResource extends Resource
                                     ->password()
                                     ->revealable()
                                     ->placeholder('Örn: xxxx-xxxx-xxxx-xxxx-xxxx')
-                                    ->helperText('YouTube Studio > Canlı Yayın > Yayın Anahtarı alanından kopyalayın veya tablodaki "Otomatik Anahtar Al" butonunu kullanın.'),
-                            ])
-                            ->visible(fn (Get $get): bool => (bool) $get('youtube_enabled')),
+                                    ->helperText('YouTube Studio > Canlı Yayın > Yayın Anahtarı alanından kopyalayın veya aşağıdaki butondan otomatik oluşturun.')
+                                    ->required(fn (Get $get): bool => $get('target_platform') === 'youtube' || (bool) $get('youtube_enabled')),
+                            ]),
 
                         Select::make('youtube_account_id')
                             ->label('Bağlı YouTube Kanalı (API ile Otomatik Yayın Oluşturmak İçin - İsteğe Bağlı)')
@@ -214,17 +264,31 @@ class LiveStreamResource extends Resource
                                 ->mapWithKeys(fn ($a) => [$a->id => "▶️ {$a->name} (@{$a->username})"])
                                 ->toArray())
                             ->placeholder('Manuel RTMP Anahtarı kullanıyorsanız boş bırakabilirsiniz')
-                            ->visible(fn (Get $get): bool => (bool) $get('youtube_enabled'))
+                            ->columnSpanFull(),
+
+                        Placeholder::make('yt_guide')
+                            ->hiddenLabel()
+                            ->content(new HtmlString('
+                                <div class="p-3 rounded-lg border border-red-500/30 bg-red-950/20 text-xs text-red-200 leading-relaxed">
+                                    <strong class="block text-red-400 mb-1">💡 YouTube Canlı Yayın İpuçları:</strong>
+                                    • <strong>Dikey (Shorts) Canlı Yayın:</strong> Formatı <strong>9:16 Dikey (1080p)</strong> seçtiğinizde yayınınız YouTube mobil uygulamasında Shorts akışında doğrudan canlı yayın olarak öne çıkarılır!<br>
+                                    • <strong>Yatay TV Yayını:</strong> Klasik YouTube yayını için formatı <strong>16:9 Yatay (1080p)</strong> olarak ayarlayabilirsiniz.<br>
+                                    • Tablodaki <strong>🔑 Otomatik Anahtar Al</strong> butonuna basarak bağlı YouTube kanalınızdan otomatik yayın oturumu ve anahtarı türetebilirsiniz.
+                                </div>
+                            '))
                             ->columnSpanFull(),
                     ]),
 
-                Section::make('🟣 Instagram Canlı Yayın Hedefi (Instagram Live Producer RTMPS)')
-                    ->description('Bilgisayardan / Sunucudan Instagram Canlı Yayını yapmak için Instagram Live Producer RTMPS bilgilerini girin.')
+                // 📸 2. INSTAGRAM CANLI YAYIN AYARLARI
+                Section::make('📸 Instagram Canlı Yayın Ayarları (Instagram Live Producer RTMPS)')
+                    ->description('Bilgisayardan / Sunucudan Instagram hesabınızda dikey canlı yayın yapmak için Live Producer RTMPS bilgileri.')
+                    ->visible(fn (Get $get): bool => in_array($get('target_platform'), ['instagram', 'multi'], true))
                     ->schema([
                         Toggle::make('instagram_enabled')
-                            ->label('Instagram Canlı Yayınını Etkinleştir (Eşzamanlı veya Tekil)')
-                            ->default(false)
-                            ->live(),
+                            ->label('Instagram Canlı Yayınını Etkinleştir')
+                            ->default(fn (Get $get) => $get('target_platform') === 'instagram')
+                            ->live()
+                            ->visible(fn (Get $get): bool => $get('target_platform') === 'multi'),
 
                         Grid::make(2)
                             ->schema([
@@ -239,27 +303,80 @@ class LiveStreamResource extends Resource
                                     ->password()
                                     ->revealable()
                                     ->placeholder('Örn: 17954123456789012?s_bl=1&s_psm=1...')
-                                    ->required(fn (Get $get): bool => (bool) $get('instagram_enabled')),
-                            ])
-                            ->visible(fn (Get $get): bool => (bool) $get('instagram_enabled')),
+                                    ->required(fn (Get $get): bool => $get('target_platform') === 'instagram' || (bool) $get('instagram_enabled')),
+                            ]),
 
                         Placeholder::make('ig_live_guide')
                             ->hiddenLabel()
-                            ->visible(fn (Get $get): bool => (bool) $get('instagram_enabled'))
                             ->content(new HtmlString('
                                 <div class="p-3 rounded-lg border border-pink-500/30 bg-pink-950/20 text-xs text-pink-200 leading-relaxed">
                                     <strong class="block text-pink-400 mb-1">💡 Instagram Yayın Anahtarı (Stream Key) Nasıl Alınır?</strong>
-                                    1. Tarayıcıdan <strong>instagram.com</strong> adresine girin ve sol menüden <strong>+ Oluştur (Create) → Canlı Video (Live video)</strong> seçeneğine tıklayın.<br>
-                                    2. Yayın başlığını yazıp hedef kitleyi <strong>Herkese Açık (Public)</strong> seçerek ilerleyin.<br>
-                                    3. Karşınıza çıkan <strong>Yayın URL\'si (Stream URL)</strong> ve <strong>Yayın Anahtarı (Stream Key)</strong> bilgilerini yukarıdaki kutulara yapıştırıp <strong>Yayını Başlat</strong> butonuna basın.<br>
-                                    4. Görüntü Instagram ekranına düştüğünde Instagram\'daki <strong>"Canlı Yayına Geç (Go Live)"</strong> butonuna tıklayın!
+                                    1. Bilgisayardan tarayıcınızla <strong>instagram.com</strong> adresine girin.<br>
+                                    2. Sol menüdeki <strong>+ Oluştur (Create) → Canlı Video (Live video)</strong> butonuna tıklayın.<br>
+                                    3. Başlığı yazıp hedef kitleyi <strong>Herkese Açık (Public)</strong> seçin.<br>
+                                    4. Ekranda beliren <strong>Yayın URL\'si (Stream URL)</strong> ve <strong>Yayın Anahtarı (Stream Key)</strong> bilgilerini buraya yapıştırıp <strong>Yayını Başlat</strong>\'a basın.<br>
+                                    5. Video Instagram önizleme ekranına düştüğünde Instagram\'daki mavi <strong>"Canlı Yayına Geç (Go Live)"</strong> butonuna tıklayın!
                                 </div>
                             '))
                             ->columnSpanFull(),
                     ]),
 
-                Section::make('🌐 Ek Özel RTMP Hedefi (TikTok Live / Facebook Live / Restream)')
-                    ->description('Aynı anda 3. bir platforma (TikTok Live Studio, Facebook Live, Kick, Twitch vb.) yayın göndermek isterseniz açabilirsiniz.')
+                // 🎵 3. TIKTOK CANLI YAYIN AYARLARI
+                Section::make('🎵 TikTok Canlı Yayın Ayarları (TikTok Live Studio / RTMP)')
+                    ->description('TikTok hesabınızda 7/24 kesintisiz dikey canlı yayın yapmak için Live Studio / RTMP bilgileri.')
+                    ->visible(fn (Get $get): bool => in_array($get('target_platform'), ['tiktok', 'multi'], true))
+                    ->schema([
+                        Toggle::make('tiktok_enabled')
+                            ->label('TikTok Canlı Yayınını Etkinleştir')
+                            ->default(fn (Get $get) => $get('target_platform') === 'tiktok')
+                            ->live()
+                            ->visible(fn (Get $get): bool => $get('target_platform') === 'multi'),
+
+                        Grid::make(2)
+                            ->schema([
+                                TextInput::make('tiktok_rtmp_url')
+                                    ->label('TikTok RTMP Sunucu Adresi (Server URL)')
+                                    ->default('rtmp://live-push.tiktok.com/live/')
+                                    ->placeholder('rtmp://live-push.tiktok.com/live/')
+                                    ->required(fn (Get $get): bool => (bool) $get('tiktok_enabled')),
+
+                                TextInput::make('tiktok_stream_key')
+                                    ->label('TikTok Yayın Anahtarı (Stream Key)')
+                                    ->password()
+                                    ->revealable()
+                                    ->placeholder('Örn: ?trans_code=0&trans_id=...')
+                                    ->helperText('TikTok Live Center veya Live Studio uygulamasından temin edilen yayın anahtarı.')
+                                    ->required(fn (Get $get): bool => $get('target_platform') === 'tiktok' || (bool) $get('tiktok_enabled')),
+                            ]),
+
+                        Select::make('tiktok_account_id')
+                            ->label('Bağlı TikTok Hesabı (İsteğe Bağlı)')
+                            ->options(fn () => SocialAccount::with('platform')
+                                ->whereHas('platform', fn ($q) => $q->where('code', 'tiktok'))
+                                ->get()
+                                ->mapWithKeys(fn ($a) => [$a->id => "🎵 {$a->name} (@{$a->username})"])
+                                ->toArray())
+                            ->placeholder('Hesap seçimi isteğe bağlıdır')
+                            ->columnSpanFull(),
+
+                        Placeholder::make('tiktok_guide')
+                            ->hiddenLabel()
+                            ->content(new HtmlString('
+                                <div class="p-3 rounded-lg border border-cyan-500/30 bg-cyan-950/20 text-xs text-cyan-200 leading-relaxed">
+                                    <strong class="block text-cyan-400 mb-1">💡 TikTok Yayın Anahtarı (Stream Key) Nasıl Alınır?</strong>
+                                    1. Bilgisayarınızda <strong>TikTok Live Studio</strong> programını veya <strong>tiktok.com/live/creators</strong> sayfasını açın.<br>
+                                    2. <strong>Canlı Yayını Başlat</strong> ekranında <strong>"Özel RTMP / Yayın Bilgileri"</strong> seçeneğini bulun.<br>
+                                    3. Size verilen <strong>Sunucu URL\'si</strong> ve <strong>Yayın Anahtarı</strong> değerlerini yukarıdaki kutulara yapıştırın.<br>
+                                    4. SocialFlow\'dan <strong>Yayını Başlat</strong>\'a basın ve TikTok üzerinden yayınınızı canlıya geçirin!<br>
+                                    <em>Not: TikTok Live RTMP için hesabınızda canlı yayın izninin (Live Studio erişimi veya 1.000 takipçi) açık olması gerekir.</em>
+                                </div>
+                            '))
+                            ->columnSpanFull(),
+                    ]),
+
+                // 🌐 4. EK ÖZEL RTMP HEDEFİ
+                Section::make('🌐 Ek Özel RTMP Hedefi (Facebook Live / Kick / Twitch / Restream)')
+                    ->description('Aynı anda Facebook Live veya diğer platformlara da yayın göndermek isterseniz açabilirsiniz.')
                     ->collapsible()
                     ->collapsed()
                     ->schema([
@@ -272,7 +389,7 @@ class LiveStreamResource extends Resource
                             ->schema([
                                 TextInput::make('custom_rtmp_name')
                                     ->label('Platform Adı')
-                                    ->placeholder('Örn: TikTok Live / Facebook'),
+                                    ->placeholder('Örn: Facebook Live / Twitch'),
 
                                 TextInput::make('custom_rtmp_url')
                                     ->label('RTMP Sunucu URL')
@@ -315,8 +432,25 @@ class LiveStreamResource extends Resource
                         : ($record->last_error ? mb_substr($record->last_error, 0, 55) . '...' : null)
                     ),
 
+                TextColumn::make('target_platform')
+                    ->label('Platform')
+                    ->badge()
+                    ->size(TextColumnSize::ExtraSmall)
+                    ->color(fn (?string $state): string => match ($state) {
+                        'youtube' => 'danger',
+                        'instagram' => 'warning',
+                        'tiktok' => 'info',
+                        default => 'primary',
+                    })
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'youtube' => '🔴 YouTube Live',
+                        'instagram' => '📸 Instagram Live',
+                        'tiktok' => '🎵 TikTok Live',
+                        default => '🌐 Çoklu Platform',
+                    }),
+
                 TextColumn::make('title')
-                    ->label('Yayın Başlığı & Band Kaynağı')
+                    ->label('Yayın Kanalı & Band Kaynağı')
                     ->weight('bold')
                     ->searchable()
                     ->description(function (LiveStream $record): string {
@@ -336,16 +470,20 @@ class LiveStreamResource extends Resource
                     }),
 
                 TextColumn::make('targets')
-                    ->label('Hedef Platformlar')
+                    ->label('Hedefler & Anahtar Durumu')
                     ->getStateUsing(function (LiveStream $record): HtmlString {
                         $badges = [];
                         if ($record->youtube_enabled) {
                             $hasKey = ! empty(trim((string) $record->youtube_stream_key));
-                            $badges[] = '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(239,68,68,0.18);color:#fca5a5;border:1px solid rgba(239,68,68,0.35);">▶️ YouTube Live ' . ($hasKey ? '✓' : '⚠️') . '</span>';
+                            $badges[] = '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(239,68,68,0.18);color:#fca5a5;border:1px solid rgba(239,68,68,0.35);">▶️ YouTube ' . ($hasKey ? '✓' : '⚠️') . '</span>';
                         }
                         if ($record->instagram_enabled) {
                             $hasKey = ! empty(trim((string) $record->instagram_stream_key));
-                            $badges[] = '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(236,72,153,0.18);color:#f9a8d4;border:1px solid rgba(236,72,153,0.35);">📸 Instagram Live ' . ($hasKey ? '✓' : '⚠️') . '</span>';
+                            $badges[] = '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(236,72,153,0.18);color:#f9a8d4;border:1px solid rgba(236,72,153,0.35);">📸 Instagram ' . ($hasKey ? '✓' : '⚠️') . '</span>';
+                        }
+                        if ($record->tiktok_enabled) {
+                            $hasKey = ! empty(trim((string) $record->tiktok_stream_key));
+                            $badges[] = '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(6,182,212,0.18);color:#67e8f9;border:1px solid rgba(6,182,212,0.35);">🎵 TikTok ' . ($hasKey ? '✓' : '⚠️') . '</span>';
                         }
                         if ($record->custom_rtmp_enabled) {
                             $name = e($record->custom_rtmp_name ?: 'Özel RTMP');
@@ -374,6 +512,16 @@ class LiveStreamResource extends Resource
                     })
                     ->description(fn (LiveStream $record): string => "{$record->bitrate_kbps} kbps • {$record->fps} FPS"),
             ])
+            ->filters([
+                SelectFilter::make('target_platform')
+                    ->label('Platform Filtresi')
+                    ->options([
+                        'youtube' => '🔴 YouTube',
+                        'instagram' => '📸 Instagram',
+                        'tiktok' => '🎵 TikTok',
+                        'multi' => '🌐 Çoklu (Simulcast)',
+                    ]),
+            ])
             ->actions([
                 Action::make('start_stream')
                     ->label('Başlat')
@@ -384,7 +532,7 @@ class LiveStreamResource extends Resource
                     ->visible(fn (LiveStream $record): bool => $record->status !== 'running')
                     ->requiresConfirmation()
                     ->modalHeading(fn (LiveStream $record): string => "🔴 Canlı Yayını Başlat: {$record->title}")
-                    ->modalDescription('Video havuzundaki videolar birleştirilerek seçili platformlara (YouTube / Instagram) 7/24 band kaydı olarak canlı yayınlanmaya başlayacaktır.')
+                    ->modalDescription('Video havuzundaki videolar birleştirilerek seçili platforma 7/24 band kaydı olarak canlı yayınlanmaya başlayacaktır.')
                     ->modalSubmitActionLabel('Canlı Yayını Şimdi Başlat')
                     ->action(function (LiveStream $record) {
                         try {
