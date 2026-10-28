@@ -250,9 +250,10 @@ class LiveStreamService
 
         // Giriş parametreleri:
         // -nostdin arka plan sürecinin terminal stdin'e takılmasını önler.
-        // -re girişin gerçek zamanlı akmasını sağlar (30 fps = saniyede tam 30 kare).
+        // -fflags +genpts concat geçişlerinde PTS zaman damgalarının kesintisiz üretilmesini sağlar.
+        // -re YALNIZCA ana video girişine (Input #0) verilir; ikinci girişe de -re verilmesi çift saat (dual-clock) çakışmasına yol açar.
         $inputArgs = sprintf(
-            '-nostdin -re %s -f concat -safe 0 -protocol_whitelist file,crypto,data,http,https,tcp,tls -i %s',
+            '-nostdin -fflags +genpts -re %s -f concat -safe 0 -protocol_whitelist file,crypto,data,http,https,tcp,tls -i %s',
             $loopFlag,
             escapeshellarg($normalizedConcatPath)
         );
@@ -283,52 +284,65 @@ class LiveStreamService
             $inputArgs .= ' -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100';
         } elseif ($hasBgMusic && $musicFileExists) {
             $normalizedMusicPath = str_replace('\\', '/', $musicFile);
-            $inputArgs .= sprintf(' -re -stream_loop -1 -i %s', escapeshellarg($normalizedMusicPath));
+            $inputArgs .= sprintf(' -thread_queue_size 1024 -stream_loop -1 -i %s', escapeshellarg($normalizedMusicPath));
         }
 
         // Çözünürlük ve Video Filtresi
         [$targetW, $targetH, $defaultBitrate] = match ($stream->resolution_mode) {
             'vertical_1080p' => [1080, 1920, 3000],
             'horizontal_1080p' => [1920, 1080, 3500],
-            'horizontal_720p' => [1280, 720, 2500],
-            default => [720, 1280, 2500], // vertical_720p (Instagram Live Producer standardı: 2250-4000 kbps)
+            'horizontal_720p' => [1280, 720, 2250],
+            default => [720, 1280, 2000], // vertical_720p (Instagram Live Producer optimum CBR standardı: 2000-2250 kbps)
         };
 
-        $bitrate = max(2250, min(8000, (int) ($stream->bitrate_kbps ?: $defaultBitrate)));
+        $bitrate = max(1500, min(6000, (int) ($stream->bitrate_kbps ?: $defaultBitrate)));
+        if ($stream->instagram_enabled && $targetW === 720 && $bitrate > 2250) {
+            $bitrate = 2250;
+        }
 
+        // setpts=N/(fps*TB) video karelerinin zaman damgalarını döngü geçişlerinde dahi matematiksel olarak 1/fps adımına kilitler.
         $vf = sprintf(
-            'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=%d,format=yuv420p',
+            'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=%d,format=yuv420p,setpts=N/(%d*TB)',
             $targetW,
             $targetH,
             $targetW,
             $targetH,
+            $fps,
             $fps
         );
 
         // Instagram Live, TikTok ve YouTube standartlarına %100 uyumlu H.264 parametreleri:
-        // -profile:v main mobil oynatıcı uyumluluğunu garantiler.
-        // -flags +cgop ve sabit GOP (2 sn) HLS paketleyici segmentasyonunu kusursuz yapar ("Yüklemede sorun yaşıyoruz" hatasını önler).
+        // -preset veryfast + cabac=1 + sliced-threads=0 gerçek Main Profile ve tek dilimli (Single-Slice) NAL üretir.
+        // (-preset ultrafast ve -tune zerolatency Constrained Baseline ve 6 parçalı multi-slice ürettiği için Meta HLS paketleyicisini düşürür).
+        // -x264-params ile bframes=0, sabit GOP (keyint=min-keyint=60) ve nal-hrd=cbr donanım uyumluluğunu garantiler.
+        $x264Params = sprintf(
+            'sliced-threads=0:cabac=1:bframes=0:keyint=%d:min-keyint=%d:no-scenecut=1:nal-hrd=cbr:force-cfr=1',
+            $gop,
+            $gop
+        );
+
         $videoCodecArgs = sprintf(
-            '-c:v libx264 -profile:v main -preset ultrafast -tune zerolatency -threads 0 -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -flags +cgop -pix_fmt yuv420p',
+            '-c:v libx264 -profile:v main -level 3.1 -preset veryfast -threads 4 -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -flags +cgop -x264-params %s -pix_fmt yuv420p',
             $bitrate,
             $bitrate,
             $bitrate,
             $bitrate * 2,
             $gop,
-            $gop
+            $gop,
+            escapeshellarg($x264Params)
         );
 
-        $audioCodecArgs = '-c:a aac -b:a 128k -ar 44100 -ac 2';
+        $audioCodecArgs = '-c:a aac -profile:a aac_low -b:a 128k -ar 44100 -ac 2';
         $filterAndMapArgs = '';
 
         if ($audioMode === 'mix_bg_music' && $musicFileExists) {
             // Mikser Modu: Orijinal Ses + Fon Müziği
-            // Girdi formatı mono/stereo veya 8kHz/48kHz olsa dahi kesin olarak 44.1kHz Stereo'ya normalize edilir.
+            // asetpts=NB_CONSUMED_SAMPLES/SR/TB örnek (sample) bazlı kesintisiz zaman damgası üretir.
             $origVol = max(0.0, min(1.0, ($stream->original_audio_volume ?? 100) / 100));
             $bgVol = max(0.05, min(1.0, ($stream->bg_music_volume ?? 30) / 100));
 
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100,volume=%.2f[a0];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100,volume=%.2f[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2,aformat=sample_rates=44100:channel_layouts=stereo[aout]',
+                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,asetpts=NB_CONSUMED_SAMPLES/SR/TB,volume=%.2f[a0];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,asetpts=NB_CONSUMED_SAMPLES/SR/TB,volume=%.2f[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=2,aformat=sample_rates=44100:channel_layouts=stereo,asetpts=NB_CONSUMED_SAMPLES/SR/TB[aout]',
                 $vf,
                 $origVol,
                 $bgVol
@@ -340,11 +354,11 @@ class LiveStreamService
             );
         } elseif ($audioMode === 'replace_bg_music' && $musicFileExists) {
             // Telif Koruması Modu: Orijinal Sesi Kapat, Yalnızca Telifsiz Fon Müziği Çal
-            // Video havuzundaki sesleri tamamen yok sayar, aformat ile sürekli tekdüze artan DTS sağlar.
+            // asetpts=NB_CONSUMED_SAMPLES/SR/TB MP3 sonsuz döngüsünde dahi sıfır kayma ile kesintisiz PTS sağlar.
             $bgVol = max(0.05, min(1.5, ($stream->bg_music_volume ?? 100) / 100));
 
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100,volume=%.2f[aout]',
+                '[0:v]%s[vout];[1:a]aformat=sample_rates=44100:channel_layouts=stereo,asetpts=NB_CONSUMED_SAMPLES/SR/TB,volume=%.2f[aout]',
                 $vf,
                 $bgVol
             );
@@ -363,7 +377,7 @@ class LiveStreamService
         } else {
             // Orijinal Ses Modu
             $filterComplex = sprintf(
-                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,aresample=44100[aout]',
+                '[0:v]%s[vout];[0:a]aformat=sample_rates=44100:channel_layouts=stereo,asetpts=NB_CONSUMED_SAMPLES/SR/TB[aout]',
                 $vf
             );
             $filterAndMapArgs = sprintf(
@@ -373,18 +387,19 @@ class LiveStreamService
         }
 
         // Çıkış (Tekil RTMP veya Eşzamanlı Çoklu Platform Tee Muxer)
+        // Not: Canlı RTMPS soketlerinde veri kaydırma (seeking) yapılamayacağı için +add_keyframe_index KULLANILMAMALIDIR.
         $endpointValues = array_values($endpoints);
 
         if (count($endpointValues) === 1) {
             $targetUrl = $endpointValues[0];
             $outputArgs = sprintf(
-                '-max_muxing_queue_size 4096 -f flv -flvflags no_duration_filesize+add_keyframe_index %s',
+                '-max_muxing_queue_size 4096 -f flv -flvflags no_duration_filesize %s',
                 escapeshellarg($targetUrl)
             );
         } else {
             // Simulcast (Aynı anda YouTube, Instagram, TikTok)
             $teeTargets = array_map(function (string $url) {
-                return '[f=flv:flvflags=no_duration_filesize+add_keyframe_index:onfail=ignore]' . $url;
+                return '[f=flv:flvflags=no_duration_filesize:onfail=ignore]' . $url;
             }, $endpointValues);
 
             $teeString = implode('|', $teeTargets);
@@ -1112,14 +1127,27 @@ class LiveStreamService
         $shContent = "#!/bin/bash\n"
             . "STOP_FILE=" . escapeshellarg($stopFile) . "\n"
             . "LOG_FILE=" . escapeshellarg($logFile) . "\n"
-            . "rm -f \"\$STOP_FILE\"\n\n"
+            . "rm -f \"\$STOP_FILE\"\n"
+            . "FAIL_COUNT=0\n\n"
             . "while [ ! -f \"\$STOP_FILE\" ]; do\n"
+            . "    START_TS=\$(date +%s)\n"
             . "    echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] [RUNNER] FFmpeg canli yayin sureci baslatiliyor...\" >> \"\$LOG_FILE\"\n"
             . "    " . $command . " >> \"\$LOG_FILE\" 2>&1\n"
             . "    EXIT_CODE=\$?\n"
-            . "    echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] [RUNNER] FFmpeg sonlandi (kod: \$EXIT_CODE).\" >> \"\$LOG_FILE\"\n"
+            . "    END_TS=\$(date +%s)\n"
+            . "    RUN_DURATION=\$((END_TS - START_TS))\n"
+            . "    echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] [RUNNER] FFmpeg sonlandi (kod: \$EXIT_CODE, sure: \${RUN_DURATION}sn).\" >> \"\$LOG_FILE\"\n"
             . "    if [ -f \"\$STOP_FILE\" ]; then\n"
             . "        break\n"
+            . "    fi\n"
+            . "    if [ \"\$RUN_DURATION\" -lt 8 ]; then\n"
+            . "        FAIL_COUNT=\$((FAIL_COUNT + 1))\n"
+            . "        if [ \"\$FAIL_COUNT\" -ge 5 ]; then\n"
+            . "            echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] [RUNNER] Hedef platform RTMP anahtarini ust uste 5 kez reddetti (yayin suresi dolmus veya sonlandirilmis). Otomatik tekrar durduruldu.\" >> \"\$LOG_FILE\"\n"
+            . "            break\n"
+            . "        fi\n"
+            . "    else\n"
+            . "        FAIL_COUNT=0\n"
             . "    fi\n"
             . "    echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] [RUNNER] 2 saniye icinde otomatik yeniden baglaniliyor...\" >> \"\$LOG_FILE\"\n"
             . "    sleep 2\n"

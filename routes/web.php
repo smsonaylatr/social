@@ -193,7 +193,7 @@ Route::match(['get', 'post'], '/admin/stream-optimize/{id}', function (int $id) 
         'instagram_rtmp_url' => 'rtmps://live-upload.instagram.com:443/rtmp/',
         'resolution_mode' => 'vertical_720p',
         'fps' => 30,
-        'bitrate_kbps' => 2500,
+        'bitrate_kbps' => 2000,
         'audio_mode' => 'replace_bg_music',
         'bg_music_source' => $stream->bg_music_source ?: 'preset',
         'bg_music_preset' => $stream->bg_music_preset ?: 'lofi_chill',
@@ -205,12 +205,19 @@ Route::match(['get', 'post'], '/admin/stream-optimize/{id}', function (int $id) 
     $normResults = $service->preNormalizeStreamVideos($stream);
     $cmd = $service->buildFfmpegCommand($stream);
 
+    // 4 saniyelik gerçek kodlama doğrulaması (-t 4 -f flv /dev/null)
+    $dryRunCmd = preg_replace('/-f\s+flv\s+-flvflags\s+\S+\s+\S+$/', '-t 4 -f flv -flvflags no_duration_filesize /dev/null 2>&1', $cmd);
+    $dryRunOut = $dryRunCmd ? (string) @shell_exec($dryRunCmd) : '';
+    $dryRunOut = str_replace("\r", "\n", $dryRunOut);
+    $dryRunLines = array_values(array_filter(explode("\n", $dryRunOut), fn ($l) => trim($l) !== ''));
+
     return response()->json([
         'status' => 'ok',
-        'message' => "Canlı yayın #{$id} ({$stream->title}) 720p 30fps CFR standartlarına optimize edildi ve havuz videoları kesintisiz oynatma için normalize edildi.",
+        'message' => "Canlı yayın #{$id} ({$stream->title}) 720p 30fps Single-Slice Main Profile CBR standartlarına optimize edildi.",
         'stream' => $stream->fresh(),
         'ffmpeg_command' => $cmd,
-        'normalized_videos' => $normResults,
+        'dry_run_lines' => array_slice($dryRunLines, -35),
+        'normalized_videos_count' => count($normResults),
     ]);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
