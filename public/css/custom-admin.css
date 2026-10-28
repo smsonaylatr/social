@@ -4230,6 +4230,43 @@ aside.fi-sidebar *::-webkit-scrollbar,
     }
 }
 
+/* ==========================================================================
+   Live Streams & Admin Tables - No Horizontal Scroll / Perfect Auto-Fit
+   ========================================================================== */
+@media (min-width: 1024px) {
+    /* Auto fit tables within screen width */
+    .fi-ta-table {
+        width: 100% !important;
+        table-layout: auto !important;
+    }
+
+    /* Allow cells and descriptions to wrap naturally so table never overflows */
+    .fi-ta-cell .fi-ta-text-item {
+        max-width: 100% !important;
+    }
+
+    .fi-ta-cell .fi-ta-text-item-label,
+    .fi-ta-cell .fi-ta-text-item-description {
+        white-space: normal !important;
+        word-break: break-word !important;
+    }
+
+    /* Actions column neatly aligned without taking unnecessary space */
+    .fi-ta-actions-cell {
+        white-space: nowrap !important;
+        width: 1% !important;
+    }
+
+    .fi-ta-actions-cell .fi-ta-actions {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        flex-wrap: nowrap !important;
+        gap: 0.25rem !important;
+    }
+}
+
+
 
 
 

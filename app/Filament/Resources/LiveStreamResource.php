@@ -414,6 +414,7 @@ class LiveStreamResource extends Resource
                 TextColumn::make('status')
                     ->label('Durum')
                     ->badge()
+                    ->grow(false)
                     ->color(fn (LiveStream $record): string => match ($record->status) {
                         'running' => 'success',
                         'starting', 'restarting' => 'warning',
@@ -421,20 +422,22 @@ class LiveStreamResource extends Resource
                         default => 'gray',
                     })
                     ->formatStateUsing(fn (LiveStream $record): string => match ($record->status) {
-                        'running' => '🟢 CANLI YAYINDA',
-                        'starting' => '⏳ BAŞLATILIYOR',
-                        'restarting' => '🔄 YENİDEN BAŞLIYOR',
-                        'error' => '⚠️ HATA',
-                        default => '⏹️ DURDURULDU',
+                        'running' => '🟢 Canlı',
+                        'starting' => '⏳ Başlatılıyor',
+                        'restarting' => '🔄 Yeniden',
+                        'error' => '⚠️ Hata',
+                        default => '⏹️ Durduruldu',
                     })
                     ->description(fn (LiveStream $record): ?string => $record->status === 'running' && $record->process_pid
-                        ? "PID: {$record->process_pid} • Süre: {$record->uptime_formatted}"
-                        : ($record->last_error ? mb_substr($record->last_error, 0, 55) . '...' : null)
-                    ),
+                        ? "PID: {$record->process_pid} • {$record->uptime_formatted}"
+                        : ($record->last_error ? mb_substr($record->last_error, 0, 36) . '...' : null)
+                    )
+                    ->wrap(),
 
                 TextColumn::make('target_platform')
                     ->label('Platform')
                     ->badge()
+                    ->grow(false)
                     ->size(TextColumnSize::ExtraSmall)
                     ->color(fn (?string $state): string => match ($state) {
                         'youtube' => 'danger',
@@ -447,70 +450,54 @@ class LiveStreamResource extends Resource
                         'instagram' => '📸 Instagram Live',
                         'tiktok' => '🎵 TikTok Live',
                         default => '🌐 Çoklu Platform',
-                    }),
-
-                TextColumn::make('title')
-                    ->label('Yayın Kanalı & Band Kaynağı')
-                    ->weight('bold')
-                    ->searchable()
-                    ->description(function (LiveStream $record): string {
-                        $sourceLabel = match ($record->source_type) {
-                            'playlist' => '📋 Oynatma Listesi',
-                            'custom' => '🎯 Seçili Videolar',
-                            default => '🎬 Tüm Video Havuzu',
-                        };
-                        $orderLabel = match ($record->play_order) {
-                            'shuffle' => 'Karışık',
-                            'reverse' => 'En Yeniden',
-                            default => 'Sıralı (1, 2, 3...)',
-                        };
-                        $videosCount = $record->getEligibleVideos()->count();
-
-                        return "{$sourceLabel} • {$videosCount} Video ({$record->formatted_loop_duration}) • {$orderLabel}";
-                    }),
+                    })
+                    ->description(fn (LiveStream $record): string => "🎬 {$record->getEligibleVideos()->count()} Video ({$record->formatted_loop_duration})"),
 
                 TextColumn::make('targets')
-                    ->label('Hedefler & Anahtar Durumu')
+                    ->label('Hedefler')
+                    ->wrap()
                     ->getStateUsing(function (LiveStream $record): HtmlString {
                         $badges = [];
                         if ($record->youtube_enabled) {
                             $hasKey = ! empty(trim((string) $record->youtube_stream_key));
-                            $badges[] = '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(239,68,68,0.18);color:#fca5a5;border:1px solid rgba(239,68,68,0.35);">▶️ YouTube ' . ($hasKey ? '✓' : '⚠️') . '</span>';
+                            $badges[] = '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:10.5px;font-weight:600;background:rgba(239,68,68,0.18);color:#fca5a5;border:1px solid rgba(239,68,68,0.35);white-space:nowrap;">▶️ YT ' . ($hasKey ? '✓' : '⚠️') . '</span>';
                         }
                         if ($record->instagram_enabled) {
                             $hasKey = ! empty(trim((string) $record->instagram_stream_key));
-                            $badges[] = '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(236,72,153,0.18);color:#f9a8d4;border:1px solid rgba(236,72,153,0.35);">📸 Instagram ' . ($hasKey ? '✓' : '⚠️') . '</span>';
+                            $badges[] = '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:10.5px;font-weight:600;background:rgba(236,72,153,0.18);color:#f9a8d4;border:1px solid rgba(236,72,153,0.35);white-space:nowrap;">📸 IG ' . ($hasKey ? '✓' : '⚠️') . '</span>';
                         }
                         if ($record->tiktok_enabled) {
                             $hasKey = ! empty(trim((string) $record->tiktok_stream_key));
-                            $badges[] = '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(6,182,212,0.18);color:#67e8f9;border:1px solid rgba(6,182,212,0.35);">🎵 TikTok ' . ($hasKey ? '✓' : '⚠️') . '</span>';
+                            $badges[] = '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:10.5px;font-weight:600;background:rgba(6,182,212,0.18);color:#67e8f9;border:1px solid rgba(6,182,212,0.35);white-space:nowrap;">🎵 TikTok ' . ($hasKey ? '✓' : '⚠️') . '</span>';
                         }
                         if ($record->custom_rtmp_enabled) {
                             $name = e($record->custom_rtmp_name ?: 'Özel RTMP');
-                            $badges[] = '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(99,102,241,0.18);color:#c7d2fe;border:1px solid rgba(99,102,241,0.35);">🌐 ' . $name . '</span>';
+                            $badges[] = '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:10.5px;font-weight:600;background:rgba(99,102,241,0.18);color:#c7d2fe;border:1px solid rgba(99,102,241,0.35);white-space:nowrap;">🌐 ' . $name . '</span>';
                         }
 
                         if (empty($badges)) {
                             return new HtmlString('<span class="text-xs text-gray-500">Hedef seçilmedi</span>');
                         }
 
-                        return new HtmlString('<div class="flex flex-wrap gap-1.5">' . implode('', $badges) . '</div>');
+                        return new HtmlString('<div class="flex flex-wrap gap-1">' . implode('', $badges) . '</div>');
                     }),
 
                 TextColumn::make('resolution_mode')
-                    ->label('Format & Kalite')
+                    ->label('Format')
+                    ->grow(false)
                     ->badge()
                     ->size(TextColumnSize::ExtraSmall)
                     ->color('info')
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
-                        'vertical_1080p' => '📱 9:16 Dikey (1080p)',
-                        'vertical_720p' => '📱 9:16 Dikey (720p)',
-                        'horizontal_1080p' => '🖥️ 16:9 Yatay (1080p)',
-                        'horizontal_720p' => '🖥️ 16:9 Yatay (720p)',
-                        'copy' => '⚡ Doğrudan (Copy)',
+                        'vertical_1080p' => '9:16 (1080p)',
+                        'vertical_720p' => '9:16 (720p)',
+                        'horizontal_1080p' => '16:9 (1080p)',
+                        'horizontal_720p' => '16:9 (720p)',
+                        'copy' => '⚡ Copy',
                         default => (string) $state,
                     })
-                    ->description(fn (LiveStream $record): string => "{$record->bitrate_kbps} kbps • {$record->fps} FPS"),
+                    ->description(fn (LiveStream $record): string => "{$record->bitrate_kbps}k • {$record->fps}fps")
+                    ->wrap(),
             ])
             ->filters([
                 SelectFilter::make('target_platform')
@@ -528,7 +515,7 @@ class LiveStreamResource extends Resource
                     ->icon('heroicon-o-play')
                     ->color('success')
                     ->button()
-                    ->size('sm')
+                    ->size('xs')
                     ->visible(fn (LiveStream $record): bool => $record->status !== 'running')
                     ->requiresConfirmation()
                     ->modalHeading(fn (LiveStream $record): string => "🔴 Canlı Yayını Başlat: {$record->title}")
@@ -558,7 +545,7 @@ class LiveStreamResource extends Resource
                     ->icon('heroicon-o-stop')
                     ->color('danger')
                     ->button()
-                    ->size('sm')
+                    ->size('xs')
                     ->visible(fn (LiveStream $record): bool => $record->status === 'running')
                     ->requiresConfirmation()
                     ->modalHeading('⏹️ Canlı Yayını Durdur')
@@ -572,59 +559,8 @@ class LiveStreamResource extends Resource
                             ->send();
                     }),
 
-                Action::make('restart_stream')
-                    ->label('Yeniden Başlat')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('warning')
-                    ->iconButton()
-                    ->tooltip('Video Listesini Güncelle ve Yayını Yeniden Başlat')
-                    ->visible(fn (LiveStream $record): bool => $record->status === 'running')
-                    ->action(function (LiveStream $record) {
-                        try {
-                            $service = app(LiveStreamService::class);
-                            $service->stopStream($record);
-                            usleep(300000);
-                            $service->startStream($record);
-                            Notification::make()
-                                ->title('Yayın ve Video Havuzu Listesi Yenilendi')
-                                ->success()
-                                ->send();
-                        } catch (\Throwable $e) {
-                            Notification::make()
-                                ->title('Yeniden Başlatma Hatası')
-                                ->body($e->getMessage())
-                                ->danger()
-                                ->send();
-                        }
-                    }),
-
-                Action::make('provision_youtube')
-                    ->label('YouTube Otomatik Anahtar Al')
-                    ->icon('heroicon-o-key')
-                    ->color('info')
-                    ->iconButton()
-                    ->tooltip('Bağlı YouTube Kanalından Otomatik Canlı Yayın & Anahtar Oluştur')
-                    ->visible(fn (LiveStream $record): bool => (bool) $record->youtube_enabled)
-                    ->action(function (LiveStream $record) {
-                        try {
-                            $res = app(LiveStreamService::class)->provisionYouTubeLiveStream($record);
-                            Notification::make()
-                                ->title('YouTube Canlı Yayın Anahtarı Hazır! 🔑')
-                                ->body('Yayın Anahtarı (Stream Key) otomatik olarak tanımlandı. Artık "Başlat" butonuna basabilirsiniz.')
-                                ->success()
-                                ->send();
-                        } catch (\Throwable $e) {
-                            Notification::make()
-                                ->title('YouTube API Bilgilendirmesi')
-                                ->body($e->getMessage())
-                                ->warning()
-                                ->persistent()
-                                ->send();
-                        }
-                    }),
-
                 Action::make('monitor')
-                    ->label('Canlı Monitör')
+                    ->label('Monitör')
                     ->icon('heroicon-o-computer-desktop')
                     ->color('gray')
                     ->iconButton()
@@ -639,13 +575,63 @@ class LiveStreamResource extends Resource
                     ->iconButton()
                     ->tooltip('Yayın Ayarlarını & Anahtarları Düzenle'),
 
-                Tables\Actions\DeleteAction::make()
-                    ->iconButton()
-                    ->before(function (LiveStream $record) {
-                        if ($record->status === 'running') {
-                            app(LiveStreamService::class)->stopStream($record);
-                        }
-                    }),
+                Tables\Actions\ActionGroup::make([
+                    Action::make('restart_stream')
+                        ->label('Yeniden Başlat')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('warning')
+                        ->visible(fn (LiveStream $record): bool => $record->status === 'running')
+                        ->action(function (LiveStream $record) {
+                            try {
+                                $service = app(LiveStreamService::class);
+                                $service->stopStream($record);
+                                usleep(300000);
+                                $service->startStream($record);
+                                Notification::make()
+                                    ->title('Yayın ve Video Havuzu Listesi Yenilendi')
+                                    ->success()
+                                    ->send();
+                            } catch (\Throwable $e) {
+                                Notification::make()
+                                    ->title('Yeniden Başlatma Hatası')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
+                        }),
+
+                    Action::make('provision_youtube')
+                        ->label('YouTube Otomatik Anahtar Al')
+                        ->icon('heroicon-o-key')
+                        ->color('info')
+                        ->visible(fn (LiveStream $record): bool => (bool) $record->youtube_enabled)
+                        ->action(function (LiveStream $record) {
+                            try {
+                                $res = app(LiveStreamService::class)->provisionYouTubeLiveStream($record);
+                                Notification::make()
+                                    ->title('YouTube Canlı Yayın Anahtarı Hazır! 🔑')
+                                    ->body('Yayın Anahtarı (Stream Key) otomatik olarak tanımlandı. Artık "Başlat" butonuna basabilirsiniz.')
+                                    ->success()
+                                    ->send();
+                            } catch (\Throwable $e) {
+                                Notification::make()
+                                    ->title('YouTube API Bilgilendirmesi')
+                                    ->body($e->getMessage())
+                                    ->warning()
+                                    ->persistent()
+                                    ->send();
+                            }
+                        }),
+
+                    Tables\Actions\DeleteAction::make()
+                        ->before(function (LiveStream $record) {
+                            if ($record->status === 'running') {
+                                app(LiveStreamService::class)->stopStream($record);
+                            }
+                        }),
+                ])
+                ->icon('heroicon-m-ellipsis-vertical')
+                ->tooltip('Diğer İşlemler'),
             ]);
     }
 
