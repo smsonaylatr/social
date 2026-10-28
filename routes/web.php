@@ -113,6 +113,8 @@ Route::match(['get', 'post'], '/admin/stream-status-check', function () {
     $service = app(\App\Services\LiveStream\LiveStreamService::class);
     $data = [];
 
+    $ffprobe = app(\App\Services\Media\VideoProcessingService::class)->resolveBinary('ffprobe');
+
     foreach ($streams as $stream) {
         $logFile = $service->getLogFilePath($stream);
         $playlistFile = storage_path("app/live-streams/stream_{$stream->id}_playlist.txt");
@@ -120,12 +122,34 @@ Route::match(['get', 'post'], '/admin/stream-status-check', function () {
 
         $logTail = '';
         if (file_exists($logFile)) {
-            $logTail = $service->getRecentLogs($stream, 50);
+            $logTail = $service->getRecentLogs($stream, 60);
         }
 
         $playlistContent = '';
+        $playlistItems = [];
         if (file_exists($playlistFile)) {
             $playlistContent = file_get_contents($playlistFile);
+            $lines = explode("\n", $playlistContent);
+            foreach ($lines as $line) {
+                if (preg_match("/file\s+'([^']+)'/", $line, $m)) {
+                    $filePath = $m[1];
+                    $info = [
+                        'file' => basename($filePath),
+                        'exists' => file_exists($filePath),
+                        'size' => file_exists($filePath) ? filesize($filePath) : 0,
+                    ];
+                    if ($ffprobe && file_exists($filePath)) {
+                        $cmd = sprintf(
+                            '%s -v error -show_entries format=duration:stream=codec_type,duration,r_frame_rate -of json %s 2>&1',
+                            escapeshellcmd($ffprobe),
+                            escapeshellarg($filePath)
+                        );
+                        $probeJson = @shell_exec($cmd);
+                        $info['probe'] = $probeJson ? json_decode($probeJson, true) : null;
+                    }
+                    $playlistItems[] = $info;
+                }
+            }
         }
 
         $data[] = [
@@ -137,7 +161,7 @@ Route::match(['get', 'post'], '/admin/stream-status-check', function () {
             'is_running' => $isRunning,
             'last_error' => $stream->last_error,
             'playlist_exists' => file_exists($playlistFile),
-            'playlist_sample' => substr($playlistContent, 0, 500),
+            'playlist_items' => $playlistItems,
             'log_tail' => $logTail,
         ];
     }
