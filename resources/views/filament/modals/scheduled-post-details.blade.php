@@ -3,8 +3,12 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800 gap-2">
         <div>
             <h3 class="font-bold text-sm text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <span>{{ $post->video?->title ?? 'İsimsiz Video' }}</span>
-                @if($post->playlist)
+                <span>{{ $post->post_type === 'text' ? '📝 Metin Gönderisi (Videosuz)' . ($post->video?->title ? ' - ' . $post->video->title : '') : ($post->video?->title ?? 'İsimsiz Video') }}</span>
+                @if($post->post_type === 'text')
+                    <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300">
+                        Metin Formatı
+                    </span>
+                @elseif($post->playlist)
                     <span class="text-[11px] font-normal px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                         {{ $post->playlist->name }}
                     </span>

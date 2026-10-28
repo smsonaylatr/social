@@ -508,7 +508,7 @@ class ScheduleResource extends Resource
                     }),
 
                 TextColumn::make('next_video')
-                    ->label('Sıradaki Video')
+                    ->label('Sıradaki Video / İçerik')
                     ->badge()
                     ->color(fn (Schedule $record): string => $record->post_type === 'text' ? 'gray' : 'warning')
                     ->size(TextColumnSize::ExtraSmall)
@@ -610,7 +610,17 @@ class ScheduleResource extends Resource
                     ->action(function (Schedule $record) {
                         $record->update(['is_active' => true]);
                         $post = app(\App\Services\Automation\AutomationOrchestratorService::class)->runSchedule($record);
+                        $isText = ($record->post_type === 'text');
+
                         if ($post) {
+                            foreach ($post->targets as $target) {
+                                $target->update([
+                                    'status' => \App\Enums\PublishStatus::QUEUED,
+                                    'scheduled_at' => now(),
+                                ]);
+                                \App\Jobs\DispatchPlatformPostJob::dispatch($target->id);
+                            }
+
                             try {
                                 \Illuminate\Support\Facades\Artisan::call('queue:work', [
                                     '--stop-when-empty' => true,
@@ -625,8 +635,11 @@ class ScheduleResource extends Resource
 
                             if ($publishedCount > 0) {
                                 \Filament\Notifications\Notification::make()
-                                    ->title('Video Başarıyla Paylaşıldı! 🚀')
-                                    ->body("Video: '{$post->video?->title}' ({$publishedCount} kanala yüklendi)")
+                                    ->title($isText ? 'Metin Gönderisi Başarıyla Paylaşıldı! ✨' : 'Video Başarıyla Paylaşıldı! 🚀')
+                                    ->body($isText 
+                                        ? "Yapay zeka açıklaması {$publishedCount} kanala videosuz metin olarak yayınlandı."
+                                        : "Video: '{$post->video?->title}' ({$publishedCount} kanala yüklendi)"
+                                    )
                                     ->success()
                                     ->duration(8000)
                                     ->send();
@@ -640,15 +653,21 @@ class ScheduleResource extends Resource
                                     ->send();
                             } else {
                                 \Filament\Notifications\Notification::make()
-                                    ->title('Sıradaki Video Kuyruğa Alındı')
-                                    ->body("Seçilen video: {$post->video?->title}")
+                                    ->title($isText ? 'Metin Gönderisi Kuyruğa Alındı 📝' : 'Sıradaki Video Kuyruğa Alındı')
+                                    ->body($isText 
+                                        ? 'Yapay zeka açıklaması ve bağlantı hazırlandı, videosuz olarak yayınlanıyor.'
+                                        : "Seçilen video: {$post->video?->title}"
+                                    )
                                     ->info()
                                     ->send();
                             }
                         } else {
                             \Filament\Notifications\Notification::make()
                                 ->title('Paylaşım Başlatılamadı')
-                                ->body('Uygun video bulunamadı veya bu kuralda hedef sosyal medya hesabı seçilmemiş.')
+                                ->body($isText 
+                                    ? 'Bu kuralda hedef sosyal medya hesabı seçilmemiş veya içerik üretilemedi.'
+                                    : 'Uygun video bulunamadı veya bu kuralda hedef sosyal medya hesabı seçilmemiş.'
+                                )
                                 ->warning()
                                 ->send();
                         }

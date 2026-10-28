@@ -127,17 +127,37 @@ class ScheduledPostResource extends Resource
                     ->view('filament.tables.columns.scheduled-post-preview')
                     ->grow(false)
                     ->action(
-                        Action::make('preview_video_modal')
-                            ->modalHeading(fn (ScheduledPost $record) => $record->video?->title ?? 'Video Önizleme')
-                            ->modalWidth(MaxWidth::Small)
-                            ->modalContent(fn (ScheduledPost $record) => view('filament.modals.video-player-modal', ['video' => $record->video]))
+                        Action::make('preview_modal')
+                            ->modalHeading(fn (ScheduledPost $record) => $record->post_type === 'text' ? '📝 Metin Gönderisi Detayları' : ($record->video?->title ?? 'Video Önizleme'))
+                            ->modalWidth(fn (ScheduledPost $record) => $record->post_type === 'text' ? MaxWidth::ThreeExtraLarge : MaxWidth::Small)
+                            ->modalContent(fn (ScheduledPost $record) => $record->post_type === 'text'
+                                ? view('filament.modals.scheduled-post-details', ['post' => $record])
+                                : view('filament.modals.video-player-modal', ['video' => $record->video])
+                            )
                     ),
 
+                TextColumn::make('post_type')
+                    ->label('Tür')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'text' => '📝 Metin',
+                        default => '🎬 Video',
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        'text' => 'info',
+                        default => 'warning',
+                    })
+                    ->sortable(),
+
                 TextColumn::make('video.title')
-                    ->label('Video')
+                    ->label('İçerik')
                     ->searchable()
                     ->wrap()
                     ->weight('bold')
+                    ->getStateUsing(fn (ScheduledPost $record): string => $record->post_type === 'text'
+                        ? '📝 Metin Gönderisi' . ($record->video?->title ? ' (' . $record->video->title . ')' : '')
+                        : ($record->video?->title ?? '—')
+                    )
                     ->description(fn (ScheduledPost $record): string => ($record->playlist?->name ? $record->playlist->name . ' • ' : '') . $record->scheduled_at->diffForHumans()),
 
                 TextColumn::make('caption')
@@ -183,9 +203,9 @@ class ScheduledPostResource extends Resource
                     ->badge()
                     ->visibleFrom('sm')
                     ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'x' => '𝕏 X (Metin)',
-                        'linkedin' => '💼 LinkedIn (Metin)',
-                        'facebook' => '👥 Facebook (Metin)',
+                        'x' => '𝕏 X',
+                        'linkedin' => '💼 LinkedIn',
+                        'facebook' => '👥 Facebook',
                         'instagram' => '📸 Instagram',
                         'youtube' => '▶️ YouTube',
                         'tiktok' => '🎵 TikTok',
@@ -411,8 +431,8 @@ class ScheduledPostResource extends Resource
 
                         if ($publishedCount > 0) {
                             Notification::make()
-                                ->title('Gönderi Paylaşıldı! 🚀')
-                                ->body("{$publishedCount} kanala başarıyla yüklendi.")
+                                ->title($record->post_type === 'text' ? 'Metin Gönderisi Paylaşıldı! ✨' : 'Video Gönderisi Paylaşıldı! 🚀')
+                                ->body("{$publishedCount} kanala başarıyla yayınlandı.")
                                 ->success()
                                 ->duration(8000)
                                 ->send();
@@ -426,8 +446,8 @@ class ScheduledPostResource extends Resource
                                 ->send();
                         } else {
                             Notification::make()
-                                ->title('Yayın görevi yürütülüyor')
-                                ->body('Hedefler kuyruğa alındı ve işleniyor.')
+                                ->title($record->post_type === 'text' ? 'Metin Gönderisi İşleniyor 📝' : 'Yayın Görevi Yürütülüyor')
+                                ->body('Hedefler kuyruğa alındı ve arka planda işleniyor.')
                                 ->info()
                                 ->send();
                         }
@@ -439,7 +459,7 @@ class ScheduledPostResource extends Resource
                     ->iconButton()
                     ->size('sm')
                     ->tooltip('Detayları & Açıklamayı Gör')
-                    ->modalHeading(fn (ScheduledPost $record) => ($record->video?->title ?? 'Gönderi') . ' - Paylaşım ve Açıklama Detayları')
+                    ->modalHeading(fn (ScheduledPost $record) => ($record->post_type === 'text' ? '📝 Metin Gönderisi' : ($record->video?->title ?? 'Gönderi')) . ' - Paylaşım ve Açıklama Detayları')
                     ->modalWidth(MaxWidth::ThreeExtraLarge)
                     ->modalContent(fn (ScheduledPost $record) => view('filament.modals.scheduled-post-details', ['post' => $record])),
 
@@ -449,7 +469,7 @@ class ScheduledPostResource extends Resource
                     ->iconButton()
                     ->size('sm')
                     ->color('warning')
-                    ->tooltip('Bu videodaki başarısız hedefleri (örn: YouTube) yeniden kuyruğa alır.')
+                    ->tooltip('Bu gönderideki başarısız hedefleri yeniden kuyruğa alır.')
                     ->visible(fn (ScheduledPost $record): bool => $record->targets()->where('status', PublishStatus::FAILED)->exists())
                     ->requiresConfirmation()
                     ->modalHeading('Başarısız Hedefleri Yeniden Kuyruğa Al')
