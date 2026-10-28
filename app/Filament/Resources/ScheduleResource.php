@@ -510,13 +510,19 @@ class ScheduleResource extends Resource
                 TextColumn::make('next_video')
                     ->label('Sıradaki Video')
                     ->badge()
-                    ->color('warning')
+                    ->color(fn (Schedule $record): string => $record->post_type === 'text' ? 'gray' : 'warning')
                     ->size(TextColumnSize::ExtraSmall)
                     ->getStateUsing(function (Schedule $record): string {
+                        if ($record->post_type === 'text') {
+                            return '— (Metin)';
+                        }
                         $next = $record->getNextVideo();
                         return $next ? "🎬 {$next->title}" : '—';
                     })
                     ->description(function (Schedule $record): ?string {
+                        if ($record->post_type === 'text') {
+                            return 'Videosuz AI Gönderi';
+                        }
                         if ($record->last_video_id) {
                             $last = $record->lastVideo;
                             return $last ? "Son: {$last->title}" : null;
@@ -542,6 +548,7 @@ class ScheduleResource extends Resource
                     ->iconButton()
                     ->size('sm')
                     ->color('info')
+                    ->visible(fn (Schedule $record): bool => $record->post_type !== 'text')
                     ->tooltip('Bu Platform İçin Sıradaki Videoyu Değiştir / Başa Sar')
                     ->modalHeading(fn (Schedule $record) => "{$record->name} — Sıradaki Videoyu Belirle")
                     ->modalDescription('Bu platformun bağımsız video paylaşım sırasında sıradaki videoyu belirleyin veya 1. videodan baştan başlatın.')
@@ -592,11 +599,14 @@ class ScheduleResource extends Resource
                     ->icon('heroicon-o-play')
                     ->iconButton()
                     ->size('sm')
-                    ->tooltip('Sıradaki Videoyu Şimdi Paylaş')
+                    ->tooltip(fn (Schedule $record): string => $record->post_type === 'text' ? 'Metin Gönderisini Şimdi Paylaş' : 'Sıradaki Videoyu Şimdi Paylaş')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->modalHeading('Sıradaki Videoyu Şimdi Paylaş')
-                    ->modalDescription('Video havuzundan sıradaki video seçilecek ve seçili tüm sosyal medya kanallarına anında yüklenecektir. Devam edilsin mi?')
+                    ->modalHeading(fn (Schedule $record): string => $record->post_type === 'text' ? 'Metin Gönderisini Şimdi Paylaş' : 'Sıradaki Videoyu Şimdi Paylaş')
+                    ->modalDescription(fn (Schedule $record): string => $record->post_type === 'text'
+                        ? 'Yapay zeka tarafından üretilen açıklama ve SEO ürün bağlantısı, seçili hesaplara videosuz metin gönderisi olarak anında paylaşılacaktır. Devam edilsin mi?'
+                        : 'Video havuzundan sıradaki video seçilecek ve seçili tüm sosyal medya kanallarına anında yüklenecektir. Devam edilsin mi?'
+                    )
                     ->action(function (Schedule $record) {
                         $record->update(['is_active' => true]);
                         $post = app(\App\Services\Automation\AutomationOrchestratorService::class)->runSchedule($record);
