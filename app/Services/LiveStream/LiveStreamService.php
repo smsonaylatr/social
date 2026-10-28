@@ -364,9 +364,13 @@ class LiveStreamService
         $endpointValues = array_values($endpoints);
 
         if (count($endpointValues) === 1) {
+            $targetUrl = $endpointValues[0];
+            // Meta (Instagram / Facebook) RTMPS bağlantılarında sunucu SSL el sıkışmasını (TLS fatal alert) önle
+            $tlsFlag = str_starts_with($targetUrl, 'rtmps://') ? '-tls_verify 0 ' : '';
             $outputArgs = sprintf(
-                '-max_muxing_queue_size 4096 -f flv -flvflags no_duration_filesize %s',
-                escapeshellarg($endpointValues[0])
+                '-max_muxing_queue_size 4096 -f flv -flvflags no_duration_filesize %s%s',
+                $tlsFlag,
+                escapeshellarg($targetUrl)
             );
         } else {
             // Simulcast (Aynı anda YouTube, Instagram, TikTok)
