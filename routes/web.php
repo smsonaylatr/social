@@ -99,14 +99,14 @@ Route::match(['get', 'post'], '/admin/ffmpeg-check', function () {
         'has_apt' => !empty($aptCheck),
         'has_sudo' => !empty($sudoCheck),
     ]);
-});
+})->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
 Route::match(['get', 'post'], '/admin/ffmpeg-install', function () {
     @set_time_limit(180);
     $result = app(\App\Services\LiveStream\LiveStreamService::class)->autoInstallFfmpeg();
 
     return response()->json($result);
-});
+})->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
 Route::match(['get', 'post'], '/admin/requeue-failed', function () {
     $service = app(\App\Services\Publisher\SchedulingService::class);
