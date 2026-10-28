@@ -102,8 +102,9 @@ Route::match(['get', 'post'], '/admin/ffmpeg-check', function () {
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
 Route::match(['get', 'post'], '/admin/ffmpeg-install', function () {
-    @set_time_limit(180);
-    $result = app(\App\Services\LiveStream\LiveStreamService::class)->autoInstallFfmpeg();
+    @set_time_limit(300);
+    $force = request()->boolean('force', true);
+    $result = app(\App\Services\LiveStream\LiveStreamService::class)->autoInstallFfmpeg($force);
 
     return response()->json($result);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);

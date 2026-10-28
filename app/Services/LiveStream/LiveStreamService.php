@@ -57,7 +57,7 @@ class LiveStreamService
      * Sunucuda (özellikle Linux VPS / cPanel / Plesk) kurulu FFmpeg yoksa
      * bağımsız x86_64 statik ikiliyi (binary) storage/app/bin altına otomatik indirip kurar.
      */
-    public function autoInstallFfmpeg(): array
+    public function autoInstallFfmpeg(bool $force = false): array
     {
         $binDir = storage_path('app/bin');
         if (! is_dir($binDir)) {
@@ -68,19 +68,34 @@ class LiveStreamService
         $ffprobeDest = $binDir . '/ffprobe';
 
         if (PHP_OS_FAMILY === 'Linux') {
-            $urls = [
-                'ffmpeg' => [
-                    'https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1/ffmpeg-linux-x64',
-                    'https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-linux-64.zip',
-                ],
-                'ffprobe' => [
-                    'https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1/ffprobe-linux-x64',
-                    'https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffprobe-6.1-linux-64.zip',
-                ],
-            ];
+            // Modern BtbN Build (Linux x86_64, OpenSSL 3.x, modern TLS 1.3 desteği)
+            // Meta (Instagram / Facebook) RTMPS bağlantılarındaki TLS fatal alert sorununu kökten çözer.
+            $btbnUrl = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz';
+            $archiveFile = $binDir . '/ffmpeg-btbn.tar.xz';
 
-            // 1. FFmpeg İndir
+            if ($force || ! file_exists($ffmpegDest) || filesize($ffmpegDest) < 10000000) {
+                @shell_exec("curl -sL --connect-timeout 30 --max-time 180 {$btbnUrl} -o {$archiveFile} && tar -xJf {$archiveFile} --wildcards --strip-components=2 -C {$binDir} '*/bin/ffmpeg' '*/bin/ffprobe' && chmod 755 {$ffmpegDest} {$ffprobeDest} && rm -f {$archiveFile} 2>&1");
+
+                if (! file_exists($ffmpegDest) || filesize($ffmpegDest) < 5000000) {
+                    @shell_exec("cd {$binDir} && curl -sL --connect-timeout 30 --max-time 180 {$btbnUrl} | tar -xJ --strip-components=2 2>&1");
+                    @chmod($ffmpegDest, 0755);
+                    @chmod($ffprobeDest, 0755);
+                }
+            }
+
             if (! file_exists($ffmpegDest) || filesize($ffmpegDest) < 1000000) {
+                $urls = [
+                    'ffmpeg' => [
+                        'https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1/ffmpeg-linux-x64',
+                        'https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-linux-64.zip',
+                    ],
+                    'ffprobe' => [
+                        'https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1/ffprobe-linux-x64',
+                        'https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffprobe-6.1-linux-64.zip',
+                    ],
+                ];
+
+                // 1. FFmpeg İndir
                 $downloaded = false;
                 try {
                     $ctx = stream_context_create([
@@ -115,21 +130,21 @@ class LiveStreamService
                         @unlink($zipPath);
                     }
                 }
-            }
 
-            // 2. FFprobe İndir
-            if (! file_exists($ffprobeDest) || filesize($ffprobeDest) < 1000000) {
-                try {
-                    $ctx = stream_context_create([
-                        'http' => ['follow_location' => 1, 'timeout' => 90],
-                        'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
-                    ]);
-                    $probeContent = @file_get_contents($urls['ffprobe'][0], false, $ctx);
-                    if ($probeContent && strlen($probeContent) > 3000000) {
-                        file_put_contents($ffprobeDest, $probeContent);
-                        @chmod($ffprobeDest, 0755);
-                    }
-                } catch (\Throwable) {}
+                // 2. FFprobe İndir
+                if (! file_exists($ffprobeDest) || filesize($ffprobeDest) < 1000000) {
+                    try {
+                        $ctx = stream_context_create([
+                            'http' => ['follow_location' => 1, 'timeout' => 90],
+                            'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
+                        ]);
+                        $probeContent = @file_get_contents($urls['ffprobe'][0], false, $ctx);
+                        if ($probeContent && strlen($probeContent) > 3000000) {
+                            file_put_contents($ffprobeDest, $probeContent);
+                            @chmod($ffprobeDest, 0755);
+                        }
+                    } catch (\Throwable) {}
+                }
             }
         }
 
