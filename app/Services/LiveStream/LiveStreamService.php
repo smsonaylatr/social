@@ -870,11 +870,13 @@ class LiveStreamService
         };
 
         if ($this->isFfmpegAvailable()) {
+            $codec = str_ends_with(strtolower($targetPath), '.mp3') ? '-c:a libmp3lame -b:a 192k' : '-c:a aac -b:a 192k';
             $cmd = sprintf(
-                '%s -nostdin -y -f lavfi -i %s -af %s -t 60 -c:a aac -b:a 192k -ar 44100 -ac 2 %s 2>&1',
+                '%s -nostdin -y -f lavfi -i %s -af %s -t 60 %s -ar 44100 -ac 2 %s 2>&1',
                 escapeshellcmd($this->ffmpegPath),
                 escapeshellarg("aevalsrc={$synthExpr}:s=44100"),
                 escapeshellarg($afFilter),
+                $codec,
                 escapeshellarg($targetPath)
             );
             @shell_exec($cmd);
