@@ -45,10 +45,19 @@ class ScheduledPostResource extends Resource
         return $form
             ->schema([
                 Select::make('video_id')
-                    ->label('Yayınlanacak Video')
+                    ->label('Kaynak Video (Açıklama ve SEO bu videodan üretilir)')
                     ->relationship('video', 'title')
                     ->searchable()
                     ->preload()
+                    ->required(),
+
+                Select::make('post_type')
+                    ->label('Paylaşım Formatı')
+                    ->options([
+                        'video' => '🎬 Video Gönderisi (MP4 Dosyası ile)',
+                        'text' => '📝 Metin Gönderisi (Videosuz - AI Açıklama, Link & Hashtag)',
+                    ])
+                    ->default('video')
                     ->required(),
 
                 DateTimePicker::make('scheduled_at')

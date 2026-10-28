@@ -24,9 +24,10 @@ class FacebookPublisher extends AbstractSocialPublisher
         $caption = $this->buildFullCaption($target);
         $videoUrl = $video->url;
 
-        // Facebook Metin Postu Modu: Varsayılan olarak yapay zekanın ürettiği açıklama videosuz doğrudan sayfa gönderisi olarak paylaşılır
-        $postMode = Setting::get('partner_facebook_post_mode', Setting::get('social_facebook_text_only_mode', 'text'));
-        $isTextOnly = in_array($postMode, ['text', 'text_only', true, '1', 1], true);
+        // Otomasyon kuralında / hedefte belirlenen format (Öncelikli) veya kanal ayarı
+        $isTextOnly = $target->post_type === 'text'
+            || $target->scheduledPost?->post_type === 'text'
+            || (Setting::get('partner_facebook_post_mode') === 'text');
 
         if ($this->isSandboxToken($token)) {
             $postId = 'fb_post_' . uniqid();

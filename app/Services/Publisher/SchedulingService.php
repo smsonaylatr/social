@@ -28,13 +28,18 @@ class SchedulingService
         ?int $playlistId = null,
         ?int $scheduleId = null,
         ?int $campaignId = null,
-        bool $useAlgorithmicTiming = false
+        bool $useAlgorithmicTiming = false,
+        ?string $postType = null
     ): ScheduledPost {
-        return DB::transaction(function () use ($video, $scheduledAt, $socialAccountIds, $playlistId, $scheduleId, $campaignId, $useAlgorithmicTiming) {
+        return DB::transaction(function () use ($video, $scheduledAt, $socialAccountIds, $playlistId, $scheduleId, $campaignId, $useAlgorithmicTiming, $postType) {
+            $schedule = $scheduleId ? \App\Models\Schedule::find($scheduleId) : null;
+            $effectivePostType = $postType ?: ($schedule?->post_type ?? 'video');
+
             $scheduledPost = ScheduledPost::create([
                 'workspace_id' => $video->workspace_id,
                 'brand_id' => $video->brand_id,
                 'video_id' => $video->id,
+                'post_type' => $effectivePostType,
                 'playlist_id' => $playlistId,
                 'schedule_id' => $scheduleId,
                 'campaign_id' => $campaignId,
@@ -47,7 +52,6 @@ class SchedulingService
                 ->get();
 
             // Algoritmik Keşfet ve Anti-Spam zamanlama kontrolü
-            $schedule = $scheduleId ? \App\Models\Schedule::find($scheduleId) : null;
             $isAlgo = ($schedule && $schedule->schedule_type === 'algorithmic_growth') || $useAlgorithmicTiming;
 
             /** @var \App\Services\Scheduling\AlgorithmicGrowthSchedulerService $algoService */
@@ -127,6 +131,7 @@ class SchedulingService
                     'scheduled_post_id' => $scheduledPost->id,
                     'social_account_id' => $account->id,
                     'platform_code' => $platformCode,
+                    'post_type' => $effectivePostType,
                     'scheduled_at' => $targetScheduledAt,
                     'correlation_id' => $correlationId,
                     'idempotency_key' => $idempotencyKey,

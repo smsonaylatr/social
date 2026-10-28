@@ -46,9 +46,10 @@ class XPublisher extends AbstractSocialPublisher
 
         $caption = $this->safeTruncate($fullText, 280);
 
-        // X Metin Postu Modu: Varsayılan olarak yapay zekanın ürettiği metin videosuz doğrudan tweet olarak paylaşılır
-        $postMode = Setting::get('partner_x_post_mode', Setting::get('social_x_text_only_mode', 'text'));
-        $isTextOnly = in_array($postMode, ['text', 'text_only', true, '1', 1], true);
+        // Otomasyon kuralında / hedefte belirlenen format (Öncelikli) veya kanal ayarı
+        $isTextOnly = $target->post_type === 'text'
+            || $target->scheduledPost?->post_type === 'text'
+            || (Setting::get('partner_x_post_mode') === 'text');
 
         if ($this->isSandboxToken($token)) {
             $tweetId = '178' . rand(10000000000000, 99999999999999);

@@ -19,6 +19,7 @@ class Schedule extends Model
         'campaign_id',
         'name',
         'schedule_type',
+        'post_type',
         'growth_strategy',
         'anti_spam_shield',
         'enable_smart_jitter',

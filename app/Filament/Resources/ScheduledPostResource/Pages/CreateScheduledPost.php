@@ -25,6 +25,7 @@ class CreateScheduledPost extends CreateRecord
             video: $video,
             scheduledAt: $scheduledAt,
             socialAccountIds: $socialAccountIds,
+            postType: $data['post_type'] ?? 'video',
         );
     }
 }

@@ -16,6 +16,7 @@ class ScheduledPostTarget extends Model
         'scheduled_post_id',
         'social_account_id',
         'platform_code',
+        'post_type',
         'scheduled_at',
         'correlation_id',
         'idempotency_key',

@@ -87,6 +87,16 @@ class ScheduleResource extends Resource
                             ->live()
                             ->required(),
 
+                        Select::make('post_type')
+                            ->label('Paylaşım Formatı (İçerik Türü)')
+                            ->options([
+                                'video' => '🎬 Video Gönderisi (MP4 Video Dosyası ile)',
+                                'text' => '📝 Metin Gönderisi (Videosuz Paylaşım - AI Açıklama, Link & Hashtag)',
+                            ])
+                            ->default('video')
+                            ->helperText('Mevcut kurallar video olarak çalışır. Yeni otomasyonda Metin seçerseniz X, LinkedIn ve Facebook paylaşımları videosuz doğrudan metin olarak yayınlanır.')
+                            ->required(),
+
                         // 0. Algoritmik Keşfet ve Büyüme Modu Alanları
                         Section::make('🚀 Algoritmik Keşfet & Anti-Spam Kalkanı')
                             ->description('Sosyal ağların bot algoritmalarını aşarak organik izlenmeyi ve keşfete çıkmayı maksimize eden akıllı zamanlayıcı.')
@@ -467,6 +477,19 @@ class ScheduleResource extends Resource
 
                         $separator = ' <span style="color: #64748b; opacity: 0.6;">•</span> ';
                         return new HtmlString(implode($separator, $renderedTimes));
+                    }),
+
+                TextColumn::make('post_type')
+                    ->label('Format')
+                    ->badge()
+                    ->size(TextColumnSize::ExtraSmall)
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'text' => '📝 Metin (Videosuz)',
+                        default => '🎬 Video',
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        'text' => 'info',
+                        default => 'gray',
                     }),
 
                 TextColumn::make('next_video')

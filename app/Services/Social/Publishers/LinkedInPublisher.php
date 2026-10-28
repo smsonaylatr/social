@@ -22,9 +22,10 @@ class LinkedInPublisher extends AbstractSocialPublisher
 
         $token = $this->getAccessToken($account);
 
-        // LinkedIn Metin Postu Modu: Varsayılan olarak yapay zekanın ürettiği açıklama videosuz doğrudan metin gönderisi olarak paylaşılır
-        $postMode = Setting::get('partner_linkedin_post_mode', Setting::get('social_linkedin_text_only_mode', 'text'));
-        $isTextOnly = in_array($postMode, ['text', 'text_only', true, '1', 1], true);
+        // Otomasyon kuralında / hedefte belirlenen format (Öncelikli) veya kanal ayarı
+        $isTextOnly = $target->post_type === 'text'
+            || $target->scheduledPost?->post_type === 'text'
+            || (Setting::get('partner_linkedin_post_mode') === 'text');
 
         if ($this->isSandboxToken($token)) {
             $urn = 'urn:li:share:' . rand(7000000000000000000, 7999999999999999999);

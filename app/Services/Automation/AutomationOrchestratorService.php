@@ -348,6 +348,7 @@ class AutomationOrchestratorService
                 'workspace_id' => 1,
                 'brand_id' => 1,
                 'schedule_type' => 'algorithmic_growth',
+                'post_type' => 'video',
                 'growth_strategy' => 'max_capacity',
                 'anti_spam_shield' => true,
                 'enable_smart_jitter' => true,

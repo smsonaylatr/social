@@ -16,6 +16,7 @@ class ScheduledPost extends Model
         'workspace_id',
         'brand_id',
         'video_id',
+        'post_type',
         'playlist_id',
         'schedule_id',
         'campaign_id',
