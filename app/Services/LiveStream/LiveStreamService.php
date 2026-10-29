@@ -442,57 +442,19 @@ class LiveStreamService
         }
 
         if (PHP_OS_FAMILY === 'Linux') {
-            $logFile = $this->getLogFilePath($stream);
-            $myPid = getmypid();
-
-            // 1. /proc üzerinden bu yayının log dosyasını veya playlist/runner dosyasını açık tutan tüm PID'leri bul ve sonlandır
-            $pidsToKill = [];
-            foreach (glob('/proc/[0-9]*') ?: [] as $procDir) {
-                $pid = (int) basename($procDir);
-                if ($pid <= 1 || $pid === $myPid) {
-                    continue;
-                }
-
-                $cmdline = @file_get_contents("{$procDir}/cmdline");
-                if ($cmdline !== false) {
-                    $cmdStr = str_replace("\0", ' ', $cmdline);
-                    if (
-                        str_contains($cmdStr, "runner_stream_{$id}.sh")
-                        || str_contains($cmdStr, "stream_{$id}_playlist.txt")
-                        || str_contains($cmdStr, "scale=1080:1920")
-                    ) {
-                        $pidsToKill[$pid] = $pid;
-                        continue;
-                    }
-                }
-
-                foreach (glob("{$procDir}/fd/*") ?: [] as $fdPath) {
-                    $target = @readlink($fdPath);
-                    if ($target && (
-                        str_contains($target, "stream_{$id}.log")
-                        || str_contains($target, "runner_stream_{$id}.sh")
-                        || str_contains($target, "stream_{$id}_playlist.txt")
-                    )) {
-                        $pidsToKill[$pid] = $pid;
-                        break;
-                    }
-                }
-            }
-
-            foreach ($pidsToKill as $pid) {
-                if (function_exists('posix_kill')) {
-                    @posix_kill($pid, 9);
-                }
-                @shell_exec("kill -9 {$pid} 2>/dev/null");
-            }
-
-            if (file_exists($logFile)) {
-                @shell_exec('fuser -k -9 ' . escapeshellarg($logFile) . ' 2>/dev/null');
-            }
-
-            @shell_exec("pkill -9 -f 'runner_stream_{$id}\\.sh' 2>/dev/null");
-            @shell_exec("pkill -9 -f 'stream_{$id}_playlist\\.txt' 2>/dev/null");
-            usleep(200000);
+            // /bin/sh üzerinden (open_basedir kısıtlamasına takılmadan) bu yayının log veya playlist dosyasını
+            // açık tutan tüm runner ve ffmpeg süreçlerini (yetim kalmış olanlar dahil) kesin olarak sonlandır.
+            $killScript = sprintf(
+                'for p in /proc/[0-9]*; do pid=${p#/proc/}; if ls -l "$p/fd" 2>/dev/null | grep -Eq "stream_%d\\.(log|stop)|stream_%d_playlist\\.txt|runner_stream_%d\\.sh"; then kill -9 "$pid" 2>/dev/null; elif tr "\0" " " < "$p/cmdline" 2>/dev/null | grep -Eq "runner_stream_%d\\.sh|stream_%d_playlist\\.txt|scale=1080:1920"; then kill -9 "$pid" 2>/dev/null; fi; done',
+                $id,
+                $id,
+                $id,
+                $id,
+                $id
+            );
+            @shell_exec($killScript);
+            usleep(250000);
+            @shell_exec($killScript);
         }
     }
 
