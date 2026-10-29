@@ -82,6 +82,11 @@
                     🎵 TikTok Live ({{ !empty($stream->tiktok_stream_key) ? 'Anahtar Tanımlı' : 'Anahtar Eksik!' }})
                 </span>
             @endif
+            @if($stream->facebook_enabled)
+                <span class="px-2.5 py-1 rounded-md bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-medium">
+                    📘 Facebook Live ({{ !empty($stream->facebook_stream_key) ? 'Anahtar Tanımlı' : 'Anahtar Eksik!' }})
+                </span>
+            @endif
             @if($stream->custom_rtmp_enabled)
                 <span class="px-2.5 py-1 rounded-md bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 text-xs font-medium">
                     🌐 Özel RTMP ({{ $stream->custom_rtmp_name ?: 'Ek Platform' }})

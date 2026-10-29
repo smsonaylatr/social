@@ -36,13 +36,14 @@ class ManageLiveStreams extends ManageRecords
     }
 
     /**
-     * 3 temel platform (YouTube, Instagram, TikTok) için bağımsız yayın kanallarının hazır olmasını sağlar.
+     * 4 temel platform (YouTube, Instagram, TikTok, Facebook) için bağımsız yayın kanallarının hazır olmasını sağlar.
      */
     public function ensureThreePlatformChannels(): void
     {
         $ytAccount = SocialAccount::whereHas('platform', fn ($q) => $q->where('code', 'youtube'))->first();
         $igAccount = SocialAccount::whereHas('platform', fn ($q) => $q->where('code', 'instagram'))->first();
         $ttAccount = SocialAccount::whereHas('platform', fn ($q) => $q->where('code', 'tiktok'))->first();
+        $fbAccount = SocialAccount::whereHas('platform', fn ($q) => $q->where('code', 'facebook'))->first();
         $videosCount = Video::count();
 
         // 1. YouTube Kanalı
@@ -64,6 +65,7 @@ class ManageLiveStreams extends ManageRecords
                 'youtube_rtmp_url' => 'rtmp://a.rtmp.youtube.com/live2',
                 'instagram_enabled' => false,
                 'tiktok_enabled' => false,
+                'facebook_enabled' => false,
                 'status' => 'stopped',
                 'total_videos_count' => $videosCount,
             ]);
@@ -88,6 +90,7 @@ class ManageLiveStreams extends ManageRecords
                 'instagram_account_id' => $igAccount?->id,
                 'instagram_rtmp_url' => 'rtmps://edgetee-upload-iad.xx.fbcdn.net:443/rtmp/',
                 'tiktok_enabled' => false,
+                'facebook_enabled' => false,
                 'status' => 'stopped',
                 'total_videos_count' => $videosCount,
             ]);
@@ -112,6 +115,32 @@ class ManageLiveStreams extends ManageRecords
                 'tiktok_enabled' => true,
                 'tiktok_account_id' => $ttAccount?->id,
                 'tiktok_rtmp_url' => 'rtmp://live-push.tiktok.com/live/',
+                'facebook_enabled' => false,
+                'status' => 'stopped',
+                'total_videos_count' => $videosCount,
+            ]);
+        }
+
+        // 4. Facebook Kanalı
+        if (! LiveStream::where('target_platform', 'facebook')->exists()) {
+            LiveStream::create([
+                'title' => '📘 Facebook 7/24 Canlı Yayın Akışı',
+                'description' => 'Facebook Live Producer / RTMPS üzerinden Facebook Sayfasında 7/24 kesintisiz canlı yayın akışı.',
+                'target_platform' => 'facebook',
+                'source_type' => 'pool',
+                'play_order' => 'sequential',
+                'aspect_ratio_filter' => 'all',
+                'resolution_mode' => 'vertical_1080p',
+                'bitrate_kbps' => 2500,
+                'fps' => 30,
+                'is_loop' => true,
+                'auto_restart' => true,
+                'youtube_enabled' => false,
+                'instagram_enabled' => false,
+                'tiktok_enabled' => false,
+                'facebook_enabled' => true,
+                'facebook_account_id' => $fbAccount?->id,
+                'facebook_rtmp_url' => 'rtmps://live-api-s.facebook.com:443/rtmp/',
                 'status' => 'stopped',
                 'total_videos_count' => $videosCount,
             ]);
@@ -140,6 +169,10 @@ class ManageLiveStreams extends ManageRecords
             'tiktok' => Tab::make('🎵 TikTok')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('target_platform', 'tiktok')->orWhere('tiktok_enabled', true))
                 ->badge(fn () => LiveStream::where('target_platform', 'tiktok')->orWhere('tiktok_enabled', true)->count()),
+
+            'facebook' => Tab::make('📘 Facebook')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('target_platform', 'facebook')->orWhere('facebook_enabled', true))
+                ->badge(fn () => LiveStream::where('target_platform', 'facebook')->orWhere('facebook_enabled', true)->count()),
 
             'multi' => Tab::make('🌐 Çoklu Platform')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('target_platform', 'multi'))
@@ -178,15 +211,15 @@ class ManageLiveStreams extends ManageRecords
                 }),
 
             Actions\Action::make('setup_channels')
-                ->label('⚡ 3 Platformu Otomatik Yapılandır')
+                ->label('⚡ 4 Platformu Otomatik Yapılandır')
                 ->icon('heroicon-o-sparkles')
                 ->color('warning')
-                ->tooltip('YouTube, Instagram ve TikTok için ayrı bağımsız yayın kanallarını hazırla')
+                ->tooltip('YouTube, Instagram, TikTok ve Facebook için ayrı bağımsız yayın kanallarını hazırla')
                 ->action(function () {
                     $this->ensureThreePlatformChannels();
                     Notification::make()
-                        ->title('3 Platform İçin Ayrı Yayın Kanalları Hazırlandı')
-                        ->body('🔴 YouTube, 📸 Instagram ve 🎵 TikTok için bağımsız yayın ayarları oluşturuldu.')
+                        ->title('4 Platform İçin Ayrı Yayın Kanalları Hazırlandı')
+                        ->body('🔴 YouTube, 📸 Instagram, 🎵 TikTok ve 📘 Facebook için bağımsız yayın ayarları oluşturuldu.')
                         ->success()
                         ->send();
                 }),

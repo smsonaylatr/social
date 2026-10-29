@@ -72,6 +72,7 @@ class LiveStreamResource extends Resource
                                 'youtube' => '🔴 YouTube 7/24 Canlı Yayın (Shorts & Standart)',
                                 'instagram' => '📸 Instagram 7/24 Canlı Yayın (Live Producer)',
                                 'tiktok' => '🎵 TikTok 7/24 Canlı Yayın (Live Studio / RTMP)',
+                                'facebook' => '📘 Facebook 7/24 Canlı Yayın (Facebook Live Producer / RTMPS)',
                                 'multi' => '🌐 Çoklu Platform (Aynı Anda Eşzamanlı Simulcast)',
                             ])
                             ->default('youtube')
@@ -84,6 +85,7 @@ class LiveStreamResource extends Resource
                                         'youtube' => '🔴 YouTube 7/24 Kesintisiz Band Yayını',
                                         'instagram' => '📸 Instagram 7/24 Dikey Band Yayını',
                                         'tiktok' => '🎵 TikTok 7/24 Canlı Yayın Akışı',
+                                        'facebook' => '📘 Facebook 7/24 Canlı Yayın Akışı',
                                         default => '🌐 7/24 Çoklu Platform Band Yayını (Simulcast)',
                                     });
                                 }
@@ -92,20 +94,30 @@ class LiveStreamResource extends Resource
                                     $set('youtube_enabled', true);
                                     $set('instagram_enabled', false);
                                     $set('tiktok_enabled', false);
+                                    $set('facebook_enabled', false);
                                 } elseif ($state === 'instagram') {
                                     $set('youtube_enabled', false);
                                     $set('instagram_enabled', true);
                                     $set('tiktok_enabled', false);
+                                    $set('facebook_enabled', false);
                                     $set('resolution_mode', 'vertical_1080p');
                                 } elseif ($state === 'tiktok') {
                                     $set('youtube_enabled', false);
                                     $set('instagram_enabled', false);
                                     $set('tiktok_enabled', true);
+                                    $set('facebook_enabled', false);
+                                    $set('resolution_mode', 'vertical_1080p');
+                                } elseif ($state === 'facebook') {
+                                    $set('youtube_enabled', false);
+                                    $set('instagram_enabled', false);
+                                    $set('tiktok_enabled', false);
+                                    $set('facebook_enabled', true);
                                     $set('resolution_mode', 'vertical_1080p');
                                 } else {
                                     $set('youtube_enabled', true);
                                     $set('instagram_enabled', true);
                                     $set('tiktok_enabled', true);
+                                    $set('facebook_enabled', true);
                                 }
                             }),
 
@@ -502,8 +514,73 @@ class LiveStreamResource extends Resource
                             ->columnSpanFull(),
                     ]),
 
-                // 🌐 4. EK ÖZEL RTMP HEDEFİ
-                Section::make('🌐 Ek Özel RTMP Hedefi (Facebook Live / Kick / Twitch / Restream)')
+                // 📘 4. FACEBOOK CANLI YAYIN AYARLARI
+                Section::make('📘 Facebook Canlı Yayın Ayarları (Facebook Live Producer / RTMPS)')
+                    ->description('Facebook Sayfanızda veya profilinizde 7/24 kesintisiz canlı yayın yapmak için Facebook Live Producer RTMPS bilgileri.')
+                    ->visible(fn (Get $get): bool => in_array($get('target_platform'), ['facebook', 'multi'], true))
+                    ->schema([
+                        Toggle::make('facebook_enabled')
+                            ->label('Facebook Canlı Yayınını Etkinleştir')
+                            ->default(fn (Get $get) => $get('target_platform') === 'facebook')
+                            ->live()
+                            ->visible(fn (Get $get): bool => $get('target_platform') === 'multi'),
+
+                        Grid::make(2)
+                            ->schema([
+                                TextInput::make('facebook_rtmp_url')
+                                    ->label('Facebook RTMPS Sunucu Adresi (Server URL)')
+                                    ->default('rtmps://live-api-s.facebook.com:443/rtmp/')
+                                    ->placeholder('rtmps://live-api-s.facebook.com:443/rtmp/')
+                                    ->autocomplete(false)
+                                    ->extraInputAttributes([
+                                        'data-1p-ignore' => 'true',
+                                        'data-lpignore' => 'true',
+                                        'data-form-type' => 'other',
+                                        'spellcheck' => 'false',
+                                    ])
+                                    ->required(fn (Get $get): bool => (bool) $get('facebook_enabled')),
+
+                                TextInput::make('facebook_stream_key')
+                                    ->label('Facebook Yayın Anahtarı (Stream Key)')
+                                    ->autocomplete(false)
+                                    ->extraInputAttributes([
+                                        'data-1p-ignore' => 'true',
+                                        'data-lpignore' => 'true',
+                                        'data-form-type' => 'other',
+                                        'spellcheck' => 'false',
+                                    ])
+                                    ->placeholder('Örn: FB-123456789012345-0-AbCdEfGhIjKlMnOp')
+                                    ->helperText('Facebook Live Producer (facebook.com/live/producer) ekranından kopyalayın veya bağlı Facebook Sayfanızdan otomatik oluşturun.')
+                                    ->required(fn (Get $get): bool => $get('target_platform') === 'facebook' || (bool) $get('facebook_enabled')),
+                            ]),
+
+                        Select::make('facebook_account_id')
+                            ->label('Bağlı Facebook Sayfası / Hesabı (İsteğe Bağlı)')
+                            ->options(fn () => SocialAccount::with('platform')
+                                ->whereHas('platform', fn ($q) => $q->where('code', 'facebook'))
+                                ->get()
+                                ->mapWithKeys(fn ($a) => [$a->id => "📘 {$a->name} (@{$a->username})"])
+                                ->toArray())
+                            ->placeholder('Manuel RTMPS Anahtarı kullanıyorsanız boş bırakabilirsiniz')
+                            ->columnSpanFull(),
+
+                        Placeholder::make('facebook_guide')
+                            ->hiddenLabel()
+                            ->content(new HtmlString('
+                                <div class="p-3 rounded-lg border border-blue-500/30 bg-blue-950/20 text-xs text-blue-200 leading-relaxed">
+                                    <strong class="block text-blue-400 mb-1">💡 Facebook Yayın Anahtarı (Stream Key) Nasıl Alınır?</strong>
+                                    1. Bilgisayardan tarayıcınızla <strong>facebook.com/live/producer</strong> adresine girin (veya Facebook Sayfanızda <strong>Canlı Video</strong> butonuna tıklayın).<br>
+                                    2. Video kaynağı olarak <strong>"Yayın Yazılımı (Streaming Software)"</strong> seçeneğini seçin.<br>
+                                    3. Uzun süreli kesintisiz yayın için <strong>"Kalıcı Yayın Anahtarı (Persistent Stream Key)"</strong> seçeneğini açmanız tavsiye edilir.<br>
+                                    4. Ekranda beliren <strong>Sunucu URL\'si (rtmps://live-api-s.facebook.com:443/rtmp/)</strong> ve <strong>Yayın Anahtarı (FB-...)</strong> bilgilerini buraya yapıştırıp <strong>Yayını Başlat</strong>\'a basın.<br>
+                                    5. Video Facebook önizleme ekranına düştüğünde Facebook\'taki mavi <strong>"Canlı Yayına Geç (Go Live)"</strong> butonuna tıklayın!
+                                </div>
+                            '))
+                            ->columnSpanFull(),
+                    ]),
+
+                // 🌐 5. EK ÖZEL RTMP HEDEFİ
+                Section::make('🌐 Ek Özel RTMP Hedefi (Kick / Twitch / Restream / Özel Sunucu)')
                     ->description('Aynı anda Facebook Live veya diğer platformlara da yayın göndermek isterseniz açabilirsiniz.')
                     ->collapsible()
                     ->collapsed()
@@ -584,12 +661,14 @@ class LiveStreamResource extends Resource
                         'youtube' => 'danger',
                         'instagram' => 'warning',
                         'tiktok' => 'info',
+                        'facebook' => 'primary',
                         default => 'primary',
                     })
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'youtube' => '🔴 YouTube Live',
                         'instagram' => '📸 Instagram Live',
                         'tiktok' => '🎵 TikTok Live',
+                        'facebook' => '📘 Facebook Live',
                         default => '🌐 Çoklu Platform',
                     })
                     ->description(fn (LiveStream $record): string => "🎬 {$record->getEligibleVideos()->count()} Video ({$record->formatted_loop_duration})"),
@@ -610,6 +689,10 @@ class LiveStreamResource extends Resource
                         if ($record->tiktok_enabled) {
                             $hasKey = ! empty(trim((string) $record->tiktok_stream_key));
                             $badges[] = '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:10.5px;font-weight:600;background:rgba(6,182,212,0.18);color:#67e8f9;border:1px solid rgba(6,182,212,0.35);white-space:nowrap;">🎵 TikTok ' . ($hasKey ? '✓' : '⚠️') . '</span>';
+                        }
+                        if ($record->facebook_enabled) {
+                            $hasKey = ! empty(trim((string) $record->facebook_stream_key));
+                            $badges[] = '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:10.5px;font-weight:600;background:rgba(59,130,246,0.18);color:#93c5fd;border:1px solid rgba(59,130,246,0.35);white-space:nowrap;">📘 FB ' . ($hasKey ? '✓' : '⚠️') . '</span>';
                         }
                         if ($record->custom_rtmp_enabled) {
                             $name = e($record->custom_rtmp_name ?: 'Özel RTMP');
@@ -647,6 +730,7 @@ class LiveStreamResource extends Resource
                         'youtube' => '🔴 YouTube',
                         'instagram' => '📸 Instagram',
                         'tiktok' => '🎵 TikTok',
+                        'facebook' => '📘 Facebook',
                         'multi' => '🌐 Çoklu (Simulcast)',
                     ]),
             ])
@@ -757,6 +841,29 @@ class LiveStreamResource extends Resource
                             } catch (\Throwable $e) {
                                 Notification::make()
                                     ->title('YouTube API Bilgilendirmesi')
+                                    ->body($e->getMessage())
+                                    ->warning()
+                                    ->persistent()
+                                    ->send();
+                            }
+                        }),
+
+                    Action::make('provision_facebook')
+                        ->label('Facebook Otomatik Anahtar Al')
+                        ->icon('heroicon-o-key')
+                        ->color('primary')
+                        ->visible(fn (LiveStream $record): bool => (bool) $record->facebook_enabled)
+                        ->action(function (LiveStream $record) {
+                            try {
+                                $res = app(LiveStreamService::class)->provisionFacebookLiveStream($record);
+                                Notification::make()
+                                    ->title('Facebook Canlı Yayın Anahtarı Hazır! 🔑')
+                                    ->body('Facebook RTMPS Yayın Anahtarı (Stream Key) otomatik olarak tanımlandı. Artık "Başlat" butonuna basabilirsiniz.')
+                                    ->success()
+                                    ->send();
+                            } catch (\Throwable $e) {
+                                Notification::make()
+                                    ->title('Facebook Live Bilgilendirmesi')
                                     ->body($e->getMessage())
                                     ->warning()
                                     ->persistent()

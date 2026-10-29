@@ -425,6 +425,7 @@ Route::match(['get', 'post'], '/admin/stream-status-check', function () {
             'has_yt_key' => ! empty(trim((string) $stream->youtube_stream_key)),
             'has_ig_key' => ! empty(trim((string) $stream->instagram_stream_key)),
             'has_tt_key' => ! empty(trim((string) $stream->tiktok_stream_key)),
+            'has_fb_key' => ! empty(trim((string) $stream->facebook_stream_key)),
             'last_error' => $stream->last_error,
             'playlist_exists' => file_exists($playlistFile),
             'playlist_items_count' => count($playlistItems),

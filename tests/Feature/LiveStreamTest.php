@@ -179,6 +179,54 @@ class LiveStreamTest extends TestCase
         $this->assertStringContainsString('live-push.tiktok.com/live/tt-789', $cmd);
     }
 
+    public function test_supports_facebook_live_and_four_way_simulcast(): void
+    {
+        $workspace = Workspace::create(['name' => 'Test WS', 'slug' => 'test-ws']);
+        Storage::disk('public')->put('videos/sample_fb.mp4', 'fake-mp4-data');
+
+        Video::create([
+            'workspace_id' => $workspace->id,
+            'title' => 'FB Test Video',
+            'original_filename' => 'sample_fb.mp4',
+            'storage_path' => 'videos/sample_fb.mp4',
+            'disk' => 'public',
+            'file_hash' => md5('sample_fb'),
+            'file_size' => 1024,
+            'duration_seconds' => 20,
+            'width' => 1080,
+            'height' => 1920,
+            'aspect_ratio' => '9:16',
+            'status' => VideoStatus::READY,
+        ]);
+
+        $stream = LiveStream::create([
+            'workspace_id' => $workspace->id,
+            'title' => '4 Platform Simulcast (YT + IG + TT + FB)',
+            'target_platform' => 'multi',
+            'source_type' => 'pool',
+            'resolution_mode' => 'vertical_1080p',
+            'youtube_enabled' => true,
+            'youtube_stream_key' => 'yt-123',
+            'instagram_enabled' => true,
+            'instagram_stream_key' => 'ig-456',
+            'tiktok_enabled' => true,
+            'tiktok_stream_key' => 'tt-789',
+            'facebook_enabled' => true,
+            'facebook_rtmp_url' => 'rtmps://live-api-s.facebook.com:443/rtmp/',
+            'facebook_stream_key' => 'FB-999888777-0-secret',
+        ]);
+
+        $endpoints = $stream->getActiveRtmpEndpoints();
+        $this->assertArrayHasKey('youtube', $endpoints);
+        $this->assertArrayHasKey('instagram', $endpoints);
+        $this->assertArrayHasKey('tiktok', $endpoints);
+        $this->assertArrayHasKey('facebook', $endpoints);
+        $this->assertStringContainsString('FB-999888777-0-secret', $endpoints['facebook']);
+
+        $cmd = app(LiveStreamService::class)->buildFfmpegCommand($stream);
+        $this->assertStringContainsString('rtmps://live-api-s.facebook.com:443/rtmp/FB-999888777-0-secret', $cmd);
+    }
+
     public function test_provisions_youtube_live_stream_key_from_connected_account(): void
     {
         $workspace = Workspace::create(['name' => 'Test WS', 'slug' => 'test-ws']);

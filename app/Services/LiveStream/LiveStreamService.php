@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\LiveStream;
 use App\Models\SocialAccount;
 use App\Services\Media\VideoProcessingService;
+use App\Services\Social\Publishers\FacebookPublisher;
 use App\Services\Social\Publishers\YouTubePublisher;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -245,7 +246,7 @@ class LiveStreamService
         $endpoints = $stream->getActiveRtmpEndpoints();
 
         if (empty($endpoints)) {
-            throw new \RuntimeException('En az bir hedef platform (YouTube, Instagram veya TikTok) etkinleştirilmeli ve Yayın Anahtarı (Stream Key) girilmelidir.');
+            throw new \RuntimeException('En az bir hedef platform (YouTube, Instagram, TikTok veya Facebook) etkinleştirilmeli ve Yayın Anahtarı (Stream Key) girilmelidir.');
         }
 
         $loopFlag = $stream->is_loop ? '-stream_loop -1' : '';
@@ -777,6 +778,88 @@ class LiveStreamService
             'stream_key' => $streamKey,
             'broadcast_id' => $broadcastId,
             'watch_url' => $watchUrl,
+            'is_sandbox' => false,
+        ];
+    }
+
+    /**
+     * Bağlı Facebook Sayfası üzerinden Meta Graph API (/{page-id}/live_videos) ile
+     * otomatik Facebook Live yayını ve RTMPS Yayın Anahtarı (Stream Key) oluşturur.
+     */
+    public function provisionFacebookLiveStream(LiveStream $stream, ?int $accountId = null): array
+    {
+        $accountId = $accountId ?: $stream->facebook_account_id;
+        $account = $accountId
+            ? SocialAccount::with(['credential', 'platform'])->find($accountId)
+            : SocialAccount::with(['credential', 'platform'])
+                ->whereHas('platform', fn ($q) => $q->where('code', 'facebook'))
+                ->where('status', 'active')
+                ->first();
+
+        if (! $account || ! $account->credential) {
+            throw new \RuntimeException('Bağlı aktif bir Facebook Sayfası bulunamadı. Lütfen önce Sosyal Medya Kanalları sayfasından Facebook hesabınızı bağlayın veya doğrudan Facebook Live Producer Yayın Anahtarınızı yapıştırın.');
+        }
+
+        $token = $account->credential->access_token;
+        $defaultRtmpUrl = 'rtmps://live-api-s.facebook.com:443/rtmp/';
+
+        // Sandbox veya Partner test ortamı kontrolü
+        if (str_starts_with((string) $token, 'partner_oauth_') || str_starts_with((string) $token, 'sandbox_')) {
+            $mockKey = 'FB-' . rand(100000000000000, 999999999999999) . '-0-' . substr(md5((string) $stream->id . uniqid()), 0, 16);
+
+            $stream->update([
+                'facebook_account_id' => $account->id,
+                'facebook_rtmp_url' => $defaultRtmpUrl,
+                'facebook_stream_key' => $mockKey,
+            ]);
+
+            return [
+                'rtmp_url' => $defaultRtmpUrl,
+                'stream_key' => $mockKey,
+                'is_sandbox' => true,
+            ];
+        }
+
+        $fbPublisher = app(FacebookPublisher::class);
+        $resolved = $fbPublisher->resolveFacebookPage($account, $token);
+        $pageId = $resolved['page_id'];
+        $pageToken = $resolved['page_token'];
+
+        $response = Http::withToken($pageToken)
+            ->timeout(30)
+            ->post("https://graph.facebook.com/v19.0/{$pageId}/live_videos", [
+                'status' => 'LIVE_NOW',
+                'title' => $stream->title,
+                'description' => $stream->description ?: '7/24 Kesintisiz Canlı Yayın',
+            ]);
+
+        if (! $response->successful()) {
+            $body = $response->body();
+            throw new \RuntimeException('Facebook Live API Bilgilendirmesi: Mevcut Facebook Uygulama/Sayfa izniniz otomatik canlı yayın oturumu oluşturmayı desteklemiyor veya Live Video izni (publish_video) açık değil. Facebook Live Producer (facebook.com/live/producer) ekranından "Yayın Anahtarı (Stream Key)" kodunu kopyalayıp doğrudan Facebook Yayın Anahtarı alanına yapıştırabilirsiniz. Detay: ' . $body);
+        }
+
+        $streamUrlFull = (string) ($response->json('stream_url') ?: $response->json('secure_stream_url') ?: '');
+        $rtmpUrl = $defaultRtmpUrl;
+        $streamKey = '';
+
+        if (str_contains($streamUrlFull, '/rtmp/')) {
+            $parts = explode('/rtmp/', $streamUrlFull, 2);
+            $rtmpUrl = $parts[0] . '/rtmp/';
+            $streamKey = $parts[1] ?? '';
+        } else {
+            $streamKey = $streamUrlFull;
+        }
+
+        $stream->update([
+            'facebook_account_id' => $account->id,
+            'facebook_rtmp_url' => $rtmpUrl,
+            'facebook_stream_key' => $streamKey,
+        ]);
+
+        return [
+            'rtmp_url' => $rtmpUrl,
+            'stream_key' => $streamKey,
+            'live_video_id' => $response->json('id'),
             'is_sandbox' => false,
         ];
     }

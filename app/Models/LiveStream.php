@@ -49,6 +49,10 @@ class LiveStream extends Model
         'tiktok_account_id',
         'tiktok_rtmp_url',
         'tiktok_stream_key',
+        'facebook_enabled',
+        'facebook_account_id',
+        'facebook_rtmp_url',
+        'facebook_stream_key',
         'custom_rtmp_enabled',
         'custom_rtmp_name',
         'custom_rtmp_url',
@@ -75,6 +79,7 @@ class LiveStream extends Model
         'youtube_enabled' => 'boolean',
         'instagram_enabled' => 'boolean',
         'tiktok_enabled' => 'boolean',
+        'facebook_enabled' => 'boolean',
         'custom_rtmp_enabled' => 'boolean',
         'process_pid' => 'integer',
         'total_videos_count' => 'integer',
@@ -124,6 +129,11 @@ class LiveStream extends Model
     public function tiktokAccount(): BelongsTo
     {
         return $this->belongsTo(SocialAccount::class, 'tiktok_account_id');
+    }
+
+    public function facebookAccount(): BelongsTo
+    {
+        return $this->belongsTo(SocialAccount::class, 'facebook_account_id');
     }
 
     protected ?Collection $eligibleVideosCache = null;
@@ -261,6 +271,12 @@ class LiveStream extends Model
             $baseUrl = rtrim(trim((string) ($this->tiktok_rtmp_url ?: 'rtmp://live-push.tiktok.com/live/')), '/');
             $key = ltrim(trim((string) $this->tiktok_stream_key), '/');
             $endpoints['tiktok'] = "{$baseUrl}/{$key}";
+        }
+
+        if ($this->facebook_enabled && ! empty(trim((string) $this->facebook_stream_key))) {
+            $baseUrl = rtrim(trim((string) ($this->facebook_rtmp_url ?: 'rtmps://live-api-s.facebook.com:443/rtmp/')), '/');
+            $key = ltrim(trim((string) $this->facebook_stream_key), '/');
+            $endpoints['facebook'] = "{$baseUrl}/{$key}";
         }
 
         if ($this->custom_rtmp_enabled && ! empty(trim((string) $this->custom_rtmp_url))) {
