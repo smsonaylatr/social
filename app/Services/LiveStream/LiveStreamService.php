@@ -434,16 +434,32 @@ class LiveStreamService
     public function terminateStreamProcesses(LiveStream $stream): void
     {
         $id = (int) $stream->id;
-        $stopFile = storage_path("app/live-streams/stream_{$id}.stop");
+        $scriptDir = storage_path('app/live-streams');
+        $stopFile = "{$scriptDir}/stream_{$id}.stop";
+        $ffmpegPidFile = "{$scriptDir}/stream_{$id}_ffmpeg.pid";
+        $runnerPidFile = "{$scriptDir}/stream_{$id}_runner.pid";
+
         @file_put_contents($stopFile, 'stop');
 
-        if ($stream->process_pid) {
-            $this->killProcess($stream->process_pid);
+        // 1. Kayıtlı runner ve ffmpeg PID dosyalarından doğrudan kernel sinyali (posix_kill) ile sonlandır
+        // (OpenSSL PR_SET_DUMPABLE=0 nedeniyle /proc içinde gizlenen ffmpeg süreçlerini bile %100 yakalar)
+        $knownPids = array_filter([
+            $stream->process_pid,
+            file_exists($runnerPidFile) ? (int) trim((string) @file_get_contents($runnerPidFile)) : null,
+            file_exists($ffmpegPidFile) ? (int) trim((string) @file_get_contents($ffmpegPidFile)) : null,
+        ]);
+
+        foreach ($knownPids as $pid) {
+            if ($pid > 1) {
+                if (function_exists('posix_kill')) {
+                    @posix_kill($pid, 15);
+                    @posix_kill(-$pid, 15);
+                }
+                $this->killProcess($pid);
+            }
         }
 
         if (PHP_OS_FAMILY === 'Linux') {
-            // Sadece mevcut kullanıcıya ait süreçleri sınırsız genişlikte (-ww) tarayarak (3ms sürer)
-            // bu yayına ait tüm runner ve ffmpeg süreçlerini (yetim kalanlar dahil) kesin olarak sonlandır.
             $killCmd = sprintf(
                 'ps -u $(id -un) -ww -o pid=,args= 2>/dev/null | grep -E "runner_stream_%d\.sh|stream_%d_playlist\.txt|scale=1080:1920" | grep -v grep | awk \'{print $1}\' | xargs -r kill -9 2>/dev/null',
                 $id,
@@ -451,7 +467,19 @@ class LiveStreamService
             );
             @shell_exec($killCmd);
             usleep(200000);
-            @shell_exec($killCmd);
+
+            // FFmpeg PID dosyasını tekrar oku (runner ölmeden hemen önce yeni bir alt süreç başlattıysa)
+            if (file_exists($ffmpegPidFile)) {
+                $ffPid = (int) trim((string) @file_get_contents($ffmpegPidFile));
+                if ($ffPid > 1) {
+                    if (function_exists('posix_kill')) {
+                        @posix_kill($ffPid, 9);
+                    }
+                    @shell_exec("kill -9 {$ffPid} 2>/dev/null");
+                }
+                @unlink($ffmpegPidFile);
+            }
+            @unlink($runnerPidFile);
         }
     }
 
@@ -1157,15 +1185,31 @@ class LiveStreamService
         // Kendi kendini onaran (Self-Healing Loop) arka plan betiği:
         // Geçici ağ kopmasında veya platform bağlantı sıfırlamasında FFmpeg 2 saniye içinde otomatik yeniden başlar.
         $runnerFile = "{$scriptDir}/runner_stream_{$streamId}.sh";
+        $ffmpegPidFile = "{$scriptDir}/stream_{$streamId}_ffmpeg.pid";
+        $runnerPidFile = "{$scriptDir}/stream_{$streamId}_runner.pid";
+
         $shContent = "#!/bin/bash\n"
             . "STOP_FILE=" . escapeshellarg($stopFile) . "\n"
             . "LOG_FILE=" . escapeshellarg($logFile) . "\n"
+            . "FFMPEG_PID_FILE=" . escapeshellarg($ffmpegPidFile) . "\n"
+            . "RUNNER_PID_FILE=" . escapeshellarg($runnerPidFile) . "\n"
+            . "echo \$\$ > \"\$RUNNER_PID_FILE\"\n"
             . "rm -f \"\$STOP_FILE\"\n"
             . "FAIL_COUNT=0\n\n"
+            . "cleanup() {\n"
+            . "    if [ -f \"\$FFMPEG_PID_FILE\" ]; then\n"
+            . "        kill -9 \$(cat \"\$FFMPEG_PID_FILE\") 2>/dev/null\n"
+            . "    fi\n"
+            . "    exit 0\n"
+            . "}\n"
+            . "trap cleanup TERM INT EXIT\n\n"
             . "while [ ! -f \"\$STOP_FILE\" ]; do\n"
             . "    START_TS=\$(date +%s)\n"
             . "    echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] [RUNNER] FFmpeg canli yayin sureci baslatiliyor...\" >> \"\$LOG_FILE\"\n"
-            . "    " . $command . " >> \"\$LOG_FILE\" 2>&1\n"
+            . "    " . $command . " >> \"\$LOG_FILE\" 2>&1 &\n"
+            . "    FFMPEG_PID=\$!\n"
+            . "    echo \"\$FFMPEG_PID\" > \"\$FFMPEG_PID_FILE\"\n"
+            . "    wait \"\$FFMPEG_PID\"\n"
             . "    EXIT_CODE=\$?\n"
             . "    END_TS=\$(date +%s)\n"
             . "    RUN_DURATION=\$((END_TS - START_TS))\n"

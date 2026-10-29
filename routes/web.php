@@ -158,15 +158,44 @@ Route::match(['get', 'post'], '/admin/stream-stop/{id}', function (int $id) {
 
 Route::match(['get', 'post'], '/admin/stream-restart/{id}', function (int $id) {
     @set_time_limit(120);
-    if (PHP_OS_FAMILY === 'Linux') {
-        @shell_exec("pkill -9 -f 'scale=1080:1920' 2>/dev/null");
-    }
     $stream = \App\Models\LiveStream::findOrFail($id);
     if (request()->has('resolution_mode')) {
         $stream->update(['resolution_mode' => request()->string('resolution_mode')->toString()]);
     }
     $service = app(\App\Services\LiveStream\LiveStreamService::class);
     $service->stopStream($stream);
+
+    // Eğer sweep_from parametresi verildiyse (PR_SET_DUMPABLE=0 nedeniyle /proc'ta gizlenen eski yetim ffmpeg PID'lerini temizlemek için)
+    $sweepFrom = (int) request()->integer('sweep_from', 0);
+    if ($sweepFrom > 1000 && function_exists('posix_kill')) {
+        $myPid = getmypid();
+        $protectedPids = [$myPid => true];
+        // Çalışan diğer yayınların (örn. Stream #3) PID'lerini ve php-fpm süreçlerini koru
+        foreach (\App\Models\LiveStream::where('id', '!=', $id)->whereNotNull('process_pid')->pluck('process_pid') as $p) {
+            for ($offset = -2; $offset <= 25; $offset++) {
+                $protectedPids[(int) $p + $offset] = true;
+            }
+        }
+        $psOut = (string) @shell_exec('ps -u $(id -un) -o pid= 2>/dev/null');
+        foreach (preg_split('/\s+/', trim($psOut)) ?: [] as $p) {
+            if (ctype_digit($p)) {
+                $protectedPids[(int) $p] = true;
+            }
+        }
+        $sweepTo = $myPid + 500;
+        for ($p = $sweepFrom; $p <= $sweepTo; $p++) {
+            if (! isset($protectedPids[$p]) && @posix_kill($p, 0)) {
+                @posix_kill($p, 9);
+            }
+        }
+    }
+
+    // Temiz log başlangıcı
+    $logFile = $service->getLogFilePath($stream);
+    if (file_exists($logFile)) {
+        @file_put_contents($logFile, '');
+    }
+
     usleep(500000);
     $service->startStream($stream);
 
