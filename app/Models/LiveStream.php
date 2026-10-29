@@ -138,6 +138,8 @@ class LiveStream extends Model
 
     protected ?Collection $eligibleVideosCache = null;
 
+    protected static array $sharedPoolCache = [];
+
     /**
      * Bu canlı yayının band kaydı döngüsüne girecek videoları sıralı/filtrelenmiş olarak getirir.
      */
@@ -145,6 +147,14 @@ class LiveStream extends Model
     {
         if ($this->eligibleVideosCache !== null && $this->play_order !== 'shuffle') {
             return $this->eligibleVideosCache;
+        }
+
+        $cacheKey = null;
+        if (($this->source_type ?: 'pool') === 'pool' && $this->play_order !== 'shuffle') {
+            $cacheKey = ($this->aspect_ratio_filter ?: 'all') . '_' . ($this->play_order ?: 'sequential');
+            if (isset(self::$sharedPoolCache[$cacheKey])) {
+                return $this->eligibleVideosCache = self::$sharedPoolCache[$cacheKey];
+            }
         }
 
         if ($this->source_type === 'playlist' && $this->playlist_id) {
@@ -194,6 +204,10 @@ class LiveStream extends Model
 
         if ($this->play_order === 'shuffle') {
             return $validVideos->shuffle()->values();
+        }
+
+        if ($cacheKey !== null) {
+            self::$sharedPoolCache[$cacheKey] = $validVideos;
         }
 
         return $this->eligibleVideosCache = $validVideos;

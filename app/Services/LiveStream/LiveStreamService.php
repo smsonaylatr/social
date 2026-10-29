@@ -198,7 +198,7 @@ class LiveStreamService
         $resolvedPaths = [];
 
         foreach ($videos as $video) {
-            $allowSlowTranscode = ! $isWebRequest || ((microtime(true) - $startTime) < 10.0);
+            $allowSlowTranscode = ! $isWebRequest && ((microtime(true) - $startTime) < 30.0);
             $absPath = $this->ensureVideoNormalizedForStream($video, $stream, $allowSlowTranscode);
             $normalizedPath = str_replace('\\', '/', $absPath);
             $resolvedPaths[$video->id] = str_replace("'", "'\\''", $normalizedPath);
@@ -307,6 +307,9 @@ class LiveStreamService
         if ($stream->instagram_enabled && $targetW === 720 && $bitrate > 2250) {
             $bitrate = 2250;
         }
+        if ($stream->facebook_enabled && $targetW === 720 && $bitrate > 2250) {
+            $bitrate = 2250;
+        }
 
         // setpts=N/(fps*TB) video karelerinin zaman damgalarını döngü geçişlerinde dahi matematiksel olarak 1/fps adımına kilitler.
         $vf = sprintf(
@@ -319,10 +322,10 @@ class LiveStreamService
             $fps
         );
 
-        // Instagram Live, TikTok ve YouTube standartlarına %100 uyumlu H.264 parametreleri:
-        // -preset veryfast + cabac=1 + sliced-threads=0 gerçek Main Profile ve tek dilimli (Single-Slice) NAL üretir.
-        // (-preset ultrafast ve -tune zerolatency Constrained Baseline ve 6 parçalı multi-slice ürettiği için Meta HLS paketleyicisini düşürür).
-        // -x264-params ile bframes=0, sabit GOP (keyint=min-keyint=60) ve nal-hrd=cbr donanım uyumluluğunu garantiler.
+        // Instagram Live, Facebook Live, TikTok ve YouTube standartlarına %100 uyumlu H.264 parametreleri:
+        // -preset superfast + cabac=1 + sliced-threads=0 gerçek Main Profile ve tek dilimli (Single-Slice) NAL üretir.
+        // 1080p için level 4.0, 720p için level 3.1 kullanılır.
+        $h264Level = ($targetW > 1280 || $targetH > 1280) ? '4.0' : '3.1';
         $x264Params = sprintf(
             'sliced-threads=0:cabac=1:bframes=0:keyint=%d:min-keyint=%d:no-scenecut=1:nal-hrd=cbr:force-cfr=1',
             $gop,
@@ -330,7 +333,8 @@ class LiveStreamService
         );
 
         $videoCodecArgs = sprintf(
-            '-c:v libx264 -profile:v main -level 3.1 -preset superfast -threads 2 -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -flags +cgop -x264-params %s -pix_fmt yuv420p',
+            '-c:v libx264 -profile:v main -level %s -preset superfast -threads 2 -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -flags +cgop -x264-params %s -pix_fmt yuv420p',
+            $h264Level,
             $bitrate,
             $bitrate,
             $bitrate,
@@ -462,7 +466,7 @@ class LiveStreamService
 
         if (PHP_OS_FAMILY === 'Linux') {
             $killCmd = sprintf(
-                'ps -u $(id -un) -ww -o pid=,args= 2>/dev/null | grep -E "runner_stream_%d\.sh|stream_%d_playlist\.txt|scale=1080:1920" | grep -v grep | awk \'{print $1}\' | xargs -r kill -9 2>/dev/null',
+                'ps -u $(id -un) -ww -o pid=,args= 2>/dev/null | grep -E "runner_stream_%d\.sh|stream_%d_playlist\.txt" | grep -v grep | awk \'{print $1}\' | xargs -r kill -9 2>/dev/null',
                 $id,
                 $id
             );
@@ -1111,12 +1115,19 @@ class LiveStreamService
             @mkdir($dir, 0775, true);
         }
 
-        // 1. Kullanıcı özel bir MP3/M4A/WAV yüklediyse
-        if ($stream->bg_music_source === 'custom' && $stream->bg_music_path) {
+        // 1. Kullanıcı özel bir MP3/M4A/WAV yüklediyse (veya diğer kanalda yüklü özel müzik varsa)
+        $customRelPath = $stream->bg_music_path;
+        if ($stream->bg_music_source === 'custom' && empty($customRelPath)) {
+            $customRelPath = LiveStream::whereNotNull('bg_music_path')
+                ->where('bg_music_path', '!=', '')
+                ->value('bg_music_path');
+        }
+
+        if ($stream->bg_music_source === 'custom' && $customRelPath) {
             $customDisk = Storage::disk('public');
-            $customFile = $customDisk->exists($stream->bg_music_path)
-                ? $customDisk->path($stream->bg_music_path)
-                : storage_path('app/public/' . $stream->bg_music_path);
+            $customFile = $customDisk->exists($customRelPath)
+                ? $customDisk->path($customRelPath)
+                : storage_path('app/public/' . $customRelPath);
 
             if (file_exists($customFile)) {
                 // Eğer ses WAV, mono veya 44.1kHz dışındaysa akıcı döngü ve desync önleme için
@@ -1272,6 +1283,13 @@ class LiveStreamService
         $runnerPidFile = "{$scriptDir}/stream_{$streamId}_runner.pid";
 
         $shContent = "#!/bin/bash\n"
+            . "# Close inherited PHP-FPM / FastCGI file descriptors (prevents Cloudflare 520 / Nginx upstream hang)\n"
+            . "for fd in /proc/\$\$/fd/*; do\n"
+            . "    fd_num=\$(basename \"\$fd\")\n"
+            . "    if [ \"\$fd_num\" -gt 2 ] 2>/dev/null; then\n"
+            . "        eval \"exec \${fd_num}>&-\" 2>/dev/null || true\n"
+            . "    fi\n"
+            . "done\n"
             . "STOP_FILE=" . escapeshellarg($stopFile) . "\n"
             . "LOG_FILE=" . escapeshellarg($logFile) . "\n"
             . "FFMPEG_PID_FILE=" . escapeshellarg($ffmpegPidFile) . "\n"
@@ -1289,7 +1307,7 @@ class LiveStreamService
             . "while [ ! -f \"\$STOP_FILE\" ]; do\n"
             . "    START_TS=\$(date +%s)\n"
             . "    echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] [RUNNER] FFmpeg canli yayin sureci baslatiliyor...\" >> \"\$LOG_FILE\"\n"
-            . "    " . $command . " >> \"\$LOG_FILE\" 2>&1 &\n"
+            . "    " . $command . " </dev/null >> \"\$LOG_FILE\" 2>&1 &\n"
             . "    FFMPEG_PID=\$!\n"
             . "    echo \"\$FFMPEG_PID\" > \"\$FFMPEG_PID_FILE\"\n"
             . "    wait \"\$FFMPEG_PID\"\n"
@@ -1318,7 +1336,7 @@ class LiveStreamService
         @chmod($runnerFile, 0755);
 
         $bgCmd = sprintf(
-            'nohup bash %s </dev/null >> %s 2>&1 & echo $!',
+            'nohup setsid bash %s </dev/null >> %s 2>&1 & echo $!',
             escapeshellarg($runnerFile),
             escapeshellarg($logFile)
         );

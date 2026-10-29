@@ -28,8 +28,9 @@ class ManageLiveStreams extends ManageRecords
         parent::mount();
 
         try {
-            $this->ensureThreePlatformChannels();
-            app(LiveStreamService::class)->checkHealthAndWatchdog();
+            if (LiveStream::count() < 4) {
+                $this->ensureThreePlatformChannels();
+            }
         } catch (\Throwable) {
             // Tablo veya veritabanı hazır değilse sessizce geç
         }
@@ -123,6 +124,7 @@ class ManageLiveStreams extends ManageRecords
 
         // 4. Facebook Kanalı
         if (! LiveStream::where('target_platform', 'facebook')->exists()) {
+            $existingMusicStream = LiveStream::whereNotNull('bg_music_path')->first();
             LiveStream::create([
                 'title' => '📘 Facebook 7/24 Canlı Yayın Akışı',
                 'description' => 'Facebook Live Producer / RTMPS üzerinden Facebook Sayfasında 7/24 kesintisiz canlı yayın akışı.',
@@ -130,11 +132,17 @@ class ManageLiveStreams extends ManageRecords
                 'source_type' => 'pool',
                 'play_order' => 'sequential',
                 'aspect_ratio_filter' => 'all',
-                'resolution_mode' => 'vertical_1080p',
-                'bitrate_kbps' => 2500,
+                'resolution_mode' => 'vertical_720p',
+                'bitrate_kbps' => 2250,
                 'fps' => 30,
                 'is_loop' => true,
                 'auto_restart' => true,
+                'audio_mode' => $existingMusicStream?->audio_mode ?: 'replace_bg_music',
+                'bg_music_source' => $existingMusicStream?->bg_music_source ?: 'preset',
+                'bg_music_preset' => $existingMusicStream?->bg_music_preset ?: 'lofi_chill',
+                'bg_music_path' => $existingMusicStream?->bg_music_path,
+                'bg_music_volume' => $existingMusicStream?->bg_music_volume ?? 100,
+                'original_audio_volume' => $existingMusicStream?->original_audio_volume ?? 0,
                 'youtube_enabled' => false,
                 'instagram_enabled' => false,
                 'tiktok_enabled' => false,

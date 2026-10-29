@@ -7,11 +7,6 @@
     $logs = $service->getRecentLogs($stream, 45);
     $ffmpegAvailable = $service->isFfmpegAvailable();
     $ffmpegVersion = $service->getFfmpegVersion();
-    try {
-        $ffmpegCommand = $service->buildFfmpegCommand($stream);
-    } catch (\Throwable $e) {
-        $ffmpegCommand = 'Komut oluşturulamadı: ' . $e->getMessage();
-    }
 @endphp
 
 <div class="space-y-4 text-sm">
