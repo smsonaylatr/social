@@ -343,7 +343,7 @@ Route::match(['get', 'post'], '/admin/stream-status-check', function () {
     $service = app(\App\Services\LiveStream\LiveStreamService::class);
     $data = [];
 
-    $activeProcesses = trim((string) @shell_exec('for p in /proc/[0-9]*; do if ls -l "$p/fd" 2>/dev/null | grep -q "live-streams"; then echo "PID=${p#/proc/}: $(tr "\0" " " < "$p/cmdline" 2>/dev/null)"; fi; done'));
+    $activeProcesses = trim((string) @shell_exec('ps -u $(id -un) -ww -o pid=,ppid=,pcpu=,etime=,args= 2>&1'));
 
     $ffmpeg = storage_path('app/bin/ffmpeg');
 

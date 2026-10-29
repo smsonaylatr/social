@@ -442,19 +442,16 @@ class LiveStreamService
         }
 
         if (PHP_OS_FAMILY === 'Linux') {
-            // /bin/sh üzerinden (open_basedir kısıtlamasına takılmadan) bu yayının log veya playlist dosyasını
-            // açık tutan tüm runner ve ffmpeg süreçlerini (yetim kalmış olanlar dahil) kesin olarak sonlandır.
-            $killScript = sprintf(
-                'for p in /proc/[0-9]*; do pid=${p#/proc/}; if ls -l "$p/fd" 2>/dev/null | grep -Eq "stream_%d\\.(log|stop)|stream_%d_playlist\\.txt|runner_stream_%d\\.sh"; then kill -9 "$pid" 2>/dev/null; elif tr "\0" " " < "$p/cmdline" 2>/dev/null | grep -Eq "runner_stream_%d\\.sh|stream_%d_playlist\\.txt|scale=1080:1920"; then kill -9 "$pid" 2>/dev/null; fi; done',
-                $id,
-                $id,
-                $id,
+            // Sadece mevcut kullanıcıya ait süreçleri sınırsız genişlikte (-ww) tarayarak (3ms sürer)
+            // bu yayına ait tüm runner ve ffmpeg süreçlerini (yetim kalanlar dahil) kesin olarak sonlandır.
+            $killCmd = sprintf(
+                'ps -u $(id -un) -ww -o pid=,args= 2>/dev/null | grep -E "runner_stream_%d\.sh|stream_%d_playlist\.txt|scale=1080:1920" | grep -v grep | awk \'{print $1}\' | xargs -r kill -9 2>/dev/null',
                 $id,
                 $id
             );
-            @shell_exec($killScript);
-            usleep(250000);
-            @shell_exec($killScript);
+            @shell_exec($killCmd);
+            usleep(200000);
+            @shell_exec($killCmd);
         }
     }
 
