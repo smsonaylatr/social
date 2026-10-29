@@ -159,15 +159,25 @@ class SocialAccountResource extends Resource
                     ->schema([
                         TextInput::make('access_token')
                             ->label('Erişim Anahtarı (Access Token)')
-                            ->password()
-                            ->revealable()
+                            ->autocomplete(false)
+                            ->extraInputAttributes([
+                                'data-1p-ignore' => 'true',
+                                'data-lpignore' => 'true',
+                                'data-form-type' => 'other',
+                                'spellcheck' => 'false',
+                            ])
                             ->required(fn (string $context): bool => $context === 'create')
                             ->helperText('Resmi OAuth veya Geliştirici Portalından alınan kalıcı erişim anahtarı'),
 
                         TextInput::make('refresh_token')
                             ->label('Yenileme Anahtarı (Refresh Token)')
-                            ->password()
-                            ->revealable()
+                            ->autocomplete(false)
+                            ->extraInputAttributes([
+                                'data-1p-ignore' => 'true',
+                                'data-lpignore' => 'true',
+                                'data-form-type' => 'other',
+                                'spellcheck' => 'false',
+                            ])
                             ->helperText('Destekleyen platformlarda (Google, X, TikTok, Pinterest) otomatik token yenileme için'),
 
                         DateTimePicker::make('token_expires_at')

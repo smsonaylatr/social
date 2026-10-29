@@ -337,12 +337,24 @@ class LiveStreamResource extends Resource
                                     ->label('YouTube RTMP Sunucu Adresi (Stream URL)')
                                     ->default('rtmp://a.rtmp.youtube.com/live2')
                                     ->placeholder('rtmp://a.rtmp.youtube.com/live2')
+                                    ->autocomplete(false)
+                                    ->extraInputAttributes([
+                                        'data-1p-ignore' => 'true',
+                                        'data-lpignore' => 'true',
+                                        'data-form-type' => 'other',
+                                        'spellcheck' => 'false',
+                                    ])
                                     ->required(fn (Get $get): bool => (bool) $get('youtube_enabled')),
 
                                 TextInput::make('youtube_stream_key')
                                     ->label('YouTube Yayın Anahtarı (Stream Key)')
-                                    ->password()
-                                    ->revealable()
+                                    ->autocomplete(false)
+                                    ->extraInputAttributes([
+                                        'data-1p-ignore' => 'true',
+                                        'data-lpignore' => 'true',
+                                        'data-form-type' => 'other',
+                                        'spellcheck' => 'false',
+                                    ])
                                     ->placeholder('Örn: xxxx-xxxx-xxxx-xxxx-xxxx')
                                     ->helperText('YouTube Studio > Canlı Yayın > Yayın Anahtarı alanından kopyalayın veya aşağıdaki butondan otomatik oluşturun.')
                                     ->required(fn (Get $get): bool => $get('target_platform') === 'youtube' || (bool) $get('youtube_enabled')),
@@ -388,12 +400,24 @@ class LiveStreamResource extends Resource
                                     ->label('Instagram RTMPS Sunucu URL')
                                     ->default('rtmps://edgetee-upload-iad.xx.fbcdn.net:443/rtmp/')
                                     ->placeholder('rtmps://edgetee-upload-...facebook.com:443/rtmp/')
+                                    ->autocomplete(false)
+                                    ->extraInputAttributes([
+                                        'data-1p-ignore' => 'true',
+                                        'data-lpignore' => 'true',
+                                        'data-form-type' => 'other',
+                                        'spellcheck' => 'false',
+                                    ])
                                     ->required(fn (Get $get): bool => (bool) $get('instagram_enabled')),
 
                                 TextInput::make('instagram_stream_key')
                                     ->label('Instagram Yayın Anahtarı (Stream Key)')
-                                    ->password()
-                                    ->revealable()
+                                    ->autocomplete(false)
+                                    ->extraInputAttributes([
+                                        'data-1p-ignore' => 'true',
+                                        'data-lpignore' => 'true',
+                                        'data-form-type' => 'other',
+                                        'spellcheck' => 'false',
+                                    ])
                                     ->placeholder('Örn: 17954123456789012?s_bl=1&s_psm=1...')
                                     ->required(fn (Get $get): bool => $get('target_platform') === 'instagram' || (bool) $get('instagram_enabled')),
                             ]),
@@ -430,12 +454,24 @@ class LiveStreamResource extends Resource
                                     ->label('TikTok RTMP Sunucu Adresi (Server URL)')
                                     ->default('rtmp://live-push.tiktok.com/live/')
                                     ->placeholder('rtmp://live-push.tiktok.com/live/')
+                                    ->autocomplete(false)
+                                    ->extraInputAttributes([
+                                        'data-1p-ignore' => 'true',
+                                        'data-lpignore' => 'true',
+                                        'data-form-type' => 'other',
+                                        'spellcheck' => 'false',
+                                    ])
                                     ->required(fn (Get $get): bool => (bool) $get('tiktok_enabled')),
 
                                 TextInput::make('tiktok_stream_key')
                                     ->label('TikTok Yayın Anahtarı (Stream Key)')
-                                    ->password()
-                                    ->revealable()
+                                    ->autocomplete(false)
+                                    ->extraInputAttributes([
+                                        'data-1p-ignore' => 'true',
+                                        'data-lpignore' => 'true',
+                                        'data-form-type' => 'other',
+                                        'spellcheck' => 'false',
+                                    ])
                                     ->placeholder('Örn: ?trans_code=0&trans_id=...')
                                     ->helperText('TikTok Live Center veya Live Studio uygulamasından temin edilen yayın anahtarı.')
                                     ->required(fn (Get $get): bool => $get('target_platform') === 'tiktok' || (bool) $get('tiktok_enabled')),
@@ -481,16 +517,29 @@ class LiveStreamResource extends Resource
                             ->schema([
                                 TextInput::make('custom_rtmp_name')
                                     ->label('Platform Adı')
+                                    ->autocomplete(false)
                                     ->placeholder('Örn: Facebook Live / Twitch'),
 
                                 TextInput::make('custom_rtmp_url')
                                     ->label('RTMP Sunucu URL')
+                                    ->autocomplete(false)
+                                    ->extraInputAttributes([
+                                        'data-1p-ignore' => 'true',
+                                        'data-lpignore' => 'true',
+                                        'data-form-type' => 'other',
+                                        'spellcheck' => 'false',
+                                    ])
                                     ->placeholder('rtmp://...'),
 
                                 TextInput::make('custom_rtmp_key')
                                     ->label('Yayın Anahtarı (Stream Key)')
-                                    ->password()
-                                    ->revealable(),
+                                    ->autocomplete(false)
+                                    ->extraInputAttributes([
+                                        'data-1p-ignore' => 'true',
+                                        'data-lpignore' => 'true',
+                                        'data-form-type' => 'other',
+                                        'spellcheck' => 'false',
+                                    ]),
                             ])
                             ->visible(fn (Get $get): bool => (bool) $get('custom_rtmp_enabled')),
                     ]),

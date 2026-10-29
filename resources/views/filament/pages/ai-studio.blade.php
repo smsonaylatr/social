@@ -689,9 +689,14 @@
                                 @endif
                             </div>
                             <input 
-                                type="password" 
+                                type="text" 
                                 wire:model="openAiKeyInput" 
                                 class="mc-form-input"
+                                autocomplete="off"
+                                data-1p-ignore="true"
+                                data-lpignore="true"
+                                data-form-type="other"
+                                spellcheck="false"
                                 style="font-family:monospace;"
                                 placeholder="{{ $this->isOpenAiConfigured ? 'Yeni bir anahtar girmek için yazın...' : 'sk-proj-...' }}"
                             />

@@ -440,11 +440,11 @@
                             <div class="mc-form-grid" style="padding-top:0.5rem; border-top:1px solid rgba(128,128,128,0.12);">
                                 <div>
                                     <label class="mc-form-label">Partner App Client ID / App Key:</label>
-                                    <input type="text" wire:model="partnerClientId" class="mc-form-input" placeholder="İş ortağı portalından alınan Client ID..." />
+                                    <input type="text" wire:model="partnerClientId" autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other" spellcheck="false" class="mc-form-input" placeholder="İş ortağı portalından alınan Client ID..." />
                                 </div>
                                 <div>
                                     <label class="mc-form-label">Partner App Client Secret:</label>
-                                    <input type="password" wire:model="partnerClientSecret" class="mc-form-input" placeholder="••••••••••••••••••••••••" />
+                                    <input type="text" wire:model="partnerClientSecret" autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other" spellcheck="false" class="mc-form-input" placeholder="İş ortağı portalından alınan Client Secret..." />
                                 </div>
                             </div>
 
