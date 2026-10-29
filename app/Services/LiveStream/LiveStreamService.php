@@ -328,11 +328,8 @@ class LiveStreamService
             $gop
         );
 
-        $preset = ($targetW >= 1080 || $targetH >= 1920) ? 'superfast' : 'veryfast';
-
         $videoCodecArgs = sprintf(
-            '-c:v libx264 -profile:v main -level 3.1 -preset %s -threads 2 -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -flags +cgop -x264-params %s -pix_fmt yuv420p',
-            $preset,
+            '-c:v libx264 -profile:v main -level 3.1 -preset superfast -threads 2 -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -flags +cgop -x264-params %s -pix_fmt yuv420p',
             $bitrate,
             $bitrate,
             $bitrate,
@@ -432,23 +429,38 @@ class LiveStreamService
     }
 
     /**
+     * Belirtilen yayına ait tüm runner ve ffmpeg alt süreçlerini kalıntı bırakmadan temizler.
+     */
+    public function terminateStreamProcesses(LiveStream $stream): void
+    {
+        $stopFile = storage_path("app/live-streams/stream_{$stream->id}.stop");
+        @file_put_contents($stopFile, 'stop');
+
+        if ($stream->process_pid) {
+            $this->killProcess($stream->process_pid);
+        }
+
+        if (PHP_OS_FAMILY === 'Linux') {
+            $id = (int) $stream->id;
+            @shell_exec("pkill -9 -f 'runner_stream_{$id}\\.sh' 2>/dev/null");
+            @shell_exec("ps auxww | grep '[r]unner_stream_{$id}.sh' | awk '{print \$2}' | xargs -r kill -9 2>/dev/null");
+            @shell_exec("pkill -9 -f 'stream_{$id}_playlist\\.txt' 2>/dev/null");
+            @shell_exec("ps auxww | grep '[s]tream_{$id}_playlist.txt' | awk '{print \$2}' | xargs -r kill -9 2>/dev/null");
+            @shell_exec("pkill -9 -f 'scale=1080:1920' 2>/dev/null");
+            usleep(200000);
+            @shell_exec("ps auxww | grep '[s]tream_{$id}_playlist.txt' | awk '{print \$2}' | xargs -r kill -9 2>/dev/null");
+        }
+    }
+
+    /**
      * Canlı yayını arka planda (daemon process olarak) başlatır.
      */
     public function startStream(LiveStream $stream): bool
     {
         @set_time_limit(120);
 
-        // Zaten çalışıyorsa önce mevcut süreci temizle
-        if ($stream->process_pid && $this->isProcessRunning($stream->process_pid)) {
-            $this->killProcess($stream->process_pid);
-        }
-
-        // Linux VPS üzerinde eski yetim (orphan) runner veya ffmpeg süreçlerini tamamen sonlandır
-        if (PHP_OS_FAMILY === 'Linux') {
-            @shell_exec("pkill -9 -f 'runner_stream_{$stream->id}.sh' 2>/dev/null");
-            @shell_exec("pkill -9 -f 'stream_{$stream->id}_playlist.txt' 2>/dev/null");
-            @shell_exec("pkill -9 -f 'scale=1080:1920' 2>/dev/null");
-        }
+        // Zaten çalışıyorsa veya yetim süreçler varsa önce tamamen temizle
+        $this->terminateStreamProcesses($stream);
 
         $stopFile = storage_path("app/live-streams/stream_{$stream->id}.stop");
         if (file_exists($stopFile)) {
@@ -527,12 +539,7 @@ class LiveStreamService
      */
     public function stopStream(LiveStream $stream): bool
     {
-        $stopFile = storage_path("app/live-streams/stream_{$stream->id}.stop");
-        @file_put_contents($stopFile, 'stop');
-
-        if ($stream->process_pid) {
-            $this->killProcess($stream->process_pid);
-        }
+        $this->terminateStreamProcesses($stream);
 
         $logFile = $this->getLogFilePath($stream);
         if (file_exists($logFile)) {
