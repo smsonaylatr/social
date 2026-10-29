@@ -126,11 +126,17 @@ class LiveStream extends Model
         return $this->belongsTo(SocialAccount::class, 'tiktok_account_id');
     }
 
+    protected ?Collection $eligibleVideosCache = null;
+
     /**
      * Bu canlı yayının band kaydı döngüsüne girecek videoları sıralı/filtrelenmiş olarak getirir.
      */
     public function getEligibleVideos(): Collection
     {
+        if ($this->eligibleVideosCache !== null && $this->play_order !== 'shuffle') {
+            return $this->eligibleVideosCache;
+        }
+
         if ($this->source_type === 'playlist' && $this->playlist_id) {
             $playlist = Playlist::with(['items.video'])->find($this->playlist_id);
             if ($playlist) {
@@ -180,7 +186,7 @@ class LiveStream extends Model
             return $validVideos->shuffle()->values();
         }
 
-        return $validVideos;
+        return $this->eligibleVideosCache = $validVideos;
     }
 
     /**

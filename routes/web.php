@@ -157,16 +157,24 @@ Route::match(['get', 'post'], '/admin/stream-stop/{id}', function (int $id) {
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
 Route::match(['get', 'post'], '/admin/stream-restart/{id}', function (int $id) {
+    @set_time_limit(120);
+    if (PHP_OS_FAMILY === 'Linux') {
+        @shell_exec("pkill -9 -f 'scale=1080:1920' 2>/dev/null");
+    }
     $stream = \App\Models\LiveStream::findOrFail($id);
+    if (request()->has('resolution_mode')) {
+        $stream->update(['resolution_mode' => request()->string('resolution_mode')->toString()]);
+    }
     $service = app(\App\Services\LiveStream\LiveStreamService::class);
     $service->stopStream($stream);
-    sleep(1);
+    usleep(500000);
     $service->startStream($stream);
 
     return response()->json([
         'status' => 'ok',
         'message' => "Canlı yayın #{$id} ({$stream->title}) yeni parametrelerle yeniden başlatıldı.",
         'pid' => $stream->fresh()->process_pid,
+        'stream' => $stream->fresh(),
     ]);
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
@@ -323,6 +331,14 @@ Route::match(['get', 'post'], '/admin/stream-log-error-search/{id}', function (i
 })->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
 
 Route::match(['get', 'post'], '/admin/stream-status-check', function () {
+    if (request()->boolean('cleanup_transcode', false) && PHP_OS_FAMILY === 'Linux') {
+        @shell_exec("pkill -9 -f 'scale=1080:1920' 2>/dev/null");
+        foreach (glob(storage_path('app/live-streams/normalized/*.tmp.*')) ?: [] as $tmp) {
+            @unlink($tmp);
+        }
+    }
+
+    $inspectFiles = request()->boolean('inspect_files', false);
     $streams = \App\Models\LiveStream::all();
     $service = app(\App\Services\LiveStream\LiveStreamService::class);
     $data = [];
@@ -338,7 +354,7 @@ Route::match(['get', 'post'], '/admin/stream-status-check', function () {
 
         $logTail = '';
         if (file_exists($logFile)) {
-            $logTail = $service->getRecentLogs($stream, 60);
+            $logTail = $service->getRecentLogs($stream, 40);
         }
 
         $playlistContent = '';
@@ -354,7 +370,7 @@ Route::match(['get', 'post'], '/admin/stream-status-check', function () {
                         'exists' => file_exists($filePath),
                         'size' => file_exists($filePath) ? filesize($filePath) : 0,
                     ];
-                    if (file_exists($filePath) && file_exists($ffmpeg)) {
+                    if ($inspectFiles && file_exists($filePath) && file_exists($ffmpeg)) {
                         $cmd = sprintf('%s -i %s 2>&1', escapeshellcmd($ffmpeg), escapeshellarg($filePath));
                         $out = (string) @shell_exec($cmd);
                         // Extract Duration and Video/Audio stream lines
@@ -372,12 +388,18 @@ Route::match(['get', 'post'], '/admin/stream-status-check', function () {
             'id' => $stream->id,
             'title' => $stream->title,
             'target_platform' => $stream->target_platform,
+            'resolution_mode' => $stream->resolution_mode,
+            'audio_mode' => $stream->audio_mode,
             'status' => $stream->status,
             'process_pid' => $stream->process_pid,
             'is_running' => $isRunning,
+            'has_yt_key' => ! empty(trim((string) $stream->youtube_stream_key)),
+            'has_ig_key' => ! empty(trim((string) $stream->instagram_stream_key)),
+            'has_tt_key' => ! empty(trim((string) $stream->tiktok_stream_key)),
             'last_error' => $stream->last_error,
             'playlist_exists' => file_exists($playlistFile),
-            'playlist_items' => $playlistItems,
+            'playlist_items_count' => count($playlistItems),
+            'playlist_items' => $inspectFiles ? $playlistItems : array_slice($playlistItems, 0, 3),
             'log_tail' => $logTail,
         ];
     }

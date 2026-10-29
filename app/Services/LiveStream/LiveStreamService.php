@@ -192,13 +192,20 @@ class LiveStreamService
         // liste içinde de birkaç kez tekrarlayarak en az 10 satırlık bir blok oluşturuyoruz.
         $repeatFactor = $videos->count() < 5 ? max(1, (int) ceil(10 / $videos->count())) : 1;
 
+        $startTime = microtime(true);
+        $isWebRequest = ! app()->runningInConsole();
+        $resolvedPaths = [];
+
+        foreach ($videos as $video) {
+            $allowSlowTranscode = ! $isWebRequest || ((microtime(true) - $startTime) < 10.0);
+            $absPath = $this->ensureVideoNormalizedForStream($video, $stream, $allowSlowTranscode);
+            $normalizedPath = str_replace('\\', '/', $absPath);
+            $resolvedPaths[$video->id] = str_replace("'", "'\\''", $normalizedPath);
+        }
+
         for ($r = 0; $r < $repeatFactor; $r++) {
             foreach ($videos as $video) {
-                $absPath = $this->ensureVideoNormalizedForStream($video, $stream);
-                // FFmpeg concat demuxer için ters eğik çizgileri düz çizgiye çevir ve tek tırnakları kaçır
-                $normalizedPath = str_replace('\\', '/', $absPath);
-                $escapedPath = str_replace("'", "'\\''", $normalizedPath);
-
+                $escapedPath = $resolvedPaths[$video->id];
                 $lines[] = "file '{$escapedPath}'";
             }
         }
@@ -321,8 +328,11 @@ class LiveStreamService
             $gop
         );
 
+        $preset = ($targetW >= 1080 || $targetH >= 1920) ? 'superfast' : 'veryfast';
+
         $videoCodecArgs = sprintf(
-            '-c:v libx264 -profile:v main -level 3.1 -preset veryfast -threads 4 -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -flags +cgop -x264-params %s -pix_fmt yuv420p',
+            '-c:v libx264 -profile:v main -level 3.1 -preset %s -threads 2 -b:v %dk -minrate %dk -maxrate %dk -bufsize %dk -fps_mode cfr -g %d -keyint_min %d -sc_threshold 0 -flags +cgop -x264-params %s -pix_fmt yuv420p',
+            $preset,
             $bitrate,
             $bitrate,
             $bitrate,
@@ -426,6 +436,8 @@ class LiveStreamService
      */
     public function startStream(LiveStream $stream): bool
     {
+        @set_time_limit(120);
+
         // Zaten çalışıyorsa önce mevcut süreci temizle
         if ($stream->process_pid && $this->isProcessRunning($stream->process_pid)) {
             $this->killProcess($stream->process_pid);
@@ -435,6 +447,7 @@ class LiveStreamService
         if (PHP_OS_FAMILY === 'Linux') {
             @shell_exec("pkill -9 -f 'runner_stream_{$stream->id}.sh' 2>/dev/null");
             @shell_exec("pkill -9 -f 'stream_{$stream->id}_playlist.txt' 2>/dev/null");
+            @shell_exec("pkill -9 -f 'scale=1080:1920' 2>/dev/null");
         }
 
         $stopFile = storage_path("app/live-streams/stream_{$stream->id}.stop");
@@ -815,7 +828,7 @@ class LiveStreamService
      * video havuzundaki videoyu standart dikey/yatay çözünürlük, 30fps CFR, tek tip GOP (2s)
      * ve tek tip ses formatına dönüştürüp önbelleğe alır.
      */
-    public function ensureVideoNormalizedForStream(\App\Models\Video $video, ?LiveStream $stream = null): string
+    public function ensureVideoNormalizedForStream(\App\Models\Video $video, ?LiveStream $stream = null, bool $allowSlowTranscode = true): string
     {
         $disk = $video->disk ?: 'public';
         $absPath = Storage::disk($disk)->path($video->storage_path);
@@ -829,14 +842,12 @@ class LiveStreamService
             return $this->ensureVideoHasAudio($video);
         }
 
-        [$targetW, $targetH] = match ($stream?->resolution_mode) {
-            'vertical_1080p' => [1080, 1920],
-            'horizontal_1080p' => [1920, 1080],
-            'horizontal_720p' => [1280, 720],
-            default => [720, 1280],
-        };
-        $fps = max(15, min(60, (int) ($stream?->fps ?: 30)));
-        $gop = $fps * 2;
+        // Tüm dikey yayınlar (YouTube Shorts, Instagram Live, TikTok Live) ortak 720x1280 30fps önbelleğini paylaşır.
+        // Böylece 1080p ve 720p kanallar arasında geçişte 42 videonun yeniden kodlanması (ve 504 Gateway Timeout) tamamen önlenir.
+        $isHorizontal = str_starts_with((string) $stream?->resolution_mode, 'horizontal_');
+        [$targetW, $targetH] = $isHorizontal ? [1280, 720] : [720, 1280];
+        $fps = 30;
+        $gop = 60;
 
         $cacheDir = storage_path('app/live-streams/normalized');
         if (! is_dir($cacheDir)) {
@@ -848,6 +859,10 @@ class LiveStreamService
 
         if (file_exists($normFile) && filesize($normFile) > 10000) {
             return $normFile;
+        }
+
+        if (! $allowSlowTranscode) {
+            return $this->ensureVideoHasAudio($video);
         }
 
         $hasAudio = $this->hasAudioTrack($absPath);
@@ -863,8 +878,10 @@ class LiveStreamService
             $fps
         );
 
+        $tmpFile = "{$normFile}.tmp." . getmypid() . '.mp4';
+
         $cmd = sprintf(
-            '%s -nostdin -y -i %s %s -vf %s -c:v libx264 -preset veryfast -profile:v main -b:v 2500k -maxrate 2500k -bufsize 5000k -g %d -keyint_min %d -sc_threshold 0 -flags +cgop -c:a aac -b:a 128k -ar 44100 -ac 2 -video_track_timescale 15360 %s %s 2>&1',
+            '%s -nostdin -y -i %s %s -vf %s -c:v libx264 -preset veryfast -threads 2 -profile:v main -b:v 2500k -maxrate 2500k -bufsize 5000k -g %d -keyint_min %d -sc_threshold 0 -flags +cgop -c:a aac -b:a 128k -ar 44100 -ac 2 -video_track_timescale 15360 %s %s 2>&1',
             escapeshellcmd($this->ffmpegPath),
             escapeshellarg($absPath),
             $audioInput,
@@ -872,10 +889,16 @@ class LiveStreamService
             $gop,
             $gop,
             $mapArgs,
-            escapeshellarg($normFile)
+            escapeshellarg($tmpFile)
         );
 
         @shell_exec($cmd);
+
+        if (file_exists($tmpFile) && filesize($tmpFile) > 10000) {
+            @rename($tmpFile, $normFile);
+        } else {
+            @unlink($tmpFile);
+        }
 
         if (file_exists($normFile) && filesize($normFile) > 10000) {
             return $normFile;
