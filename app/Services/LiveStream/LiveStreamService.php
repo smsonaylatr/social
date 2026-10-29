@@ -433,7 +433,8 @@ class LiveStreamService
      */
     public function terminateStreamProcesses(LiveStream $stream): void
     {
-        $stopFile = storage_path("app/live-streams/stream_{$stream->id}.stop");
+        $id = (int) $stream->id;
+        $stopFile = storage_path("app/live-streams/stream_{$id}.stop");
         @file_put_contents($stopFile, 'stop');
 
         if ($stream->process_pid) {
@@ -441,14 +442,57 @@ class LiveStreamService
         }
 
         if (PHP_OS_FAMILY === 'Linux') {
-            $id = (int) $stream->id;
+            $logFile = $this->getLogFilePath($stream);
+            $myPid = getmypid();
+
+            // 1. /proc üzerinden bu yayının log dosyasını veya playlist/runner dosyasını açık tutan tüm PID'leri bul ve sonlandır
+            $pidsToKill = [];
+            foreach (glob('/proc/[0-9]*') ?: [] as $procDir) {
+                $pid = (int) basename($procDir);
+                if ($pid <= 1 || $pid === $myPid) {
+                    continue;
+                }
+
+                $cmdline = @file_get_contents("{$procDir}/cmdline");
+                if ($cmdline !== false) {
+                    $cmdStr = str_replace("\0", ' ', $cmdline);
+                    if (
+                        str_contains($cmdStr, "runner_stream_{$id}.sh")
+                        || str_contains($cmdStr, "stream_{$id}_playlist.txt")
+                        || str_contains($cmdStr, "scale=1080:1920")
+                    ) {
+                        $pidsToKill[$pid] = $pid;
+                        continue;
+                    }
+                }
+
+                foreach (glob("{$procDir}/fd/*") ?: [] as $fdPath) {
+                    $target = @readlink($fdPath);
+                    if ($target && (
+                        str_contains($target, "stream_{$id}.log")
+                        || str_contains($target, "runner_stream_{$id}.sh")
+                        || str_contains($target, "stream_{$id}_playlist.txt")
+                    )) {
+                        $pidsToKill[$pid] = $pid;
+                        break;
+                    }
+                }
+            }
+
+            foreach ($pidsToKill as $pid) {
+                if (function_exists('posix_kill')) {
+                    @posix_kill($pid, 9);
+                }
+                @shell_exec("kill -9 {$pid} 2>/dev/null");
+            }
+
+            if (file_exists($logFile)) {
+                @shell_exec('fuser -k -9 ' . escapeshellarg($logFile) . ' 2>/dev/null');
+            }
+
             @shell_exec("pkill -9 -f 'runner_stream_{$id}\\.sh' 2>/dev/null");
-            @shell_exec("ps auxww | grep '[r]unner_stream_{$id}.sh' | awk '{print \$2}' | xargs -r kill -9 2>/dev/null");
             @shell_exec("pkill -9 -f 'stream_{$id}_playlist\\.txt' 2>/dev/null");
-            @shell_exec("ps auxww | grep '[s]tream_{$id}_playlist.txt' | awk '{print \$2}' | xargs -r kill -9 2>/dev/null");
-            @shell_exec("pkill -9 -f 'scale=1080:1920' 2>/dev/null");
             usleep(200000);
-            @shell_exec("ps auxww | grep '[s]tream_{$id}_playlist.txt' | awk '{print \$2}' | xargs -r kill -9 2>/dev/null");
         }
     }
 
