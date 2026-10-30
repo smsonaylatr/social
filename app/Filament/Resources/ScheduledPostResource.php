@@ -411,6 +411,11 @@ class ScheduledPostResource extends Resource
                     ->modalHeading('Gönderiyi Anında Kuyruğa Al')
                     ->modalDescription('Bu video seçili tüm sosyal medya hesaplarına derhal gönderilecektir. Devam etmek istiyor musunuz?')
                     ->action(function (ScheduledPost $record) {
+                        if ($record->targets()->count() === 0) {
+                            app(\App\Services\Publisher\SchedulingService::class)->repairOrphanedPostsAndSchedules($record->id);
+                            $record->refresh();
+                        }
+
                         $record->update(['status' => PublishStatus::QUEUED]);
 
                         foreach ($record->targets as $target) {
@@ -461,7 +466,13 @@ class ScheduledPostResource extends Resource
                     ->tooltip('Detayları & Açıklamayı Gör')
                     ->modalHeading(fn (ScheduledPost $record) => ($record->post_type === 'text' ? '📝 Metin Gönderisi' : ($record->video?->title ?? 'Gönderi')) . ' - Paylaşım ve Açıklama Detayları')
                     ->modalWidth(MaxWidth::ThreeExtraLarge)
-                    ->modalContent(fn (ScheduledPost $record) => view('filament.modals.scheduled-post-details', ['post' => $record])),
+                    ->modalContent(function (ScheduledPost $record) {
+                        if ($record->targets()->count() === 0) {
+                            app(\App\Services\Publisher\SchedulingService::class)->repairOrphanedPostsAndSchedules($record->id);
+                            $record->refresh();
+                        }
+                        return view('filament.modals.scheduled-post-details', ['post' => $record]);
+                    }),
 
                 Action::make('requeue_failed_targets')
                     ->label('Kuyruğa Al')

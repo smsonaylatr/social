@@ -287,4 +287,171 @@ class SchedulingService
 
         return $requeuedCount;
     }
+
+    /**
+     * Kanal bağlantısı kesilip yeniden bağlandığında (ON DELETE CASCADE nedeniyle)
+     * hedefi (ScheduledPostTarget) silinmiş gönderileri ve eski hesap ID'si kalmış kuralları otomatik onarır.
+     */
+    public function repairOrphanedPostsAndSchedules(?int $specificPostId = null): int
+    {
+        $activeAccounts = SocialAccount::where('status', 'active')
+            ->with('platform')
+            ->orderByDesc('id')
+            ->get();
+
+        if ($activeAccounts->isEmpty()) {
+            return 0;
+        }
+
+        $activeIds = $activeAccounts->pluck('id')->all();
+
+        // 1. Otomatik Yayın Kurallarında (Schedule) silinmiş hesap ID'lerini aktif hesaplarla eşleştir
+        $schedules = \App\Models\Schedule::all();
+        foreach ($schedules as $schedule) {
+            $targetIds = is_array($schedule->target_social_account_ids) ? $schedule->target_social_account_ids : [];
+            $validIds = array_values(array_intersect($targetIds, $activeIds));
+
+            if (count($validIds) !== count($targetIds) || empty($validIds)) {
+                $nameLower = mb_strtolower((string) $schedule->name, 'UTF-8');
+                $matchedPlatformAccount = null;
+
+                foreach ($activeAccounts as $acc) {
+                    $code = $acc->platform?->code instanceof \BackedEnum ? $acc->platform->code->value : (string) $acc->platform?->code;
+                    $pName = mb_strtolower((string) ($acc->platform?->name ?? $code), 'UTF-8');
+                    if (
+                        ($code !== '' && str_contains($nameLower, $code))
+                        || ($pName !== '' && str_contains($nameLower, $pName))
+                        || ($code === 'x' && str_contains($nameLower, 'twitter'))
+                    ) {
+                        $matchedPlatformAccount = $acc;
+                        break;
+                    }
+                }
+
+                if ($matchedPlatformAccount && ! in_array($matchedPlatformAccount->id, $validIds, true)) {
+                    $validIds[] = $matchedPlatformAccount->id;
+                }
+
+                // Eğer hala boşsa, en son yeniden bağlanan aktif hesabı (örn. Pinterest) ata
+                if (empty($validIds)) {
+                    $pinterestAcc = $activeAccounts->first(function ($acc) {
+                        $code = $acc->platform?->code instanceof \BackedEnum ? $acc->platform->code->value : (string) $acc->platform?->code;
+                        return $code === 'pinterest';
+                    });
+                    $fallbackAcc = $pinterestAcc ?: $activeAccounts->first();
+                    if ($fallbackAcc) {
+                        $validIds[] = $fallbackAcc->id;
+                    }
+                }
+
+                if (! empty($validIds)) {
+                    $schedule->update(['target_social_account_ids' => array_values(array_unique($validIds))]);
+                }
+            }
+        }
+
+        // 2. Hedefi (ScheduledPostTarget) silinmiş/boş kalmış ScheduledPost kayıtlarını onar
+        $orphanQuery = ScheduledPost::doesntHave('targets')->with(['video.brand', 'schedule']);
+        if ($specificPostId) {
+            $orphanQuery->where('id', $specificPostId);
+        }
+
+        $orphanPosts = $orphanQuery->get();
+        if ($orphanPosts->isEmpty()) {
+            return 0;
+        }
+
+        $aiService = app(AiContentProviderInterface::class);
+        $hashtagService = app(HashtagOptimizationService::class);
+        $repairedCount = 0;
+
+        foreach ($orphanPosts as $post) {
+            $video = $post->video;
+            if (! $video) {
+                continue;
+            }
+
+            $targetAccountIds = [];
+            if ($post->schedule && ! empty($post->schedule->target_social_account_ids)) {
+                $targetAccountIds = array_values(array_intersect((array) $post->schedule->target_social_account_ids, $activeIds));
+            }
+
+            if (empty($targetAccountIds)) {
+                $pinterestAcc = $activeAccounts->first(function ($acc) {
+                    $code = $acc->platform?->code instanceof \BackedEnum ? $acc->platform->code->value : (string) $acc->platform?->code;
+                    return $code === 'pinterest';
+                });
+                $fallbackAcc = $pinterestAcc ?: $activeAccounts->first();
+                if ($fallbackAcc) {
+                    $targetAccountIds = [$fallbackAcc->id];
+                }
+            }
+
+            $accountsForPost = $activeAccounts->whereIn('id', $targetAccountIds);
+            $effectivePostType = $post->post_type ?: ($post->schedule?->post_type ?? 'video');
+            $isTextMode = ($effectivePostType === 'text');
+
+            foreach ($accountsForPost as $account) {
+                $platformCode = $account->platform?->code instanceof \BackedEnum
+                    ? $account->platform->code->value
+                    : (string) $account->platform?->code;
+
+                $aiContent = AiContentGeneration::where('video_id', $video->id)
+                    ->where('platform_code', $platformCode)
+                    ->first();
+
+                if (! $aiContent || empty(trim((string) $aiContent->caption))) {
+                    $generated = $aiService->generateForSinglePlatform($video, $platformCode, $video->brand);
+                    $rawCaption = ! empty(trim((string) ($generated['caption'] ?? '')))
+                        ? $generated['caption']
+                        : ($video->custom_caption ?: 'Patenli ayakkabı ve tekerlekli spor ayakkabı modelleri ile yürümek çok daha eğlenceli! ✨');
+                    $rawTitle = ! empty(trim((string) ($generated['title'] ?? ''))) ? $generated['title'] : $video->title;
+                } else {
+                    $rawCaption = $aiContent->caption;
+                    $rawTitle = $aiContent->title;
+                }
+
+                $hashtags = $hashtagService->getOptimizedHashtags($video, $platformCode, $isTextMode ? 15 : null);
+                $caption = \App\Services\AI\OpenAiContentService::cleanSystemLabels($rawCaption);
+                $title = \App\Services\AI\OpenAiContentService::cleanSystemLabels($rawTitle);
+
+                if ($isTextMode) {
+                    $caption = \App\Services\AI\OpenAiContentService::stripEmojis($caption);
+                    $title = \App\Services\AI\OpenAiContentService::stripEmojis($title);
+                }
+
+                if (empty(trim((string) $caption))) {
+                    $caption = $isTextMode
+                        ? 'Patenli ayakkabı ve tekerlekli spor ayakkabı modelleri ile yürümek çok daha eğlenceli!'
+                        : 'Patenli ayakkabı ve tekerlekli spor ayakkabı modelleri ile yürümek çok daha eğlenceli! ✨';
+                }
+
+                $targetProductUrl = match ($platformCode) {
+                    'linkedin' => 'patenliayakkabilar.com',
+                    default => 'https://patenliayakkabilar.com',
+                };
+
+                ScheduledPostTarget::create([
+                    'scheduled_post_id' => $post->id,
+                    'social_account_id' => $account->id,
+                    'platform_code' => $platformCode,
+                    'post_type' => $effectivePostType,
+                    'scheduled_at' => $post->scheduled_at ?? now(),
+                    'correlation_id' => 'corr_' . Str::uuid()->toString(),
+                    'idempotency_key' => hash('sha256', "post_{$post->id}_acc_{$account->id}_repair_" . uniqid()),
+                    'status' => PublishStatus::QUEUED,
+                    'title' => $title,
+                    'caption' => $caption,
+                    'hashtags' => $hashtags,
+                    'product_url' => $targetProductUrl,
+                    'attempt_count' => 0,
+                ]);
+            }
+
+            $post->update(['status' => PublishStatus::QUEUED]);
+            $repairedCount++;
+        }
+
+        return $repairedCount;
+    }
 }

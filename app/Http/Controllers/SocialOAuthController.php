@@ -242,6 +242,12 @@ class SocialOAuthController extends Controller
             }
         });
 
+        try {
+            app(\App\Services\Publisher\SchedulingService::class)->repairOrphanedPostsAndSchedules();
+        } catch (\Throwable) {
+            // Ignore
+        }
+
         return redirect()->to("/admin/social-channels?platform={$platform}&success=1");
     }
 

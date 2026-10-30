@@ -480,7 +480,7 @@ class SocialChannelsPage extends Page
     {
         $platforms = $this->getPlatformDefinitions();
         $dbPlatforms = SocialPlatform::all()->keyBy(fn ($p) => $p->code instanceof \BackedEnum ? $p->code->value : (string) $p->code);
-        $accounts = SocialAccount::with(['platform', 'credential', 'permissions'])->get();
+        $accounts = SocialAccount::where('status', '!=', 'disconnected')->with(['platform', 'credential', 'permissions'])->get();
 
         return $platforms->map(function ($def, $code) use ($dbPlatforms, $accounts) {
             $dbPlatform = $dbPlatforms->get($code);
@@ -797,7 +797,9 @@ class SocialChannelsPage extends Page
         $account = SocialAccount::find($this->accountToDisconnectId);
         if ($account) {
             $platformName = $account->platform?->name ?? 'Kanal';
-            $account->delete();
+            $account->credential()?->delete();
+            $account->permissions()->delete();
+            $account->update(['status' => 'disconnected']);
 
             $this->bannerMessage = "{$platformName} erişim izni kaldırıldı ve hesap bağlantısı kesildi.";
             $this->bannerType = 'info';

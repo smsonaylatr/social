@@ -29,6 +29,17 @@ class ListScheduledPosts extends ListRecords
 {
     protected static string $resource = ScheduledPostResource::class;
 
+    public function mount(): void
+    {
+        parent::mount();
+
+        try {
+            app(SchedulingService::class)->repairOrphanedPostsAndSchedules();
+        } catch (\Throwable) {
+            // Ignore
+        }
+    }
+
     public function getTabs(): array
     {
         return [
