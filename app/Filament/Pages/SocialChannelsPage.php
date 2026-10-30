@@ -725,9 +725,10 @@ class SocialChannelsPage extends Page
 
             $clientId = Setting::get("partner_{$platformCode}_client_id") ?: config("services.{$platformCode}.client_id");
             $envMode = Setting::get("partner_{$platformCode}_env", 'sandbox');
+            $isRealClient = ! empty($clientId) && ! str_starts_with($clientId, 'partner_');
 
-            // In production mode with real OAuth credentials, redirect to Official OAuth 2.0 to refresh scopes (e.g. media.write) and token
-            if (! empty($clientId) && $envMode === 'production') {
+            // With real OAuth credentials, redirect to Official OAuth 2.0 to refresh scopes and token
+            if ($isRealClient || (! empty($clientId) && $envMode === 'production')) {
                 session([
                     'oauth_custom_name' => $account->name,
                     'oauth_custom_username' => $account->username,

@@ -54,8 +54,9 @@ class SocialOAuthController extends Controller
             'oauth_code_verifier' => $codeVerifier,
         ]);
 
-        // If real Partner App Client ID is configured and in production mode, redirect to official OAuth Consent Screen
-        if (! empty($clientId) && $envMode === 'production') {
+        // If real Partner App Client ID is configured, redirect to official OAuth Consent Screen
+        $isRealClient = ! empty($clientId) && ! str_starts_with($clientId, 'partner_');
+        if ($isRealClient || (! empty($clientId) && $envMode === 'production')) {
             $authUrl = match ($platform) {
                 'tiktok' => 'https://www.tiktok.com/v2/auth/authorize/?' . http_build_query([
                     'client_key' => $clientId,
@@ -166,9 +167,11 @@ class SocialOAuthController extends Controller
         $customAccountId = session('oauth_custom_account_id');
         session()->forget(['oauth_custom_name', 'oauth_custom_username', 'oauth_custom_account_id']);
 
-        // Check if an account for this platform already exists in the workspace
+        // Check if an account for this platform already exists in the workspace (prefer active/latest)
         $existingAccount = SocialAccount::where('platform_id', $dbPlatform->id)
             ->where('workspace_id', $workspaceId)
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
+            ->orderByDesc('id')
             ->first();
 
         $externalId = $profileData['id']
@@ -240,6 +243,9 @@ class SocialOAuthController extends Controller
                     ]
                 );
             }
+
+            \App\Models\ScheduledPostTarget::where('platform_code', $platform)
+                ->update(['social_account_id' => $account->id]);
         });
 
         try {
@@ -305,7 +311,7 @@ class SocialOAuthController extends Controller
                 ])->throw()->json(),
 
             'pinterest' => (function () use ($clientId, $clientSecret, $code, $redirectUri) {
-                $useSandbox = Setting::get('partner_pinterest_trial_sandbox') === '1';
+                $useSandbox = Setting::get('partner_pinterest_trial_sandbox', '1') === '1';
                 $endpoints = $useSandbox
                     ? ['https://api-sandbox.pinterest.com/v5/oauth/token', 'https://api.pinterest.com/v5/oauth/token']
                     : ['https://api.pinterest.com/v5/oauth/token', 'https://api-sandbox.pinterest.com/v5/oauth/token'];

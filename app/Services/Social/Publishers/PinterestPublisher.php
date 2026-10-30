@@ -46,52 +46,121 @@ class PinterestPublisher extends AbstractSocialPublisher
             throw new \RuntimeException('Yüklenecek video dosyası sunucu diskinde bulunamadı: ' . ($video->storage_path ?: 'boş yol'));
         }
 
-        $authMode = $account->credential?->extra_data['pinterest_env'] ?? null;
-        $preferSandbox = ($authMode === 'sandbox') || (Setting::get('partner_pinterest_trial_sandbox') === '1');
+        [$baseUrl, $envToken, $envType] = $this->detectTokenEnvironment($account, $token);
 
-        $environments = $preferSandbox
-            ? ['https://api-sandbox.pinterest.com/v5', 'https://api.pinterest.com/v5']
-            : ['https://api.pinterest.com/v5', 'https://api-sandbox.pinterest.com/v5'];
+        try {
+            return $this->attemptPublishOnEnvironment($video, $videoFilePath, $target, $account, $envToken, $baseUrl);
+        } catch (\Throwable $e) {
+            $msgLower = strtolower($e->getMessage());
 
-        $lastException = null;
+            if ($envType === 'production' && (str_contains($msgLower, 'trial') || str_contains($msgLower, 'code":29') || str_contains($msgLower, '403'))) {
+                Setting::set('partner_pinterest_trial_sandbox', '1', 'partner_oauth');
 
-        foreach ($environments as $index => $baseUrl) {
-            try {
-                $envToken = $this->ensureTokenForEnvironment($account, $token, $baseUrl);
-                return $this->attemptPublishOnEnvironment($video, $videoFilePath, $target, $account, $envToken, $baseUrl);
-            } catch (\Throwable $e) {
-                $msgLower = strtolower($e->getMessage());
-
-                // If production failed due to Trial Access restriction, remember sandbox preference and try sandbox
-                if (str_contains($baseUrl, 'api.pinterest.com') && (str_contains($msgLower, 'trial') || str_contains($msgLower, '403') || str_contains($msgLower, 'code":29'))) {
-                    Setting::set('partner_pinterest_trial_sandbox', '1', 'partner_oauth');
+                // Try exchanging refresh_token directly on Sandbox OAuth endpoint and publishing to Sandbox API
+                $sandboxUrl = 'https://api-sandbox.pinterest.com/v5';
+                $sandboxToken = $this->tryRefreshSandboxToken($account);
+                if ($sandboxToken) {
+                    return $this->attemptPublishOnEnvironment($video, $videoFilePath, $target, $account, $sandboxToken, $sandboxUrl);
                 }
 
-                // Keep the primary error if fallback fails with 401 token mismatch
-                if ($lastException !== null && str_contains($msgLower, '401') && str_contains(strtolower($lastException->getMessage()), 'trial')) {
-                    throw new \RuntimeException(
-                        'Pinterest Developer uygulamanız şu anda "Trial (Deneme)" modunda olduğu için canlı Pinterest API üzerinden Pin oluşturmaya izin vermiyor (Sandbox API gerekiyor). '
-                        . 'Sosyal Medya Kanalları > Pinterest sayfasından "İzinleri Yenile / Yeniden Bağla" butonuna tıklayarak hesabınızı yeniden bağlayın (sistem otomatik olarak Pinterest Sandbox Token alacaktır).'
-                    );
-                }
-
-                $lastException = $e;
-
-                // Only try the second environment if the first failed with 401/403/Trial error
-                if ($index === 0 && (
-                    str_contains($msgLower, '401')
-                    || str_contains($msgLower, '403')
-                    || str_contains($msgLower, 'trial')
-                    || str_contains($msgLower, 'not permitted')
-                )) {
-                    continue;
-                }
-
-                break;
+                throw new \RuntimeException(
+                    'Pinterest Developer uygulamanız "Trial (Deneme)" modunda olduğu için mevcut Canlı (Production) Token ile Pin oluşturmaya izin vermiyor. '
+                    . 'Lütfen Sosyal Medya Kanalları > Pinterest sayfasına gidip "İzinleri Yenile" butonuna tıklayarak Pinterest hesabınızı bir kez yeniden onaylayın (sistem otomatik olarak Sandbox Token alacaktır). '
+                    . '[' . $e->getMessage() . ']'
+                );
             }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Attempt to exchange the stored refresh_token specifically against api-sandbox.pinterest.com
+     */
+    protected function tryRefreshSandboxToken(SocialAccount $account): ?string
+    {
+        $credential = $account->credential;
+        $clientId = $this->getClientId();
+        $clientSecret = $this->getClientSecret();
+
+        if (! $credential || ! $credential->refresh_token || ! $clientId || ! $clientSecret) {
+            return null;
         }
 
-        throw $lastException ?? new \RuntimeException('Pinterest paylaşımı sırasında bilinmeyen bir hata oluştu.');
+        try {
+            $resp = Http::withBasicAuth($clientId, $clientSecret)
+                ->timeout(15)
+                ->asForm()
+                ->post('https://api-sandbox.pinterest.com/v5/oauth/token', [
+                    'grant_type' => 'refresh_token',
+                    'refresh_token' => $credential->refresh_token,
+                ]);
+
+            if ($resp->successful() && $resp->json('access_token')) {
+                $newToken = (string) $resp->json('access_token');
+                $verify = $this->httpClient($newToken, 10)->get('https://api-sandbox.pinterest.com/v5/boards', ['page_size' => 1]);
+                if ($verify->successful()) {
+                    $credential->update([
+                        'access_token' => $newToken,
+                        'refresh_token' => $resp->json('refresh_token', $credential->refresh_token),
+                        'token_expires_at' => now()->addSeconds((int) $resp->json('expires_in', 2592000)),
+                    ]);
+                    return $newToken;
+                }
+            }
+        } catch (\Throwable) {
+            // Ignore
+        }
+
+        return null;
+    }
+
+    /**
+     * Detect whether the current OAuth token is a Sandbox token (api-sandbox.pinterest.com) or Production token (api.pinterest.com)
+     */
+    protected function detectTokenEnvironment(SocialAccount $account, string $token): array
+    {
+        $sandboxUrl = 'https://api-sandbox.pinterest.com/v5';
+        $prodUrl = 'https://api.pinterest.com/v5';
+
+        // 1. Check if token works on Sandbox API
+        try {
+            $sbxCheck = $this->httpClient($token, 12)->get("{$sandboxUrl}/boards", ['page_size' => 1]);
+            if ($sbxCheck->successful()) {
+                return [$sandboxUrl, $token, 'sandbox'];
+            }
+        } catch (\Throwable) {}
+
+        // 2. Check if token works on Production API
+        try {
+            $prodCheck = $this->httpClient($token, 12)->get("{$prodUrl}/boards", ['page_size' => 1]);
+            if ($prodCheck->successful()) {
+                return [$prodUrl, $token, 'production'];
+            }
+        } catch (\Throwable) {}
+
+        // 3. Token may be expired -> try refreshing (preferring Sandbox if trial mode detected)
+        if ($this->refreshToken($account)) {
+            $account->load('credential');
+            $newToken = $account->credential->access_token;
+
+            try {
+                if ($this->httpClient($newToken, 12)->get("{$sandboxUrl}/boards", ['page_size' => 1])->successful()) {
+                    return [$sandboxUrl, $newToken, 'sandbox'];
+                }
+            } catch (\Throwable) {}
+
+            try {
+                if ($this->httpClient($newToken, 12)->get("{$prodUrl}/boards", ['page_size' => 1])->successful()) {
+                    return [$prodUrl, $newToken, 'production'];
+                }
+            } catch (\Throwable) {}
+        }
+
+        $preferSandbox = Setting::get('partner_pinterest_trial_sandbox', '1') === '1';
+        return $preferSandbox
+            ? [$sandboxUrl, $token, 'sandbox']
+            : [$prodUrl, $token, 'production'];
     }
 
     /**
@@ -461,7 +530,12 @@ class PinterestPublisher extends AbstractSocialPublisher
             return false;
         }
 
-        foreach (['https://api.pinterest.com/v5/oauth/token', 'https://api-sandbox.pinterest.com/v5/oauth/token'] as $tokenEndpoint) {
+        $preferSandbox = Setting::get('partner_pinterest_trial_sandbox', '1') === '1';
+        $endpoints = $preferSandbox
+            ? ['https://api-sandbox.pinterest.com/v5/oauth/token', 'https://api.pinterest.com/v5/oauth/token']
+            : ['https://api.pinterest.com/v5/oauth/token', 'https://api-sandbox.pinterest.com/v5/oauth/token'];
+
+        foreach ($endpoints as $tokenEndpoint) {
             try {
                 $response = Http::withBasicAuth($clientId, $clientSecret)
                     ->timeout(15)
