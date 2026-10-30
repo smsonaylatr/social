@@ -28,7 +28,7 @@ class SocialOAuthController extends Controller
             'https://www.googleapis.com/auth/youtube',
         ],
         'x' => ['tweet.read', 'tweet.write', 'users.read', 'media.write', 'offline.access'],
-        'pinterest' => ['pins:write', 'pins:read', 'boards:read'],
+        'pinterest' => ['pins:write', 'pins:read', 'boards:read', 'boards:write', 'user_accounts:read'],
         'linkedin' => ['openid', 'profile', 'w_member_social', 'email'],
         'whatsapp' => ['whatsapp_business_messaging', 'whatsapp_business_management'],
         'telegram' => ['bot:send_video', 'bot:get_chat'],
@@ -298,13 +298,30 @@ class SocialOAuthController extends Controller
                     'code_verifier' => session('oauth_code_verifier', 'challenge'),
                 ])->throw()->json(),
 
-            'pinterest' => Http::withBasicAuth($clientId, $clientSecret)
-                ->asForm()
-                ->post('https://api.pinterest.com/v5/oauth/token', [
-                    'grant_type' => 'authorization_code',
-                    'code' => $code,
-                    'redirect_uri' => $redirectUri,
-                ])->throw()->json(),
+            'pinterest' => (function () use ($clientId, $clientSecret, $code, $redirectUri) {
+                $useSandbox = Setting::get('partner_pinterest_trial_sandbox') === '1';
+                $endpoints = $useSandbox
+                    ? ['https://api-sandbox.pinterest.com/v5/oauth/token', 'https://api.pinterest.com/v5/oauth/token']
+                    : ['https://api.pinterest.com/v5/oauth/token', 'https://api-sandbox.pinterest.com/v5/oauth/token'];
+
+                $lastResp = null;
+                foreach ($endpoints as $tokenUrl) {
+                    $resp = Http::withBasicAuth($clientId, $clientSecret)
+                        ->asForm()
+                        ->post($tokenUrl, [
+                            'grant_type' => 'authorization_code',
+                            'code' => $code,
+                            'redirect_uri' => $redirectUri,
+                        ]);
+
+                    if ($resp->successful() && $resp->json('access_token')) {
+                        return $resp->json();
+                    }
+                    $lastResp = $resp;
+                }
+
+                return $lastResp->throw()->json();
+            })(),
 
             'linkedin' => Http::asForm()->post('https://www.linkedin.com/oauth/v2/accessToken', [
                 'grant_type' => 'authorization_code',
@@ -498,14 +515,42 @@ class SocialOAuthController extends Controller
             })(),
 
             'pinterest' => (function () use ($accessToken) {
-                $user = Http::withToken($accessToken)
-                    ->get('https://api.pinterest.com/v5/user_account')
-                    ->json();
-                $board = Http::withToken($accessToken)
-                    ->get('https://api.pinterest.com/v5/boards')
-                    ->json('items.0', []);
+                $baseUrls = Setting::get('partner_pinterest_trial_sandbox') === '1'
+                    ? ['https://api-sandbox.pinterest.com/v5', 'https://api.pinterest.com/v5']
+                    : ['https://api.pinterest.com/v5', 'https://api-sandbox.pinterest.com/v5'];
+
+                $user = [];
+                $boardId = null;
+
+                foreach ($baseUrls as $baseUrl) {
+                    $userResp = Http::withToken($accessToken)->get("{$baseUrl}/user_account");
+                    if ($userResp->successful()) {
+                        $user = $userResp->json() ?: [];
+                    }
+
+                    $boardsResp = Http::withToken($accessToken)->get("{$baseUrl}/boards", ['page_size' => 25]);
+                    if ($boardsResp->successful()) {
+                        $items = $boardsResp->json('items', []);
+                        $publicBoard = collect($items)->first(fn ($b) => ($b['privacy'] ?? 'PUBLIC') === 'PUBLIC') ?? ($items[0] ?? null);
+                        $boardId = $publicBoard['id'] ?? null;
+
+                        if (! $boardId) {
+                            $created = Http::withToken($accessToken)->post("{$baseUrl}/boards", [
+                                'name' => 'Patenli Ayakkabılar',
+                                'description' => 'Patenli spor ayakkabı ve tekerlekli ayakkabı modelleri',
+                                'privacy' => 'PUBLIC',
+                            ]);
+                            if ($created->successful() && $created->json('id')) {
+                                $boardId = $created->json('id');
+                            }
+                        }
+
+                        break;
+                    }
+                }
+
                 return [
-                    'id' => $board['id'] ?? ($user['id'] ?? null),
+                    'id' => $boardId ?? ($user['id'] ?? null),
                     'name' => $user['business_name'] ?? ($user['username'] ?? null),
                     'username' => $user['username'] ?? null,
                     'avatar_url' => $user['profile_image'] ?? null,

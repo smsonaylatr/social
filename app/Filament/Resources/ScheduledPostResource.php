@@ -414,21 +414,20 @@ class ScheduledPostResource extends Resource
                         $record->update(['status' => PublishStatus::QUEUED]);
 
                         foreach ($record->targets as $target) {
+                            if ($target->status === PublishStatus::PUBLISHED) {
+                                continue;
+                            }
                             $target->update(['status' => PublishStatus::QUEUED]);
-                            DispatchPlatformPostJob::dispatch($target->id);
+                            try {
+                                DispatchPlatformPostJob::dispatchSync($target->id, true);
+                            } catch (\Throwable) {
+                                // Handled inside DispatchPlatformPostJob
+                            }
                         }
-
-                        try {
-                            \Illuminate\Support\Facades\Artisan::call('queue:work', [
-                                '--stop-when-empty' => true,
-                                '--max-jobs' => 20,
-                                '--tries' => 3,
-                            ]);
-                        } catch (\Throwable) {}
 
                         $record->refresh();
                         $publishedCount = $record->targets()->where('status', PublishStatus::PUBLISHED)->count();
-                        $failedTargets = $record->targets()->where('status', PublishStatus::FAILED)->get();
+                        $failedTargets = $record->targets()->whereIn('status', [PublishStatus::FAILED, PublishStatus::RETRYING])->get();
 
                         if ($publishedCount > 0) {
                             Notification::make()

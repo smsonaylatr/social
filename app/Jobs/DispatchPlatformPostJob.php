@@ -21,7 +21,7 @@ class DispatchPlatformPostJob implements ShouldQueue
     public int $tries = 3;
     public int $backoff = 30; // base exponential backoff seconds
 
-    public function __construct(public int $targetId) {}
+    public function __construct(public int $targetId, public bool $immediate = false) {}
 
     public function handle(SocialPublisherManager $publisherManager): void
     {
@@ -104,11 +104,12 @@ class DispatchPlatformPostJob implements ShouldQueue
                 'attempted_at' => now(),
             ]);
 
-            if ($this->attempts() < $this->tries) {
+            if (! $this->immediate && $this->attempts() < $this->tries) {
                 $target->update([
                     'status' => PublishStatus::RETRYING,
                     'error_message' => $e->getMessage(),
                 ]);
+                $this->updateParentPostStatus($target->scheduledPost);
                 // Exponential backoff with jitter (5-10s)
                 $jitter = rand(5, 10);
                 $this->release(($this->backoff * $this->attempts()) + $jitter);

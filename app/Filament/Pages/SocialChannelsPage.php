@@ -364,6 +364,18 @@ class SocialChannelsPage extends Page
                         'description' => 'Hedef panoları listeleme ve seçme izni.',
                         'required' => true,
                     ],
+                    [
+                        'name' => 'boards:write',
+                        'label' => 'Otomatik Pano Oluşturma İzni',
+                        'description' => 'Hesapta pano yoksa otomatik varsayılan pano oluşturma yetkisi.',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'user_accounts:read',
+                        'label' => 'Hesap Kimliği Doğrulama',
+                        'description' => 'Pinterest işletme profili ve kullanıcı adını okuma izni.',
+                        'required' => true,
+                    ],
                 ],
             ],
             'linkedin' => [
