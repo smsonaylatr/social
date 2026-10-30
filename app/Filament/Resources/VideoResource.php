@@ -78,7 +78,7 @@ class VideoResource extends Resource
 
         return $table
             ->modifyQueryUsing(fn ($query) => $query->with(['brand', 'category']))
-            ->defaultSort('id', 'desc')
+            ->defaultSort('id', 'asc')
             ->recordAction('play')
             ->recordUrl(null)
             ->columns(
@@ -174,7 +174,7 @@ class VideoResource extends Resource
                         }
 
                         // Rename sequential if titles are hashes or numeric IDs
-                        $orderedVideos = Video::orderBy('created_at', 'asc')->orderBy('id', 'asc')->get();
+                        $orderedVideos = Video::orderBy('id', 'asc')->get();
                         $seq = 1;
                         foreach ($orderedVideos as $v) {
                             $title = trim($v->title);

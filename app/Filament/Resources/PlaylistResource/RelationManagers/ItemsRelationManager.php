@@ -27,7 +27,7 @@ class ItemsRelationManager extends RelationManager
             ->schema([
                 Select::make('video_id')
                     ->label('Video')
-                    ->options(Video::pluck('title', 'id'))
+                    ->options(fn () => Video::orderBy('id', 'asc')->pluck('title', 'id'))
                     ->searchable()
                     ->required(),
 

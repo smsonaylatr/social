@@ -91,7 +91,7 @@ class ListVideos extends ListRecords
                     }
 
                     // Rename sequential if titles are hashes or numeric IDs
-                    $orderedVideos = \App\Models\Video::orderBy('created_at', 'asc')->orderBy('id', 'asc')->get();
+                    $orderedVideos = \App\Models\Video::orderBy('id', 'asc')->get();
                     $seq = 1;
                     foreach ($orderedVideos as $v) {
                         $title = trim($v->title);

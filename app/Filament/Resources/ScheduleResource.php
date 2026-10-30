@@ -337,7 +337,8 @@ class ScheduleResource extends Resource
 
                         Select::make('last_video_id')
                             ->label('Son Paylaşılan Video (Sıradaki Video Bunun Sonrasından Seçilir)')
-                            ->relationship('lastVideo', 'title')
+                            ->relationship('lastVideo', 'title', fn ($query) => $query->orderBy('id', 'asc'))
+                            ->optionsLimit(1000)
                             ->placeholder('Henüz paylaşım yapılmadı (1. Videodan başlar)')
                             ->searchable()
                             ->preload()

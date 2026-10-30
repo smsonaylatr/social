@@ -512,7 +512,7 @@ Route::match(['get', 'post'], '/admin/quick-fix', function () {
     }
 
     // Name all existing videos sequentially by upload order: "1. Video", "2. Video", ...
-    $orderedVideos = \App\Models\Video::orderBy('created_at', 'asc')->orderBy('id', 'asc')->get();
+    $orderedVideos = \App\Models\Video::orderBy('id', 'asc')->get();
     $seq = 1;
     foreach ($orderedVideos as $v) {
         $v->update(['title' => "{$seq}. Video"]);

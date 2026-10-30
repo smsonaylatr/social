@@ -46,7 +46,8 @@ class ScheduledPostResource extends Resource
             ->schema([
                 Select::make('video_id')
                     ->label('Kaynak Video (Açıklama ve SEO bu videodan üretilir)')
-                    ->relationship('video', 'title')
+                    ->relationship('video', 'title', fn ($query) => $query->orderBy('id', 'asc'))
+                    ->optionsLimit(1000)
                     ->searchable()
                     ->preload()
                     ->required(),
